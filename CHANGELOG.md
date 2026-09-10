@@ -6,6 +6,10 @@ All notable repository-level changes are recorded here.
 
 ### Added
 
+- Component-backed `HW-BL-003` hardware baseline with TPS259470L protected 12 V entry, SMBJ15A TVS, explicit UVLO/OVLO, eFuse current limiting, slew control, and layered 3.46 A / 4.04 A / 5 A protection ordering.
+- Precision sensing support contract for ADS131M02 decoupling and 8.192 MHz clocking, ADXL355 low-noise SPI/bypass behavior, and TMP117 I2C pull-ups/bypass.
+- KiCad-preparation package/MPN manifest, net-endpoint/freeze table, and `SCH-CON-002` schematic contract without guessed FPGA application pins or unverified footprint identifiers.
+- Expanded hardware consistency checker covering power-entry equations, TVS/eFuse coordination, sensor-support networks, BOM/package coverage, critical-net policy, and unresolved pin safeguards.
 - Low-voltage 12 V power-tree, protected motor-output, current-sense, flyback, and hardware E-stop reference architecture.
 - Machine-readable circuit profile plus analytical electrical checks for shunt headroom/thermal margin, backup-trip ordering, RC filtering, and MOSFET voltage-rating targets.
 - Behavioral SPICE references for the current-sense path and protected inductive motor output.
