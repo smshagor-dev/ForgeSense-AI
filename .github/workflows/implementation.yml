@@ -37,8 +37,8 @@ jobs:
           diff -u fpga/rtl/sensing/sensor_contract_pkg.vhd build/sensor_contract_pkg.vhd
       - name: Run sensor PHY reference simulation
         run: python tools/simulate_sensor_phy.py
-      - name: Validate low-voltage reference circuits
-        run: python tools/check_reference_circuits.py
+      - name: Validate hardware baseline and low-voltage circuits
+        run: make hardware-check
       - name: Run virtual anomaly demo
         env:
           PYTHONPATH: simulator:ml:protocol/python:telemetry
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@11bd71901bbe5b1630ce3d27597364c9af683
       - name: Compile and run portable embedded checks
         run: make firmware-host
 
@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@11bd71901bbe5b1630ce3d27597364c9af683
       - name: Install GHDL
         run: |
           sudo apt-get update
