@@ -30,14 +30,7 @@ Host-testable C++20 components implement protocol parsing, fixed-memory stream r
 
 The sensing path validates signed 24-bit raw codes, applies deterministic integer linear calibration, reports numeric saturation, and computes fixed-window vibration RMS with an integer square root.
 
-The PHY reference additionally provides:
-
-- a fixed 48-byte calibration record with CRC32/IEEE integrity;
-- strict calibration version/magic/size validation;
-- raw ADC/current and normalized temperature acquisition boundaries;
-- transport-error suppression before normalized update generation;
-- conditioned vibration-window processing;
-- explicit PHY diagnostic flags.
+The PHY reference additionally provides a fixed 48-byte CRC32/IEEE calibration record, strict version/magic/size validation, raw ADC/current and normalized temperature boundaries, transport-error suppression, conditioned vibration processing, and explicit diagnostics.
 
 Portable calibration and PHY tests pass C++20 compilation with `-Wall -Wextra -Werror -pedantic`.
 
@@ -51,27 +44,11 @@ The complete ESP-IDF target build still requires validation on the selected phys
 
 The VHDL tree contains deterministic safety/control, protocol RX/TX, UART, sample/timebase logic, generated sensor contract constants, and sensor freshness supervision.
 
-The vendor-neutral frontend includes:
+The vendor-neutral frontend includes signed raw-code calibration, fixed-window integer vibration RMS, normalized update strobes, numeric-saturation diagnostics, and `forgesense_sensor_board_core` connecting the frontend through `sensor_supervisor` into the existing board core.
 
-- signed raw-code linear calibration for temperature and current;
-- fixed-window integer vibration RMS extraction from conditioned milli-g samples;
-- explicit normalized update strobes;
-- numeric-saturation diagnostics;
-- a `forgesense_sensor_board_core` wrapper connecting the frontend through `sensor_supervisor` into the existing board core.
-
-The physical-interface reference adds:
-
-- `generic_adc_sample_adapter` for signed 24-bit ADC transport;
-- `digital_temperature_adapter` for digital temperature samples;
-- `accelerometer_conditioner` with explicit transport/range rejection;
-- `sensor_self_test` for channel activity and fault visibility;
-- `forgesense_phy_board_core` composing the PHY boundary into the existing normalized sensor/safety stack.
-
-`forgesense_phy_board_core` exposes both transport-level self-test state and normalized `sensors_valid`. The safety path continues to rely on normalized freshness/plausibility rather than treating transport activity as proof that a measurement is trustworthy.
+The physical-interface reference adds `generic_adc_sample_adapter`, `digital_temperature_adapter`, `accelerometer_conditioner`, `sensor_self_test`, and `forgesense_phy_board_core`. The wrapper exposes both transport-level self-test and normalized `sensors_valid`; safety continues to rely on normalized freshness/plausibility rather than transport activity alone.
 
 Exact I2C/1-Wire/SPI/ADC transactions, analog transfer functions, accelerometer bias removal, anti-alias filtering, and final calibration coefficients remain device-specific and intentionally unfrozen until the physical BOM/schematic is selected.
-
-The FPGA becomes operational only after accepted intelligence and valid sensor conditions satisfy the existing safety policy. Missing, stale, implausible, replayed, incompatible, or corrupt information cannot silently clear safety state.
 
 ### Calibration authority
 
@@ -79,19 +56,21 @@ The FPGA becomes operational only after accepted intelligence and valid sensor c
 
 This preserves the rule that a compromised or malfunctioning monitoring/intelligence processor cannot relax measurement interpretation used by the deterministic safety boundary.
 
+### Low-voltage circuit reference
+
+`hardware/profiles/reference_circuit_v1.json` and `docs/REFERENCE_CIRCUITS.md` now define a 12 V prototype electrical starting point. The reference includes a separated motor/logic power tree, input fuse/reverse-polarity/transient-protection requirements, a protected low-side MOSFET motor output, flyback requirement, hardware E-stop gate inhibit, and a low-side current-sense path.
+
+The current-sense analytical reference uses a 50 mΩ shunt and gain of 10. At 3.2 A it produces 160 mV at the shunt and 1.60 V after gain, with about 0.512 W shunt dissipation. The profile requires at least a 2 W shunt before additional thermal derating. A 1 kΩ/100 nF filter gives about 1.59 kHz cutoff, and the independent backup threshold reference corresponds to about 3.46 A.
+
+Behavioral SPICE files exist for the current-sense and inductive motor-output topologies. They are source artifacts only; no SPICE execution result is claimed until a simulator actually runs them.
+
+`tools/check_reference_circuits.py` independently verifies analytical headroom, shunt thermal margin, backup-trip ordering, MOSFET voltage-rating target, RC cutoff, flyback requirement, and hardware E-stop inhibit policy.
+
 ## Current validation baseline
 
 Existing repository validation covers Python simulation/integration, portable C++ protocol/stream/inference/event/telemetry/sensor-contract/sensing/PHY checks, and self-checking VHDL testbenches.
 
-New reference checks include:
-
-- calibration encode/decode and CRC-corruption rejection;
-- invalid-calibration rejection;
-- vendor-neutral PHY normalization behavior;
-- deterministic 3 g / 4 g two-sample RMS result of 3535 mg;
-- signed 24-bit raw-range rejection;
-- profile-schema regression;
-- ADC error propagation and accelerometer range rejection in the VHDL testbench definition.
+Reference checks now include calibration encode/decode and CRC-corruption rejection, invalid-calibration rejection, vendor-neutral PHY normalization, deterministic 3 g / 4 g two-sample RMS = 3535 mg, signed 24-bit raw-range rejection, profile-schema regression, and analytical low-voltage circuit checks.
 
 The deterministic seven-scenario software matrix continues to cover normal operation, bearing degradation, overcurrent trend, cooling loss, sensor dropout, intelligence-link loss, and emergency input.
 
@@ -101,6 +80,9 @@ The following remain intentionally unclaimed until measured:
 
 - selected physical sensor accuracy and calibration;
 - ADC/reference/shunt/amplifier transfer accuracy;
+- actual shunt temperature rise and current-sense drift;
+- selected MOSFET switching loss and junction temperature;
+- measured flyback/TVS transient energy and clamp voltage;
 - accelerometer mounting and vibration bandwidth;
 - electrical noise immunity and anti-alias performance;
 - real motor/pump fault signatures and predictive lead time;
@@ -108,6 +90,6 @@ The following remain intentionally unclaimed until measured:
 - ESP32-S3 device-level latency and memory use;
 - UART/USB signal integrity on the selected boards;
 - FPGA synthesis utilization and timing closure for the frontend arithmetic;
-- power-tree, protection and output-driver validation;
+- power-tree/regulator efficiency and protection validation;
 - PCB manufacturing evidence;
 - industrial functional-safety suitability or certification.
