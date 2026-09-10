@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>ForgeSense AI — Local Monitor</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">FORGESENSE AI · LOCAL MONITOR</p>
+        <h1>Machine Intelligence & Safety</h1>
+      </div>
+      <div class="connection"><span id="linkDot" class="dot"></span><span id="linkText">Connecting</span></div>
+    </header>
+
+    <section class="hero-grid">
+      <article class="state-card panel">
+        <p class="label">FPGA AUTHORITY STATE</p>
+        <div class="state-row"><span id="state" class="state">UNKNOWN</span><span id="authority" class="authority">FPGA</span></div>
+        <p id="stateNote" class="muted">Waiting for authoritative status.</p>
+        <div class="flag-row">
+          <span id="loadFlag" class="flag">LOAD --</span>
+          <span id="readyFlag" class="flag">READY --</span>
+          <span id="faultFlag" class="flag">FAULT --</span>
+        </div>
+      </article>
+
+      <article class="risk-card panel">
+        <p class="label">EDGE INTELLIGENCE</p>
+        <div class="risk-line"><span id="riskValue">--</span><small>% anomaly</small></div>
+        <div class="meter"><span id="riskBar"></span></div>
+        <div class="risk-meta"><span id="mlClass">NO DATA</span><span id="confidence">confidence --</span></div>
+      </article>
+    </section>
+
+    <section class="sensor-grid">
+      <article class="metric panel"><p class="label">TEMPERATURE</p><strong id="temperature">--</strong><span>°C</span></article>
+      <article class="metric panel"><p class="label">VIBRATION RMS</p><strong id="vibration">--</strong><span>g</span></article>
+      <article class="metric panel"><p class="label">CURRENT</p><strong id="current">--</strong><span>A</span></article>
+      <article class="metric panel"><p class="label">SENSOR VALIDITY</p><strong id="sensorValidity">--</strong><span id="sensorSeq">sequence --</span></article>
+    </section>
+
+    <section class="lower-grid">
+      <article class="panel safety-panel">
+        <div class="section-title"><div><p class="label">DETERMINISTIC SAFETY</p><h2>FPGA Signals</h2></div><span id="statusAge" class="age">--</span></div>
+        <div class="safety-grid">
+          <div><span>Hard warning</span><b id="hardWarning">--</b></div>
+          <div><span>Hard critical</span><b id="hardCritical">--</b></div>
+          <div><span>Watchdog timeout</span><b id="commTimeout">--</b></div>
+          <div><span>Emergency</span><b id="emergency">--</b></div>
+          <div><span>Retained ML warning</span><b id="mlWarning">--</b></div>
+          <div><span>Retained ML critical</span><b id="mlCritical">--</b></div>
+        </div>
+      </article>
+
+      <article class="panel event-panel">
+        <div class="section-title"><div><p class="label">DIAGNOSTIC TIMELINE</p><h2>Recent Events</h2></div><span id="revision" class="age">rev --</span></div>
+        <div id="events" class="events"><p class="muted">No events yet.</p></div>
+      </article>
+    </section>
+
+    <footer><span>Monitoring only — no actuator command routes are exposed.</span><span>Schema: forgesense.telemetry.v1</span></footer>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

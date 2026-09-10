@@ -6,6 +6,9 @@ All notable repository-level changes are recorded here.
 
 ### Added
 
+- Read-only local telemetry API with authoritative FPGA state, independent source freshness, bounded in-memory diagnostic transitions, and no control routes.
+- Dependency-free local monitoring dashboard for deterministic state, sensors, edge anomaly information, and safety flags.
+- Long-poll telemetry revision endpoint and regression coverage for authority, staleness, bounded events, and HTTP write rejection.
 - FPGA-to-ESP32 deterministic status snapshot (`0x30`) carrying actual safety state, control flags, hard-limit status, watchdog timeout state, retained ML state, emergency state, and required-sensor validity.
 - FPGA status transmitter with periodic/state-change delivery and pending-event coalescing.
 - Locked-priority FPGA transmit arbiter so status and sensor frames share one UART without byte interleaving.

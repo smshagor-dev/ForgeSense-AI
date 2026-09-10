@@ -1,10 +1,10 @@
-PYTHONPATH := simulator:ml:protocol/python
+PYTHONPATH := simulator:ml:protocol/python:telemetry
 CXXFLAGS := -std=c++20 -Wall -Wextra -Werror -pedantic
 PROTO_INC := -Ifirmware/components/forgesense_protocol/include
 INFER_INC := -Ifirmware/components/forgesense_inference/include
 EVENT_INC := -Ifirmware/components/forgesense_events/include
 
-.PHONY: test demo closed-loop validate model model-export firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -17,6 +17,9 @@ closed-loop:
 
 validate:
 	PYTHONPATH=$(PYTHONPATH) python tools/run_validation_matrix.py
+
+dashboard:
+	PYTHONPATH=$(PYTHONPATH) python tools/run_dashboard.py
 
 model:
 	PYTHONPATH=$(PYTHONPATH) python -m forgesense_ml.train --out build/model.json

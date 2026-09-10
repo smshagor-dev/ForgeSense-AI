@@ -22,25 +22,25 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest
       - name: Run Python regression tests
         env:
-          PYTHONPATH: simulator:ml:protocol/python
+          PYTHONPATH: simulator:ml:protocol/python:telemetry
         run: python -m pytest
       - name: Verify generated embedded model
         env:
-          PYTHONPATH: simulator:ml:protocol/python
+          PYTHONPATH: simulator:ml:protocol/python:telemetry
         run: |
           python tools/export_reference_model.py --out build/reference_model.h
           diff -u firmware/components/forgesense_inference/include/forgesense_reference_model_generated.h build/reference_model.h
       - name: Run virtual anomaly demo
         env:
-          PYTHONPATH: simulator:ml:protocol/python
+          PYTHONPATH: simulator:ml:protocol/python:telemetry
         run: python tools/run_virtual_demo.py
       - name: Run closed-loop control demo
         env:
-          PYTHONPATH: simulator:ml:protocol/python
+          PYTHONPATH: simulator:ml:protocol/python:telemetry
         run: python tools/run_closed_loop.py
       - name: Run deterministic validation matrix
         env:
-          PYTHONPATH: simulator:ml:protocol/python
+          PYTHONPATH: simulator:ml:protocol/python:telemetry
         run: python tools/run_validation_matrix.py
 
   firmware-host:
