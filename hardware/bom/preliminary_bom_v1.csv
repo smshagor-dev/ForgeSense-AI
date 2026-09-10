@@ -1,0 +1,19 @@
+RefDes,Function,Reference part,Qty,Status,Engineering note
+U_FPGA,Deterministic safety and acquisition,Sipeed Tang Nano 9K,1,reference,Prototype module around GW1NR-9
+U_EDGE,Edge ML and telemetry,ESP32-S3-DevKitC-1,1,reference,GPIO17/18 reserved for FPGA UART
+U_CS,Current-sense amplifier,INA181A1,1,reference,20 V/V gain; final package TBD
+R_SHUNT,Motor current shunt,25 mOhm >=1 W preferably 2 W Kelvin,1,reference,0.256 W at 3.2 A before derating
+U_ADC,Precision ADC,ADS131M02,1,reference,24-bit 2-channel simultaneous-sampling SPI ADC
+U_ACC,Vibration sensor,ADXL355,1,reference,Digital low-noise accelerometer; SPI preferred
+U_TEMP,Temperature sensor,TMP117,1,reference,High-accuracy I2C digital temperature sensor
+U_COMP,Independent overcurrent comparator,TBD 3.3 V comparator,1,pending,Must drive FPGA external hard-trip independently of ESP32
+Q_MOTOR,Protected low-side switch,TBD logic-compatible >=40 V N-MOSFET,1,pending,RDS(on) must be specified at actual gate voltage
+D_FLY,Flyback/transient clamp,TBD,1,pending,Select from measured motor current and transient energy
+F1,Input/motor protection fuse,5 A reference,1,reference,Final time-current characteristic must match load
+U_5V,12 V to 5 V regulator,TBD,1,pending,Current and thermal budget required
+U_3V3,5 V to 3.3 V regulator,TBD,1,pending,Noise/current budget required
+J_PWR,12 V power connector,TBD locking connector,1,pending,Voltage/current/polarity keyed
+J_MOTOR,Motor connector,TBD locking connector,1,pending,Rated above protected load current
+J_ESTOP,E-stop connector,TBD 2-pin/3-pin safety input,1,pending,Must affect FPGA state and physical gate inhibit
+J_SENS,Sensor/service connectors,TBD,3,pending,Separate vibration/temperature/current-service interfaces
+TP_SET,Bring-up test points,3V3/5V/12V/GND/CS_OUT/TRIP/UART,1,required,Accessible without defeating protection

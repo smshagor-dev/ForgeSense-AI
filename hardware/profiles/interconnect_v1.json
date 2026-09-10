@@ -1,0 +1,18 @@
+{
+  "schema": "forgesense.interconnect.v1",
+  "revision": "INT-001",
+  "logic_voltage_v": 3.3,
+  "links": [
+    {"name": "FPGA_TO_ESP32_UART", "direction": "fpga_to_esp32", "esp32_gpio": 18, "esp32_function": "U1RXD", "fpga_pin": null, "fpga_pin_status": "pending_board_header_freeze", "series_resistor_ohm": 33},
+    {"name": "ESP32_TO_FPGA_UART", "direction": "esp32_to_fpga", "esp32_gpio": 17, "esp32_function": "U1TXD", "fpga_pin": null, "fpga_pin_status": "pending_board_header_freeze", "series_resistor_ohm": 33},
+    {"name": "ANALOG_HARD_TRIP", "direction": "comparator_to_fpga", "fpga_pin": null, "fpga_pin_status": "pending_board_header_freeze", "default_safe_bias": "pulldown_or_defined_nontrip_state"},
+    {"name": "ESTOP_SENSE", "direction": "estop_to_fpga", "fpga_pin": null, "fpga_pin_status": "pending_board_header_freeze", "hardware_gate_inhibit_parallel": true},
+    {"name": "LOAD_ENABLE", "direction": "fpga_to_gate_logic", "fpga_pin": null, "fpga_pin_status": "pending_board_header_freeze", "physical_estop_must_override": true}
+  ],
+  "clock": {"board": "Tang Nano 9K", "fpga_pin": 52, "frequency_hz": 27000000, "status": "verified_from_board_schematic"},
+  "rules": [
+    "No 1.8 V Tang Nano bank signal may be connected directly to a 3.3 V source without level compatibility analysis.",
+    "All external asynchronous safety inputs require FPGA synchronization while the physical E-stop gate-inhibit path remains independent of the clocked logic.",
+    "UART and sensor digital lines receive local return/GND and optional series damping footprints near the source."
+  ]
+}

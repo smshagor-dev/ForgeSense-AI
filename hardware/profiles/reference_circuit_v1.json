@@ -12,10 +12,12 @@
     "estop_hardware_gate_inhibit": true
   },
   "current_sense": {
-    "topology": "low_side_shunt_plus_gain",
-    "shunt_ohm": 0.05,
-    "shunt_min_power_w": 2.0,
-    "gain": 10.0,
+    "topology": "low_side_shunt_plus_ina181a1_reference",
+    "reference_amplifier": "INA181A1",
+    "shunt_ohm": 0.025,
+    "shunt_min_power_w": 1.0,
+    "shunt_preferred_power_w": 2.0,
+    "gain": 20.0,
     "adc_full_scale_v": 3.3,
     "filter_r_ohm": 1000.0,
     "filter_c_f": 1e-7,

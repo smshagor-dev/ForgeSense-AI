@@ -1,0 +1,37 @@
+{
+  "schema": "forgesense.hardware_baseline.v1",
+  "revision": "HW-BL-001",
+  "status": "pre_hardware_reference",
+  "input": {"nominal_v": 12.0, "logic_v": 3.3, "motor_reference_a": 3.2},
+  "compute": {
+    "fpga": {"board": "Sipeed Tang Nano 9K", "device": "GW1NR-9", "clock_hz": 27000000},
+    "edge": {"board": "ESP32-S3-DevKitC-1", "fpga_uart_tx_gpio": 17, "fpga_uart_rx_gpio": 18, "baud": 115200}
+  },
+  "sensing": {
+    "current_amplifier": {"reference": "INA181A1", "gain_v_per_v": 20.0, "common_mode_v": [-0.2, 26.0], "supply_v": [2.7, 5.5]},
+    "current_shunt": {"ohm": 0.025, "minimum_power_w": 1.0, "preferred_power_w": 2.0, "kelvin_required": true},
+    "adc": {"reference": "ADS131M02", "resolution_bits": 24, "channels": 2, "interface": "SPI", "reference_max_sample_rate_sps": 32000},
+    "vibration": {"reference": "ADXL355", "interface": "SPI", "digital_resolution_bits": 20, "reference_range_g": 8, "raw_sample_rate_hz": 1000},
+    "temperature": {"reference": "TMP117", "interface": "I2C", "resolution_bits": 16, "operating_range_c": [-55, 150]}
+  },
+  "safety": {
+    "analog_overcurrent_trip_target_a": 3.46,
+    "analog_trip_target": "fpga_external_hard_trip",
+    "estop_physical_gate_inhibit": true,
+    "ml_can_override_hard_trip": false,
+    "monitoring_can_drive_actuator": false
+  },
+  "source_documents": {
+    "INA181": "https://www.ti.com/product/INA181",
+    "ADS131M02": "https://www.ti.com/product/ADS131M02",
+    "ADXL355": "https://www.analog.com/en/products/adxl355.html",
+    "TMP117": "https://www.ti.com/product/TMP117",
+    "TangNano9K": "https://wiki.sipeed.com/hardware/en/tang/Tang-Nano-9K/Nano-9K",
+    "ESP32S3DevKitC1": "https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.0.html"
+  },
+  "notes": [
+    "Reference selections are engineering baselines, not procurement authorization or certification evidence.",
+    "Exact packages, passive tolerances, regulator parts, MOSFET, comparator, connector series, and PCB geometry remain to be frozen after schematic/ERC and physical validation.",
+    "Tang Nano 9K external signal pins remain pending board-header freeze; no unverified FPGA pin numbers are asserted here."
+  ]
+}
