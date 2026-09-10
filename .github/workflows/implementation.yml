@@ -75,6 +75,9 @@ jobs:
           ghdl -a --std=08 fpga/rtl/io/uart_tx.vhd
           ghdl -a --std=08 fpga/rtl/io/link_tx_arbiter.vhd
           ghdl -a --std=08 fpga/rtl/sensing/sensor_contract_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/linear_sensor_adapter.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/vibration_rms_window.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_frontend.vhd
           ghdl -a --std=08 fpga/rtl/sensing/sensor_supervisor.vhd
           ghdl -a --std=08 fpga/rtl/sensing/sample_scheduler.vhd
           ghdl -a --std=08 fpga/rtl/sensing/timebase_ms.vhd
@@ -82,6 +85,7 @@ jobs:
           ghdl -a --std=08 fpga/rtl/top/forgesense_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_platform_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_board_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_sensor_board_core.vhd
       - name: Run safety state testbench
         run: |
           ghdl -a --std=08 fpga/tb/tb_safety_fsm.vhd
@@ -97,6 +101,11 @@ jobs:
           ghdl -a --std=08 fpga/tb/tb_sensor_link_tx.vhd
           ghdl -e --std=08 tb_sensor_link_tx
           ghdl -r --std=08 tb_sensor_link_tx --assert-level=error
+      - name: Run sensor frontend testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_sensor_frontend.vhd
+          ghdl -e --std=08 tb_sensor_frontend
+          ghdl -r --std=08 tb_sensor_frontend --assert-level=error
       - name: Run sensor freshness supervisor testbench
         run: |
           ghdl -a --std=08 fpga/tb/tb_sensor_supervisor.vhd
