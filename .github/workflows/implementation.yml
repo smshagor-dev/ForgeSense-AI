@@ -1,0 +1,64 @@
+name: Implementation checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Install test runner
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run Python reference tests
+        env:
+          PYTHONPATH: simulator:ml:protocol/python
+        run: python -m pytest
+      - name: Run end-to-end virtual demo
+        env:
+          PYTHONPATH: simulator:ml:protocol/python
+        run: python tools/run_virtual_demo.py
+
+  firmware-host:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Compile protocol parser with warnings as errors
+        run: |
+          mkdir -p build
+          g++ -std=c++20 -Wall -Wextra -Werror \
+            -Ifirmware/components/forgesense_protocol/include \
+            firmware/components/forgesense_protocol/forgesense_protocol.cpp \
+            firmware/tests/protocol_test.cpp \
+            -o build/firmware_protocol_test
+          ./build/firmware_protocol_test
+
+  vhdl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install GHDL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ghdl
+      - name: Analyze and run safety FSM testbench
+        run: |
+          ghdl -a --std=08 fpga/rtl/safety/safety_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/safety/watchdog.vhd
+          ghdl -a --std=08 fpga/rtl/safety/hard_limit_monitor.vhd
+          ghdl -a --std=08 fpga/rtl/safety/safety_fsm.vhd
+          ghdl -a --std=08 fpga/tb/tb_safety_fsm.vhd
+          ghdl -e --std=08 tb_safety_fsm
+          ghdl -r --std=08 tb_safety_fsm --assert-level=error
