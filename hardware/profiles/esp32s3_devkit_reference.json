@@ -10,6 +10,7 @@
     "tx_gpio": 17,
     "rx_gpio": 18,
     "logic_voltage_v": 3.3,
+    "pin_assignment_documentation_verified": true,
     "pin_assignment_validated_on_hardware": false
   },
   "host_telemetry": {
@@ -28,8 +29,8 @@
     "ml_can_override_hard_limits": false
   },
   "notes": [
-    "This profile records development defaults; it is not hardware-validation evidence.",
-    "Pin assignment and console routing must be checked against the exact selected board revision before flashing.",
+    "GPIO17 and GPIO18 are exposed by ESP32-S3-DevKitC-1 as U1TXD and U1RXD in Espressif board documentation.",
+    "This profile remains pre-hardware until the exact board revision is physically checked and exercised.",
     "The host telemetry path must remain logically separate from the FPGA control UART."
   ]
 }
