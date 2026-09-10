@@ -1,17 +1,22 @@
-* ForgeSense AI protected 12 V motor-output behavioral reference
+* ForgeSense AI 12 V protected motor-output behavioral reference
+* UCC27511A logic is represented behaviorally: OUT high only when IN+ is high and IN- is low.
 V_BUS bus 0 12
-V_CMD cmd 0 PULSE(0 3.3 1m 10u 10u 5m 10m)
-V_ESTOP_OK estopok 0 PWL(0 3.3 4m 3.3 4.01m 0 8m 0)
-B_GATE gate 0 V=if(V(cmd)>1.5 && V(estopok)>1.5,3.3,0)
-R_GATE gate gate_sw 33
-R_GATE_PD gate_sw 0 100k
+V_CMD cmd 0 PULSE(0 3.3 1m 10u 10u 7m 10m)
+* Normally-closed E-stop loop healthy = inhibit low; open/pressed = inhibit high.
+V_ESTOP_INHIBIT inhibit 0 PWL(0 0 4m 0 4.01m 5 10m 5)
+B_DRIVER drive 0 V=if(V(cmd)>1.5 && V(inhibit)<1.5,5,0)
+R_GON drive gate 22
+R_GOFF gate goff 4.7
+D_GOFF goff drive DFAST
+R_GATE_PD gate 0 100k
 R_MOTOR bus motor_hi 3.0
 L_MOTOR motor_hi drain 1m
-S_LOAD drain shunt gate_sw 0 SWMOD
-R_SHUNT shunt 0 0.05
-D_FLYBACK drain bus DFAST
-.model SWMOD SW(Ron=0.02 Roff=10Meg Vt=1.5 Vh=0.1)
-.model DFAST D(Is=1n Rs=0.05 Cjo=50p Tt=50n)
+S_LOAD drain shunt gate 0 SWMOD
+R_SHUNT shunt 0 0.025
+D_FLYBACK drain bus DFLY
+.model SWMOD SW(Ron=0.0033 Roff=10Meg Vt=2.5 Vh=0.1)
+.model DFAST D(Is=1n Rs=0.05 Cjo=20p Tt=20n)
+.model DFLY D(Is=1n Rs=0.05 Cjo=100p Tt=50n Bv=60 Ibv=1m)
 .tran 10u 10m
-.print tran V(gate_sw) V(drain) I(R_MOTOR)
+.print tran V(cmd) V(inhibit) V(drive) V(gate) V(drain) I(R_MOTOR)
 .end
