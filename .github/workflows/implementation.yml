@@ -83,6 +83,8 @@ jobs:
           ghdl -a --std=08 fpga/rtl/io/uart_rx.vhd
           ghdl -a --std=08 fpga/rtl/io/uart_tx.vhd
           ghdl -a --std=08 fpga/rtl/io/link_tx_arbiter.vhd
+          ghdl -a --std=08 fpga/rtl/io/spi_mode0_byte_engine.vhd
+          ghdl -a --std=08 fpga/rtl/io/i2c_byte_engine.vhd
           ghdl -a --std=08 fpga/rtl/sensing/sensor_contract_pkg.vhd
           ghdl -a --std=08 fpga/rtl/sensing/linear_sensor_adapter.vhd
           ghdl -a --std=08 fpga/rtl/sensing/vibration_rms_window.vhd
@@ -101,6 +103,16 @@ jobs:
           ghdl -a --std=08 fpga/rtl/top/forgesense_board_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_sensor_board_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_phy_board_core.vhd
+      - name: Run SPI mode-0 byte-engine testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_spi_mode0_byte_engine.vhd
+          ghdl -e --std=08 tb_spi_mode0_byte_engine
+          ghdl -r --std=08 tb_spi_mode0_byte_engine --assert-level=error
+      - name: Run I2C open-drain byte-engine testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_i2c_byte_engine.vhd
+          ghdl -e --std=08 tb_i2c_byte_engine
+          ghdl -r --std=08 tb_i2c_byte_engine --assert-level=error
       - name: Run safety state testbench
         run: |
           ghdl -a --std=08 fpga/tb/tb_safety_fsm.vhd
