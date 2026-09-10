@@ -15,6 +15,7 @@ entity forgesense_platform_core is
         rst : in std_logic;
 
         sample_tick : in std_logic;
+        status_tick : in std_logic := '0';
         monotonic_ms : in unsigned(31 downto 0);
         temperature_deci_c : in signed(15 downto 0);
         vibration_milli_g : in unsigned(15 downto 0);
@@ -51,6 +52,30 @@ architecture rtl of forgesense_platform_core is
     signal accepted_i : std_logic;
     signal rejected_i : std_logic;
     signal ready_latched : std_logic := '0';
+
+    signal state_code_i : std_logic_vector(2 downto 0);
+    signal load_enable_i : std_logic;
+    signal warning_active_i : std_logic;
+    signal fault_latched_i : std_logic;
+    signal hard_warning_i : std_logic;
+    signal hard_critical_i : std_logic;
+    signal comm_timeout_i : std_logic;
+    signal ml_warning_i : std_logic;
+    signal ml_critical_i : std_logic;
+
+    signal control_flags_i : unsigned(7 downto 0) := (others => '0');
+    signal safety_flags_i : unsigned(15 downto 0) := (others => '0');
+    signal status_vector_i : std_logic_vector(26 downto 0);
+    signal last_status_vector_i : std_logic_vector(26 downto 0) := (others => '0');
+    signal status_change_i : std_logic := '0';
+    signal status_trigger_i : std_logic;
+
+    signal raw_sensor_valid_i : std_logic;
+    signal raw_sensor_byte_i : std_logic_vector(7 downto 0);
+    signal raw_sensor_ready_i : std_logic;
+    signal raw_status_valid_i : std_logic;
+    signal raw_status_byte_i : std_logic_vector(7 downto 0);
+    signal raw_status_ready_i : std_logic;
 begin
     sensors_valid_i <=
         temperature_valid and vibration_valid and current_valid;
@@ -76,6 +101,39 @@ begin
         end if;
     end process;
 
+    control_flags_i(0) <= load_enable_i;
+    control_flags_i(1) <= warning_active_i;
+    control_flags_i(2) <= fault_latched_i;
+    control_flags_i(3) <= ready_latched;
+    control_flags_i(7 downto 4) <= (others => '0');
+
+    safety_flags_i(0) <= hard_warning_i;
+    safety_flags_i(1) <= hard_critical_i;
+    safety_flags_i(2) <= comm_timeout_i;
+    safety_flags_i(3) <= ml_warning_i;
+    safety_flags_i(4) <= ml_critical_i;
+    safety_flags_i(5) <= emergency;
+    safety_flags_i(6) <= sensors_valid_i;
+    safety_flags_i(15 downto 7) <= (others => '0');
+
+    status_vector_i <=
+        state_code_i & std_logic_vector(control_flags_i) & std_logic_vector(safety_flags_i);
+
+    process (clk)
+    begin
+        if rising_edge(clk) then
+            status_change_i <= '0';
+            if rst = '1' then
+                last_status_vector_i <= (others => '0');
+            elsif status_vector_i /= last_status_vector_i then
+                last_status_vector_i <= status_vector_i;
+                status_change_i <= '1';
+            end if;
+        end if;
+    end process;
+
+    status_trigger_i <= status_tick or status_change_i;
+
     sensor_tx : entity work.sensor_link_tx
         port map (
             clk => clk,
@@ -86,10 +144,39 @@ begin
             vibration_milli_g => vibration_milli_g,
             current_milli_a => current_milli_a,
             sensor_flags => sensor_flags_i,
-            tx_ready => sensor_tx_ready,
-            tx_valid => sensor_tx_valid,
-            tx_byte => sensor_tx_byte,
+            tx_ready => raw_sensor_ready_i,
+            tx_valid => raw_sensor_valid_i,
+            tx_byte => raw_sensor_byte_i,
             sample_dropped => sensor_sample_dropped
+        );
+
+    status_tx : entity work.status_link_tx
+        port map (
+            clk => clk,
+            rst => rst,
+            status_trigger => status_trigger_i,
+            timestamp_ms => monotonic_ms,
+            state_code => state_code_i,
+            control_flags => control_flags_i,
+            safety_flags => safety_flags_i,
+            tx_ready => raw_status_ready_i,
+            tx_valid => raw_status_valid_i,
+            tx_byte => raw_status_byte_i
+        );
+
+    tx_arbiter : entity work.link_tx_arbiter
+        port map (
+            clk => clk,
+            rst => rst,
+            status_valid => raw_status_valid_i,
+            status_byte => raw_status_byte_i,
+            status_ready => raw_status_ready_i,
+            sensor_valid => raw_sensor_valid_i,
+            sensor_byte => raw_sensor_byte_i,
+            sensor_ready => raw_sensor_ready_i,
+            uart_ready => sensor_tx_ready,
+            uart_valid => sensor_tx_valid,
+            uart_byte => sensor_tx_byte
         );
 
     control : entity work.forgesense_core
@@ -112,14 +199,23 @@ begin
             vibration_milli_g => vibration_milli_g,
             current_milli_a => current_milli_a,
             recovery_req => recovery_req,
-            state_code => state_code,
-            load_enable => load_enable,
-            warning_active => warning_active,
-            fault_latched => fault_latched,
+            state_code => state_code_i,
+            load_enable => load_enable_i,
+            warning_active => warning_active_i,
+            fault_latched => fault_latched_i,
             link_frame_accepted => accepted_i,
-            link_frame_rejected => rejected_i
+            link_frame_rejected => rejected_i,
+            hard_warning_status => hard_warning_i,
+            hard_critical_status => hard_critical_i,
+            comm_timeout_status => comm_timeout_i,
+            ml_warning_status => ml_warning_i,
+            ml_critical_status => ml_critical_i
         );
 
+    state_code <= state_code_i;
+    load_enable <= load_enable_i;
+    warning_active <= warning_active_i;
+    fault_latched <= fault_latched_i;
     operational_ready <= ready_latched;
     link_frame_accepted <= accepted_i;
     link_frame_rejected <= rejected_i;

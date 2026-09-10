@@ -64,7 +64,7 @@ Temperature / vibration / current inputs
         protected load enable
 ```
 
-The FPGA sends normalized sensor snapshots at a configured sampling rate. The ESP32-S3 maintains a fixed-size feature window, performs local inference, and returns a bounded ML observation. The FPGA validates every received observation before it can affect control state. Accepted health state is retained until replaced by a newer accepted observation; missing, invalid, replayed, or corrupt traffic never clears it.
+The FPGA sends normalized sensor snapshots at a configured sampling rate and emits deterministic safety-status snapshots periodically and on state changes. The ESP32-S3 maintains a fixed-size feature window, performs local inference, and returns a bounded ML observation. The FPGA validates every received observation before it can affect control state. Accepted health state is retained until replaced by a newer accepted observation; missing, invalid, replayed, or corrupt traffic never clears it.
 
 ## Safety Invariants
 
@@ -103,6 +103,7 @@ The reference uses one full-duplex UART connection with independent rolling sequ
 | Direction | Message | Type | Frame size |
 | --- | --- | ---: | ---: |
 | FPGA -> ESP32-S3 | Sensor snapshot | `0x11` | 22 bytes |
+| FPGA -> ESP32-S3 | Safety status snapshot | `0x30` | 18 bytes |
 | ESP32-S3 -> FPGA | ML observation | `0x10` | 28 bytes |
 
 Both frames use `A5 5A` framing, protocol versioning, explicit payload length, sender monotonic timestamp, and CRC-16/CCITT-FALSE. The sensor frame carries signed temperature, vibration RMS, current, and per-sensor validity flags. The ML frame carries model identity, model version, feature-schema version, anomaly score, health class, confidence, and inference age.

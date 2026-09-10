@@ -27,7 +27,12 @@ entity forgesense_core is
         warning_active : out std_logic;
         fault_latched : out std_logic;
         link_frame_accepted : out std_logic;
-        link_frame_rejected : out std_logic
+        link_frame_rejected : out std_logic;
+        hard_warning_status : out std_logic;
+        hard_critical_status : out std_logic;
+        comm_timeout_status : out std_logic;
+        ml_warning_status : out std_logic;
+        ml_critical_status : out std_logic
     );
 end entity;
 
@@ -51,6 +56,9 @@ architecture rtl of forgesense_core is
     signal ml_have_i : std_logic := '0';
     signal ml_warning_latched_i : std_logic := '0';
     signal ml_critical_latched_i : std_logic := '0';
+    signal hard_warning_i : std_logic;
+    signal hard_critical_i : std_logic;
+    signal comm_timeout_i : std_logic;
 begin
     receiver : entity work.link_receiver
         port map (
@@ -137,7 +145,10 @@ begin
             state_code => state_code,
             load_enable => load_enable,
             warning_active => warning_active,
-            fault_latched => fault_latched
+            fault_latched => fault_latched,
+            hard_warning_status => hard_warning_i,
+            hard_critical_status => hard_critical_i,
+            comm_timeout_status => comm_timeout_i
         );
 
     process (clk)
@@ -154,4 +165,9 @@ begin
     link_frame_accepted <= intelligence_accepted_i;
     link_frame_rejected <=
         frame_rejected_i or (frame_valid_d and not intelligence_accepted_i);
+    hard_warning_status <= hard_warning_i;
+    hard_critical_status <= hard_critical_i;
+    comm_timeout_status <= comm_timeout_i;
+    ml_warning_status <= ml_warning_latched_i;
+    ml_critical_status <= ml_critical_latched_i;
 end architecture;

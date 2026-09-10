@@ -14,9 +14,23 @@ SENSOR_VALID_VIBRATION = 0x0002
 SENSOR_VALID_CURRENT = 0x0004
 SENSOR_ALL_VALID = SENSOR_VALID_TEMPERATURE | SENSOR_VALID_VIBRATION | SENSOR_VALID_CURRENT
 
+STATUS_LOAD_ENABLE = 0x01
+STATUS_WARNING_ACTIVE = 0x02
+STATUS_FAULT_LATCHED = 0x04
+STATUS_OPERATIONAL_READY = 0x08
+
+SAFETY_HARD_WARNING = 0x0001
+SAFETY_HARD_CRITICAL = 0x0002
+SAFETY_COMM_TIMEOUT = 0x0004
+SAFETY_ML_WARNING = 0x0008
+SAFETY_ML_CRITICAL = 0x0010
+SAFETY_EMERGENCY = 0x0020
+SAFETY_SENSORS_VALID = 0x0040
+
 _HEADER = struct.Struct("<2sBBHHI")
 _ML_PAYLOAD = struct.Struct("<HHHHHBBH")
 _SENSOR_PAYLOAD = struct.Struct("<hHHH")
+_STATUS_PAYLOAD = struct.Struct("<BBH")
 _CRC = struct.Struct("<H")
 
 
@@ -58,6 +72,29 @@ class MlObservation:
     health_class: HealthClass
     confidence: float
     inference_age_ms: int
+
+
+@dataclass(frozen=True)
+class StatusSnapshotWire:
+    state_code: int
+    control_flags: int
+    safety_flags: int
+
+    @property
+    def load_enable(self) -> bool:
+        return bool(self.control_flags & STATUS_LOAD_ENABLE)
+
+    @property
+    def warning_active(self) -> bool:
+        return bool(self.control_flags & STATUS_WARNING_ACTIVE)
+
+    @property
+    def fault_latched(self) -> bool:
+        return bool(self.control_flags & STATUS_FAULT_LATCHED)
+
+    @property
+    def operational_ready(self) -> bool:
+        return bool(self.control_flags & STATUS_OPERATIONAL_READY)
 
 
 @dataclass(frozen=True)
@@ -224,6 +261,40 @@ def decode_sensor_snapshot(frame: Frame) -> SensorSnapshotWire:
         current_milli_a=current,
         flags=flags,
     )
+
+
+def encode_status_snapshot(
+    status: StatusSnapshotWire,
+    *,
+    sequence: int,
+    timestamp_ms: int,
+) -> bytes:
+    if not (0 <= status.state_code <= 5):
+        raise ProtocolError("status state code out of range")
+    if not (0 <= status.control_flags <= 0xFF):
+        raise ProtocolError("status control flags out of range")
+    if not (0 <= status.safety_flags <= 0xFFFF):
+        raise ProtocolError("status safety flags out of range")
+    payload = _STATUS_PAYLOAD.pack(
+        status.state_code, status.control_flags, status.safety_flags
+    )
+    return encode_frame(
+        message_type=MessageType.STATUS,
+        sequence=sequence,
+        timestamp_ms=timestamp_ms,
+        payload=payload,
+    )
+
+
+def decode_status_snapshot(frame: Frame) -> StatusSnapshotWire:
+    if frame.message_type != MessageType.STATUS:
+        raise ProtocolError("not a status snapshot frame")
+    if len(frame.payload) != _STATUS_PAYLOAD.size:
+        raise ProtocolError("invalid status payload length")
+    state_code, control_flags, safety_flags = _STATUS_PAYLOAD.unpack(frame.payload)
+    if state_code > 5:
+        raise ProtocolError("invalid status state code")
+    return StatusSnapshotWire(state_code, control_flags, safety_flags)
 
 
 def sequence_is_newer(candidate: int, previous: int) -> bool:

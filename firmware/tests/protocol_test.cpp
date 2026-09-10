@@ -62,6 +62,27 @@ int main() {
     assert(parsed_sensor.snapshot.current_milli_a == 1460);
     assert(parsed_sensor.snapshot.all_valid());
 
+    const std::array<std::uint8_t, kStatusFrameSize> golden_status{
+        0xA5,0x5A,0x01,0x30,0x00,0x00,0x04,0x00,
+        0x04,0x03,0x02,0x01,0x02,0x0B,0x49,0x00,
+        0xD1,0x18
+    };
+    ParsedStatusFrame parsed_status{};
+    assert(parse_status_frame(
+        golden_status.data(),
+        golden_status.size(),
+        parsed_status) == ParseStatus::Ok);
+    assert(parsed_status.sequence == 0);
+    assert(parsed_status.timestamp_ms == 0x01020304);
+    assert(parsed_status.status.state_code == 2);
+    assert(parsed_status.status.load_enable());
+    assert(parsed_status.status.warning_active());
+    assert(parsed_status.status.operational_ready());
+    assert(!parsed_status.status.fault_latched());
+    assert((parsed_status.status.safety_flags & kSafetyHardWarning) != 0);
+    assert((parsed_status.status.safety_flags & kSafetyMlWarning) != 0);
+    assert((parsed_status.status.safety_flags & kSafetySensorsValid) != 0);
+
     std::cout << "firmware protocol tests PASS\n";
     return 0;
 }

@@ -21,7 +21,10 @@ entity safety_core is
         state_code : out std_logic_vector(2 downto 0);
         load_enable : out std_logic;
         warning_active : out std_logic;
-        fault_latched : out std_logic
+        fault_latched : out std_logic;
+        hard_warning_status : out std_logic;
+        hard_critical_status : out std_logic;
+        comm_timeout_status : out std_logic
     );
 end entity;
 
@@ -70,4 +73,8 @@ begin
             warning_active => warning_active,
             fault_latched => fault_latched
         );
+
+    hard_warning_status <= hard_warning_i;
+    hard_critical_status <= hard_critical_i;
+    comm_timeout_status <= comm_timeout_i;
 end architecture;

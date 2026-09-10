@@ -9,6 +9,28 @@
 
 namespace forgesense::edge {
 
+void LinkService::enqueue(const ParsedFpgaMessage& message) {
+    if (pending_count_ == kPendingCapacity) {
+        pending_head_ = (pending_head_ + 1U) % kPendingCapacity;
+        --pending_count_;
+        ++dropped_pending_messages_;
+    }
+    const std::size_t tail =
+        (pending_head_ + pending_count_) % kPendingCapacity;
+    pending_[tail] = message;
+    ++pending_count_;
+}
+
+bool LinkService::dequeue(ParsedFpgaMessage& out) {
+    if (pending_count_ == 0) {
+        return false;
+    }
+    out = pending_[pending_head_];
+    pending_head_ = (pending_head_ + 1U) % kPendingCapacity;
+    --pending_count_;
+    return true;
+}
+
 bool LinkService::begin() {
     uart_port_ = CONFIG_FORGESENSE_UART_PORT;
     const auto port = static_cast<uart_port_t>(uart_port_);
@@ -35,9 +57,12 @@ bool LinkService::begin() {
     return uart_driver_install(port, 2048, 2048, 0, nullptr, 0) == ESP_OK;
 }
 
-bool LinkService::receive_sensor(
-    ParsedSensorFrame& out,
+bool LinkService::receive(
+    ParsedFpgaMessage& out,
     std::uint32_t timeout_ms) {
+    if (dequeue(out)) {
+        return true;
+    }
     if (uart_port_ < 0) {
         return false;
     }
@@ -52,22 +77,28 @@ bool LinkService::receive_sensor(
         return false;
     }
 
-    bool found = false;
-    ParsedSensorFrame candidate{};
+    ParsedFpgaMessage candidate{};
     for (int i = 0; i < count; ++i) {
-        const auto event = sensor_decoder_.push(
-            bytes[static_cast<std::size_t>(i)],
-            candidate);
-        if (event == StreamEvent::Frame) {
-            if (sensor_sequence_gate_.accept(candidate.sequence)) {
-                out = candidate;
-                found = true;
-            } else {
+        const auto event = fpga_decoder_.push(
+            bytes[static_cast<std::size_t>(i)], candidate);
+        if (event != StreamEvent::Frame) {
+            continue;
+        }
+
+        if (candidate.kind == FpgaMessageKind::Sensor) {
+            if (!sensor_sequence_gate_.accept(candidate.sensor.sequence)) {
                 ++stale_sensor_frames_;
+                continue;
+            }
+        } else {
+            if (!status_sequence_gate_.accept(candidate.status.sequence)) {
+                ++stale_status_frames_;
+                continue;
             }
         }
+        enqueue(candidate);
     }
-    return found;
+    return dequeue(out);
 }
 
 bool LinkService::send_observation(

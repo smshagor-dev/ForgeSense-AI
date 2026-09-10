@@ -6,6 +6,7 @@ namespace {
 constexpr std::size_t kHeaderSize = 12;
 constexpr std::size_t kMlPayloadSize = 14;
 constexpr std::size_t kSensorPayloadSize = 8;
+constexpr std::size_t kStatusPayloadSize = 4;
 
 std::uint16_t read_u16(const std::uint8_t* p) {
     return static_cast<std::uint16_t>(p[0]) |
@@ -135,6 +136,28 @@ ParseStatus parse_sensor_frame(
     out.snapshot.vibration_milli_g = read_u16(payload + 2);
     out.snapshot.current_milli_a = read_u16(payload + 4);
     out.snapshot.flags = read_u16(payload + 6);
+    return ParseStatus::Ok;
+}
+
+ParseStatus parse_status_frame(
+    const std::uint8_t* data,
+    std::size_t size,
+    ParsedStatusFrame& out) {
+    const auto common =
+        validate_common(data, size, kMessageStatus, kStatusPayloadSize);
+    if (common != ParseStatus::Ok) {
+        return common;
+    }
+
+    const std::uint8_t* payload = data + kHeaderSize;
+    if (payload[0] > 5) {
+        return ParseStatus::BadRange;
+    }
+    out.sequence = read_u16(data + 4);
+    out.timestamp_ms = read_u32(data + 8);
+    out.status.state_code = payload[0];
+    out.status.control_flags = payload[1];
+    out.status.safety_flags = read_u16(payload + 2);
     return ParseStatus::Ok;
 }
 

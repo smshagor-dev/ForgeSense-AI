@@ -39,3 +39,39 @@ def test_sensor_validity_is_explicit() -> None:
     )
     decoded = decode_sensor_snapshot(frame)
     assert not decoded.all_valid
+
+
+def test_status_snapshot_round_trip_and_safety_flags() -> None:
+    from forgesense_protocol import (
+        SAFETY_HARD_WARNING,
+        SAFETY_ML_WARNING,
+        SAFETY_SENSORS_VALID,
+        STATUS_LOAD_ENABLE,
+        STATUS_OPERATIONAL_READY,
+        STATUS_WARNING_ACTIVE,
+        StatusSnapshotWire,
+        decode_status_snapshot,
+        encode_status_snapshot,
+    )
+
+    status = StatusSnapshotWire(
+        state_code=2,
+        control_flags=(
+            STATUS_LOAD_ENABLE | STATUS_WARNING_ACTIVE | STATUS_OPERATIONAL_READY
+        ),
+        safety_flags=(
+            SAFETY_HARD_WARNING | SAFETY_ML_WARNING | SAFETY_SENSORS_VALID
+        ),
+    )
+    encoded = encode_status_snapshot(
+        status,
+        sequence=0,
+        timestamp_ms=0x01020304,
+    )
+    assert encoded.hex() == "a55a01300000040004030201020b4900d118"
+    decoded = decode_status_snapshot(decode_frame(encoded))
+    assert decoded == status
+    assert decoded.load_enable
+    assert decoded.warning_active
+    assert decoded.operational_ready
+    assert not decoded.fault_latched

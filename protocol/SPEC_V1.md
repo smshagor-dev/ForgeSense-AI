@@ -32,7 +32,7 @@ CRC parameters: polynomial `0x1021`, initial value `0xFFFF`, no reflection, no f
 | `0x10` | ML observation | ESP32-S3 -> FPGA |
 | `0x11` | sensor snapshot | FPGA -> ESP32-S3 |
 | `0x20` | heartbeat | reserved |
-| `0x30` | status | reserved |
+| `0x30` | status snapshot | FPGA -> ESP32-S3 |
 | `0x31` | event | reserved |
 
 The initial sensor and ML streams maintain independent 16-bit sequence counters.
@@ -70,6 +70,24 @@ Payload length: 8 bytes.
 Validity bits are bit 0 temperature, bit 1 vibration, bit 2 current; bits 3..15 are reserved and transmit zero.
 
 The ESP32-S3 does not infer from a snapshot unless all features required by the deployed schema are valid. The first runtime clears its feature window whenever a required sensor becomes invalid. A separate sequence gate rejects duplicate or backwards sensor snapshots so repeated telemetry cannot artificially fill the inference window.
+
+## Status snapshot payload
+
+Payload length: 4 bytes. Status frames are emitted periodically and when the FPGA-visible safety state changes.
+
+| Field | Size | Meaning |
+| --- | ---: | --- |
+| state_code | 1 | 0 startup, 1 run, 2 warning, 3 shutdown, 4 fault-latched, 5 recovery |
+| control_flags | 1 | bit 0 load enabled, bit 1 warning active, bit 2 fault latched, bit 3 operational ready |
+| safety_flags | 2 | bit 0 hard warning, bit 1 hard critical, bit 2 communication timeout, bit 3 retained ML warning, bit 4 retained ML critical, bit 5 emergency, bit 6 required sensors valid |
+
+Bits not assigned above are reserved and transmit zero. Status is diagnostic evidence from the deterministic FPGA domain; receiving it never grants the ESP32-S3 actuator authority. Sensor and status message types use separate rolling sequence spaces.
+
+Golden status frame for sequence 0, timestamp `0x01020304`, warning state, load/warning/ready control flags, and hard-warning/ML-warning/sensors-valid safety flags:
+
+```text
+a55a01300000040004030201020b4900d118
+```
 
 ## Sequence freshness
 

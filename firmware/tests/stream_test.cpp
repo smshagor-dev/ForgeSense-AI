@@ -59,6 +59,31 @@ int main() {
     assert(bad_event == StreamEvent::Rejected);
     assert(sensor_decoder.rejected_frames() >= 1);
 
+    const std::array<std::uint8_t, kStatusFrameSize> status{
+        0xA5,0x5A,0x01,0x30,0x00,0x00,0x04,0x00,
+        0x04,0x03,0x02,0x01,0x02,0x0B,0x49,0x00,
+        0xD1,0x18
+    };
+
+    FpgaStreamDecoder fpga_decoder;
+    ParsedFpgaMessage message{};
+    StreamEvent mixed_event = StreamEvent::None;
+    for (const auto byte : status) {
+        mixed_event = fpga_decoder.push(byte, message);
+    }
+    assert(mixed_event == StreamEvent::Frame);
+    assert(message.kind == FpgaMessageKind::Status);
+    assert(message.status.status.state_code == 2);
+
+    mixed_event = StreamEvent::None;
+    for (const auto byte : sensor) {
+        mixed_event = fpga_decoder.push(byte, message);
+    }
+    assert(mixed_event == StreamEvent::Frame);
+    assert(message.kind == FpgaMessageKind::Sensor);
+    assert(message.sensor.snapshot.all_valid());
+    assert(fpga_decoder.accepted_frames() == 2);
+
     std::cout << "firmware stream tests PASS\n";
     return 0;
 }

@@ -70,8 +70,10 @@ jobs:
           ghdl -a --std=08 fpga/rtl/protocol/link_receiver.vhd
           ghdl -a --std=08 fpga/rtl/protocol/intelligence_gate.vhd
           ghdl -a --std=08 fpga/rtl/protocol/sensor_link_tx.vhd
+          ghdl -a --std=08 fpga/rtl/protocol/status_link_tx.vhd
           ghdl -a --std=08 fpga/rtl/io/uart_rx.vhd
           ghdl -a --std=08 fpga/rtl/io/uart_tx.vhd
+          ghdl -a --std=08 fpga/rtl/io/link_tx_arbiter.vhd
           ghdl -a --std=08 fpga/rtl/sensing/sample_scheduler.vhd
           ghdl -a --std=08 fpga/rtl/sensing/timebase_ms.vhd
           ghdl -a --std=08 fpga/rtl/top/safety_core.vhd
@@ -93,6 +95,16 @@ jobs:
           ghdl -a --std=08 fpga/tb/tb_sensor_link_tx.vhd
           ghdl -e --std=08 tb_sensor_link_tx
           ghdl -r --std=08 tb_sensor_link_tx --assert-level=error
+      - name: Run FPGA status transmitter testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_status_link_tx.vhd
+          ghdl -e --std=08 tb_status_link_tx
+          ghdl -r --std=08 tb_status_link_tx --assert-level=error
+      - name: Run transmit arbiter testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_link_tx_arbiter.vhd
+          ghdl -e --std=08 tb_link_tx_arbiter
+          ghdl -r --std=08 tb_link_tx_arbiter --assert-level=error
       - name: Run first-critical startup integration testbench
         run: |
           ghdl -a --std=08 fpga/tb/tb_platform_startup_critical.vhd

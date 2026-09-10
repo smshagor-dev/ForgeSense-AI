@@ -9,6 +9,7 @@ namespace forgesense {
 constexpr std::uint8_t kProtocolVersion = 1;
 constexpr std::uint8_t kMessageMlObservation = 0x10;
 constexpr std::uint8_t kMessageSensorSnapshot = 0x11;
+constexpr std::uint8_t kMessageStatus = 0x30;
 constexpr std::uint16_t kValidObservation = 0x0001;
 
 constexpr std::uint16_t kSensorValidTemperature = 0x0001;
@@ -19,6 +20,20 @@ constexpr std::uint16_t kSensorAllValid =
 
 constexpr std::size_t kMlFrameSize = 28;
 constexpr std::size_t kSensorFrameSize = 22;
+constexpr std::size_t kStatusFrameSize = 18;
+
+constexpr std::uint8_t kStatusLoadEnable = 0x01;
+constexpr std::uint8_t kStatusWarningActive = 0x02;
+constexpr std::uint8_t kStatusFaultLatched = 0x04;
+constexpr std::uint8_t kStatusOperationalReady = 0x08;
+
+constexpr std::uint16_t kSafetyHardWarning = 0x0001;
+constexpr std::uint16_t kSafetyHardCritical = 0x0002;
+constexpr std::uint16_t kSafetyCommTimeout = 0x0004;
+constexpr std::uint16_t kSafetyMlWarning = 0x0008;
+constexpr std::uint16_t kSafetyMlCritical = 0x0010;
+constexpr std::uint16_t kSafetyEmergency = 0x0020;
+constexpr std::uint16_t kSafetySensorsValid = 0x0040;
 
 enum class HealthClass : std::uint8_t {
     Normal = 0,
@@ -36,6 +51,17 @@ struct MlObservation {
     HealthClass health_class{HealthClass::Abstain};
     std::uint8_t confidence_q8{};
     std::uint16_t inference_age_ms{};
+};
+
+struct StatusSnapshot {
+    std::uint8_t state_code{};
+    std::uint8_t control_flags{};
+    std::uint16_t safety_flags{};
+
+    bool load_enable() const { return (control_flags & kStatusLoadEnable) != 0; }
+    bool warning_active() const { return (control_flags & kStatusWarningActive) != 0; }
+    bool fault_latched() const { return (control_flags & kStatusFaultLatched) != 0; }
+    bool operational_ready() const { return (control_flags & kStatusOperationalReady) != 0; }
 };
 
 struct SensorSnapshot {
@@ -73,6 +99,12 @@ struct ParsedSensorFrame {
     SensorSnapshot snapshot{};
 };
 
+struct ParsedStatusFrame {
+    std::uint16_t sequence{};
+    std::uint32_t timestamp_ms{};
+    StatusSnapshot status{};
+};
+
 std::uint16_t crc16_ccitt(const std::uint8_t* data, std::size_t size);
 
 ParseStatus parse_ml_frame(
@@ -84,6 +116,11 @@ ParseStatus parse_sensor_frame(
     const std::uint8_t* data,
     std::size_t size,
     ParsedSensorFrame& out);
+
+ParseStatus parse_status_frame(
+    const std::uint8_t* data,
+    std::size_t size,
+    ParsedStatusFrame& out);
 
 bool encode_ml_frame(
     const MlObservation& observation,

@@ -51,6 +51,83 @@ bool push_prefix(
 
 }  // namespace
 
+void FpgaStreamDecoder::reset() {
+    reset_stream_size(size_, buffer_);
+    expected_size_ = 0;
+    message_type_ = 0;
+}
+
+void FpgaStreamDecoder::restart_from(std::uint8_t byte) {
+    restart_stream(byte, size_, buffer_);
+    expected_size_ = 0;
+    message_type_ = 0;
+}
+
+StreamEvent FpgaStreamDecoder::push(
+    std::uint8_t byte,
+    ParsedFpgaMessage& out) {
+    if (push_prefix(byte, size_, buffer_)) {
+        return StreamEvent::None;
+    }
+
+    if (size_ >= buffer_.size()) {
+        ++rejected_frames_;
+        restart_from(byte);
+        return StreamEvent::Rejected;
+    }
+    buffer_[size_++] = byte;
+
+    if (size_ == 3 && buffer_[2] != kProtocolVersion) {
+        ++rejected_frames_;
+        restart_from(byte);
+        return StreamEvent::Rejected;
+    }
+    if (size_ == 4) {
+        message_type_ = buffer_[3];
+        if (message_type_ == kMessageSensorSnapshot) {
+            expected_size_ = kSensorFrameSize;
+        } else if (message_type_ == kMessageStatus) {
+            expected_size_ = kStatusFrameSize;
+        } else {
+            ++rejected_frames_;
+            restart_from(byte);
+            return StreamEvent::Rejected;
+        }
+    }
+    if (size_ == 8) {
+        const bool length_ok =
+            (message_type_ == kMessageSensorSnapshot &&
+             buffer_[6] == 0x08 && buffer_[7] == 0x00) ||
+            (message_type_ == kMessageStatus &&
+             buffer_[6] == 0x04 && buffer_[7] == 0x00);
+        if (!length_ok) {
+            ++rejected_frames_;
+            restart_from(byte);
+            return StreamEvent::Rejected;
+        }
+    }
+    if (expected_size_ == 0 || size_ < expected_size_) {
+        return StreamEvent::None;
+    }
+
+    ParseStatus status = ParseStatus::BadType;
+    if (message_type_ == kMessageSensorSnapshot) {
+        status = parse_sensor_frame(buffer_.data(), expected_size_, out.sensor);
+        out.kind = FpgaMessageKind::Sensor;
+    } else if (message_type_ == kMessageStatus) {
+        status = parse_status_frame(buffer_.data(), expected_size_, out.status);
+        out.kind = FpgaMessageKind::Status;
+    }
+
+    reset();
+    if (status == ParseStatus::Ok) {
+        ++accepted_frames_;
+        return StreamEvent::Frame;
+    }
+    ++rejected_frames_;
+    return StreamEvent::Rejected;
+}
+
 void MlStreamDecoder::reset() {
     reset_stream_size(size_, buffer_);
 }

@@ -6,6 +6,12 @@ All notable repository-level changes are recorded here.
 
 ### Added
 
+- FPGA-to-ESP32 deterministic status snapshot (`0x30`) carrying actual safety state, control flags, hard-limit status, watchdog timeout state, retained ML state, emergency state, and required-sensor validity.
+- FPGA status transmitter with periodic/state-change delivery and pending-event coalescing.
+- Locked-priority FPGA transmit arbiter so status and sensor frames share one UART without byte interleaving.
+- Mixed FPGA message stream decoder with independent sensor/status sequence freshness gates.
+- ESP32-S3 bounded pending-message queue so multiple valid frames in one UART receive chunk are not silently discarded.
+- Cross-language status golden-frame tests plus VHDL status-transmitter and link-arbiter testbenches.
 - Bidirectional ForgeSense Link v1 reference with FPGA-to-edge sensor snapshots and edge-to-FPGA ML observations.
 - Signed normalized temperature, vibration RMS, current and explicit sensor validity wire contract.
 - FPGA sample scheduler, local millisecond timebase, sensor-frame transmitter, UART RX/TX and board-level integration core.

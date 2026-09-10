@@ -26,12 +26,16 @@ forgesense::EventRecord make_event(
     forgesense::EventCode code,
     const forgesense::SensorSnapshot& snapshot,
     std::uint16_t anomaly_q15 = 0,
-    std::uint32_t detail = 0) {
+    std::uint32_t detail = 0,
+    std::uint8_t state_code = 0xFF,
+    std::uint8_t flags = 0) {
     forgesense::EventRecord record{};
     record.severity = severity;
     record.source = source;
     record.code = code;
     record.monotonic_ms = now_ms();
+    record.state_code = state_code;
+    record.flags = flags;
     record.snapshot = snapshot;
     record.anomaly_q15 = anomaly_q15;
     record.detail = detail;
@@ -74,24 +78,26 @@ extern "C" void app_main(void) {
         return;
     }
 
-    SensorSnapshot empty_snapshot{};
+    SensorSnapshot last_sensor{};
     (void)events.append(make_event(
         EventSeverity::Info,
         EventSource::System,
         EventCode::Boot,
-        empty_snapshot));
+        last_sensor));
 
     std::uint16_t ml_sequence = 0;
     std::uint32_t last_sensor_rx_ms = now_ms();
     bool link_loss_logged = false;
     bool sensor_invalid_logged = false;
     HealthClass previous_health = HealthClass::Abstain;
+    std::uint16_t previous_safety_flags = 0;
+    std::uint8_t previous_state_code = 0xFF;
 
     ESP_LOGI(kTag, "edge runtime started");
 
     while (true) {
-        ParsedSensorFrame sensor_frame{};
-        if (!link.receive_sensor(sensor_frame, 100)) {
+        ParsedFpgaMessage message{};
+        if (!link.receive(message, 100)) {
             const std::uint32_t age_ms = now_ms() - last_sensor_rx_ms;
             if (age_ms >= CONFIG_FORGESENSE_LINK_LOSS_MS && !link_loss_logged) {
                 inference.reset();
@@ -99,7 +105,7 @@ extern "C" void app_main(void) {
                     EventSeverity::Critical,
                     EventSource::Link,
                     EventCode::LinkLost,
-                    empty_snapshot,
+                    last_sensor,
                     0,
                     age_ms));
                 link_loss_logged = true;
@@ -108,6 +114,58 @@ extern "C" void app_main(void) {
             continue;
         }
 
+        if (message.kind == FpgaMessageKind::Status) {
+            const auto& status = message.status.status;
+            const bool hard_critical_now =
+                (status.safety_flags & kSafetyHardCritical) != 0;
+            const bool hard_critical_before =
+                (previous_safety_flags & kSafetyHardCritical) != 0;
+            const bool emergency_now =
+                (status.safety_flags & kSafetyEmergency) != 0;
+            const bool emergency_before =
+                (previous_safety_flags & kSafetyEmergency) != 0;
+
+            if (hard_critical_now && !hard_critical_before) {
+                (void)events.append(make_event(
+                    EventSeverity::Critical,
+                    EventSource::Fpga,
+                    EventCode::HardCritical,
+                    last_sensor,
+                    0,
+                    status.safety_flags,
+                    status.state_code,
+                    status.control_flags));
+            }
+            if (emergency_now && !emergency_before) {
+                (void)events.append(make_event(
+                    EventSeverity::Critical,
+                    EventSource::Fpga,
+                    EventCode::Emergency,
+                    last_sensor,
+                    0,
+                    status.safety_flags,
+                    status.state_code,
+                    status.control_flags));
+            }
+            if (status.state_code == 5 && previous_state_code != 5) {
+                (void)events.append(make_event(
+                    EventSeverity::Info,
+                    EventSource::Fpga,
+                    EventCode::Recovery,
+                    last_sensor,
+                    0,
+                    status.safety_flags,
+                    status.state_code,
+                    status.control_flags));
+            }
+
+            previous_safety_flags = status.safety_flags;
+            previous_state_code = status.state_code;
+            continue;
+        }
+
+        const ParsedSensorFrame& sensor_frame = message.sensor;
+        last_sensor = sensor_frame.snapshot;
         last_sensor_rx_ms = now_ms();
         if (link_loss_logged) {
             (void)events.append(make_event(

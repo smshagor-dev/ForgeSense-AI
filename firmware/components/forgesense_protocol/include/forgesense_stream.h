@@ -10,6 +10,31 @@ namespace forgesense {
 
 enum class StreamEvent { None, Frame, Rejected };
 
+enum class FpgaMessageKind { Sensor, Status };
+
+struct ParsedFpgaMessage {
+    FpgaMessageKind kind{FpgaMessageKind::Sensor};
+    ParsedSensorFrame sensor{};
+    ParsedStatusFrame status{};
+};
+
+class FpgaStreamDecoder {
+public:
+    StreamEvent push(std::uint8_t byte, ParsedFpgaMessage& out);
+    void reset();
+    std::uint32_t accepted_frames() const { return accepted_frames_; }
+    std::uint32_t rejected_frames() const { return rejected_frames_; }
+
+private:
+    std::array<std::uint8_t, kSensorFrameSize> buffer_{};
+    std::size_t size_{0};
+    std::size_t expected_size_{0};
+    std::uint8_t message_type_{0};
+    std::uint32_t accepted_frames_{0};
+    std::uint32_t rejected_frames_{0};
+    void restart_from(std::uint8_t byte);
+};
+
 class MlStreamDecoder {
 public:
     StreamEvent push(std::uint8_t byte, ParsedMlFrame& out);

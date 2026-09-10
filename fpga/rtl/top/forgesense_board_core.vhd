@@ -7,6 +7,7 @@ entity forgesense_board_core is
         CLK_FREQ_HZ : positive := 27000000;
         UART_BAUD_RATE : positive := 115200;
         SENSOR_SAMPLE_RATE_HZ : positive := 10;
+        STATUS_RATE_HZ : positive := 2;
         WATCHDOG_TIMEOUT_MS : positive := 1500
     );
     port (
@@ -51,6 +52,7 @@ architecture rtl of forgesense_board_core is
         watchdog_cycles(CLK_FREQ_HZ, WATCHDOG_TIMEOUT_MS);
 
     signal sample_tick_i : std_logic;
+    signal status_tick_i : std_logic;
     signal monotonic_ms_i : unsigned(31 downto 0);
 
     signal rx_valid_i : std_logic;
@@ -71,6 +73,17 @@ begin
             clk => clk,
             rst => rst,
             sample_tick => sample_tick_i
+        );
+
+    status_clock : entity work.sample_scheduler
+        generic map (
+            CLK_FREQ_HZ => CLK_FREQ_HZ,
+            SAMPLE_RATE_HZ => STATUS_RATE_HZ
+        )
+        port map (
+            clk => clk,
+            rst => rst,
+            sample_tick => status_tick_i
         );
 
     timebase : entity work.timebase_ms
@@ -119,6 +132,7 @@ begin
             clk => clk,
             rst => rst,
             sample_tick => sample_tick_i,
+            status_tick => status_tick_i,
             monotonic_ms => monotonic_ms_i,
             temperature_deci_c => temperature_deci_c,
             vibration_milli_g => vibration_milli_g,
