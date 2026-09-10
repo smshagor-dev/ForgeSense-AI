@@ -1,12 +1,13 @@
 {
   "schema": "forgesense.hardware_baseline.v1",
-  "revision": "HW-BL-002",
+  "revision": "HW-BL-003",
   "status": "schematic_reference_pre_hardware",
   "input": {
     "nominal_v": 12.0,
     "logic_v": 3.3,
     "motor_reference_a": 3.2,
-    "motor_fuse_a": 5.0
+    "motor_fuse_a": 5.0,
+    "protected_entry_profile": "power_entry_v1.json"
   },
   "compute": {
     "fpga": {
@@ -22,8 +23,16 @@
     }
   },
   "power": {
+    "entry": {
+      "efuse": "TPS259470LRPWR",
+      "tvs": "SMBJ15A",
+      "uvlo_reference_v": 9.0333333333,
+      "ovlo_reference_v": 18.0666666667,
+      "current_limit_reference_a": 4.0412121212,
+      "slew_reference_ms_to_12v": 19.8
+    },
     "buck_5v": {
-      "reference": "TPS54202",
+      "reference": "TPS54202DDCR",
       "vin_min_v": 4.5,
       "vin_max_v": 28.0,
       "output_v": 5.0,
@@ -40,7 +49,7 @@
       "feedforward_pf": 75.0
     },
     "quiet_3v3": {
-      "reference": "TPS7A2033",
+      "reference": "TPS7A2033PDBVR",
       "input_v": 5.0,
       "output_v": 3.3,
       "output_current_a": 0.3,
@@ -48,18 +57,19 @@
       "cout_uF": 2.2,
       "minimum_stable_cout_uF": 1.0,
       "consumers": [
-        "ADS131M02",
-        "INA181A1",
-        "TLV3201",
-        "TMP117",
-        "ADXL355",
-        "SN74LVC1G17"
+        "ADS131M02IPWR",
+        "INA181A1IDBVR",
+        "TLV3201AIDBVR",
+        "TMP117AIDRVR",
+        "ADXL355BEZ",
+        "SN74LVC1G17DBVR"
       ]
     }
   },
   "sensing": {
+    "support_profile": "sensor_support_v1.json",
     "current_amplifier": {
-      "reference": "INA181A1",
+      "reference": "INA181A1IDBVR",
       "gain_v_per_v": 20.0,
       "common_mode_v": [-0.2, 26.0],
       "supply_v": [2.7, 5.5]
@@ -71,35 +81,38 @@
       "kelvin_required": true
     },
     "adc": {
-      "reference": "ADS131M02",
+      "reference": "ADS131M02IPWR",
       "resolution_bits": 24,
       "channels": 2,
       "interface": "SPI",
       "max_sample_rate_sps": 64000,
       "avdd_v": 3.3,
       "dvdd_v": 3.3,
-      "reference_mode": "internal"
+      "reference_mode": "internal",
+      "clock_hz": 8192000
     },
     "vibration": {
-      "reference": "ADXL355",
+      "reference": "ADXL355BEZ",
       "interface": "SPI",
+      "spi_mode": 0,
       "digital_resolution_bits": 20,
       "range_g": 8,
       "raw_sample_rate_hz": 1000,
       "supply_v": 3.3
     },
     "temperature": {
-      "reference": "TMP117",
+      "reference": "TMP117AIDRVR",
       "interface": "I2C",
       "resolution_bits": 16,
       "lsb_c": 0.0078125,
       "operating_range_c": [-55, 150],
-      "supply_v": 3.3
+      "supply_v": 3.3,
+      "pullup_ohm_reference": 4990.0
     }
   },
   "safety": {
     "comparator": {
-      "reference": "TLV3201",
+      "reference": "TLV3201AIDBVR",
       "supply_v": 3.3,
       "output": "push_pull",
       "propagation_delay_ns_typ": 40,
@@ -114,11 +127,11 @@
       "healthy_action": "pull_UCC27511A_IN_minus_low",
       "fault_action": "10k_pullup_drives_IN_minus_high",
       "pullup_ohm": 10000.0,
-      "fpga_sense_buffer": "SN74LVC1G17",
+      "fpga_sense_buffer": "SN74LVC1G17DBVR",
       "hardware_gate_inhibit": true
     },
     "gate_driver": {
-      "reference": "UCC27511A",
+      "reference": "UCC27511ADBVR",
       "supply_v": 5.0,
       "command_input": "IN+",
       "hardware_inhibit_input": "IN-",
@@ -132,18 +145,22 @@
       "gate_pulldown_ohm": 100000.0
     },
     "flyback": {
-      "reference": "STPS5L60",
+      "reference": "STPS5L60U",
       "vrrm_v": 60.0,
       "forward_average_a": 5.0
     },
+    "protection_order_a": [3.46, 4.0412121212, 5.0],
     "ml_can_override_hard_trip": false,
     "monitoring_can_drive_actuator": false
   },
   "source_documents": {
+    "TPS25947": "https://www.ti.com/product/TPS25947",
+    "SMBJ15A": "https://www.littelfuse.com/products/tvs-diodes/surface-mount/smbj.aspx",
     "TPS54202": "https://www.ti.com/product/TPS54202",
     "TPS7A20": "https://www.ti.com/product/TPS7A20",
     "INA181": "https://www.ti.com/product/INA181",
     "ADS131M02": "https://www.ti.com/product/ADS131M02",
+    "SiT8924": "https://www.sitime.com/products/automotive-oscillators/sit8924",
     "ADXL355": "https://www.analog.com/en/products/adxl355.html",
     "TMP117": "https://www.ti.com/product/TMP117",
     "TLV3201": "https://www.ti.com/product/TLV3201",
@@ -156,8 +173,8 @@
   },
   "notes": [
     "This revision is a schematic engineering baseline, not procurement authorization, certification evidence, or a claim of functional-safety compliance.",
-    "Buck passive values follow the TPS54202 5 V reference design starting point and must be rechecked after PCB layout and measured load transients.",
-    "The comparator hysteresis footprint is intentionally DNI until measured switching noise defines the required hysteresis.",
-    "Tang Nano 9K external signal pins remain unresolved until a board-header mapping is verified against the exact hardware revision; no guessed FPGA pin numbers are frozen."
+    "The TPS25947 eFuse is a power-entry protection layer. The FPGA analog hard-trip remains the earlier deterministic motor-current intervention path.",
+    "SMBJ15A coordination with the real cable/source surge waveform requires measurement; no automotive load-dump or surge-compliance claim is made.",
+    "Tang Nano 9K external signal pins remain unresolved until the exact board-header mapping is verified; no guessed application pin numbers are frozen."
   ]
 }
