@@ -23,9 +23,12 @@ end entity;
 
 architecture rtl of spi_mode0_byte_engine is
     function half_period_clks(freq : positive; spi_freq : positive) return positive is
+        constant denominator : positive := 2 * spi_freq;
         variable result : natural;
     begin
-        result := freq / (2 * spi_freq);
+        -- Ceiling division guarantees the generated bus clock never exceeds
+        -- SPI_FREQ_HZ when CLK_FREQ_HZ is not an integer multiple.
+        result := (freq + denominator - 1) / denominator;
         if result < 1 then
             return 1;
         end if;
@@ -47,7 +50,7 @@ begin
         severity failure;
 
     assert (CLK_FREQ_HZ mod (2 * SPI_FREQ_HZ)) = 0
-        report "SPI byte engine uses integer half-period division; actual SPI frequency is rounded down"
+        report "SPI byte engine uses ceiling division; actual SPI frequency is below the requested maximum"
         severity warning;
 
     process (clk)
@@ -76,11 +79,9 @@ begin
             elsif clock_count = HALF_CLKS - 1 then
                 clock_count <= 0;
                 if sclk_reg = '0' then
-                    -- SPI mode 0 samples MISO on the rising edge.
                     sclk_reg <= '1';
                     rx_shift(bit_index) <= miso;
                 else
-                    -- Change MOSI only after the falling edge.
                     sclk_reg <= '0';
                     if bit_index = 0 then
                         active <= '0';
