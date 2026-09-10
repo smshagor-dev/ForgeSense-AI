@@ -22,6 +22,10 @@ end entity;
 
 architecture rtl of linear_sensor_adapter is
 begin
+    assert RAW_ZERO >= -8388608 and RAW_ZERO <= 8388607
+        report "RAW_ZERO must fit the signed 24-bit sensor frontend contract"
+        severity failure;
+
     process (clk)
         variable centered_v : signed(31 downto 0);
         variable product_v : signed(63 downto 0);
