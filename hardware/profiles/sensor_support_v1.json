@@ -1,0 +1,91 @@
+{
+  "schema": "forgesense.sensor_support.v1",
+  "revision": "SNS-SUP-001",
+  "status": "schematic_reference_pre_hardware",
+  "rail": "+3V3_QUIET",
+  "adc": {
+    "reference": "ADS131M02IPWR",
+    "package": "TSSOP-20_PW",
+    "avdd_v": 3.3,
+    "dvdd_v": 3.3,
+    "avdd_decoupling_uF": 1.0,
+    "dvdd_decoupling_uF": 1.0,
+    "cap_pin_to_dgnd_nf": 220.0,
+    "reference_mode": "internal_1p2V",
+    "clock": {
+      "reference": "SiT8924BA-22-33E-8.192000",
+      "frequency_hz": 8192000,
+      "supply_v": 3.3,
+      "interface": "LVCMOS_to_CLKIN"
+    },
+    "spi": {
+      "nets": ["ADC_CS_N", "ADC_SPI_SCLK", "ADC_SPI_MOSI", "ADC_SPI_MISO", "ADC_DRDY"],
+      "series_damping_ohm_starting": 33,
+      "crc_required_in_firmware_or_rtl": true
+    },
+    "input_channel_0": {
+      "signal": "CS_OUT",
+      "mode": "single_ended_reference_capture",
+      "anti_alias_note": "retain existing 1k/100n current-sense filter; validate settling against selected ODR/PGA"
+    },
+    "input_channel_1": {
+      "signal": "reserved_analog_service",
+      "default": "not_safety_authoritative"
+    },
+    "grounding": "AVDD_and_DVDD_decoupling_local;_AGND_DGND_join_close_to_ADC"
+  },
+  "vibration": {
+    "reference": "ADXL355",
+    "package": "LCC-14_6x5p6mm",
+    "vsupply_v": 3.3,
+    "vddio_v": 3.3,
+    "use_internal_1p8_ldos": true,
+    "decoupling": {
+      "vsupply_uF": [1.0, 0.1],
+      "vddio_uF": [1.0, 0.1],
+      "v1p8ana_uF": [1.0, 0.1],
+      "v1p8dig_uF": [1.0, 0.1],
+      "ldo_output_bleed_ohm_each": 100000.0
+    },
+    "spi": {
+      "cpol": 0,
+      "cpha": 0,
+      "clock_hz_target": 2000000,
+      "clock_hz_max_datasheet": 10000000,
+      "nets": ["ACC_CS_N", "ACC_SPI_SCLK", "ACC_SPI_MOSI", "ACC_SPI_MISO", "ACC_DRDY"],
+      "dedicated_sclk_preferred": true,
+      "shared_bus_requires_gated_sclk": true
+    },
+    "measurement": {
+      "range_g": 8,
+      "raw_odr_hz": 1000,
+      "drdy_used": true,
+      "startup_discharge_ms_min": 200
+    }
+  },
+  "temperature": {
+    "reference": "TMP117AIDRVR",
+    "package": "WSON-6_DRV",
+    "vdd_v": 3.3,
+    "bypass_uF": 0.1,
+    "address_select": "ADD0_to_GND",
+    "i2c": {
+      "target_hz": 400000,
+      "scl_pullup_ohm": 4990.0,
+      "sda_pullup_ohm": 4990.0,
+      "alert_pullup_ohm": 4990.0,
+      "pullup_rail": "+3V3_QUIET",
+      "nets": ["TEMP_I2C_SCL", "TEMP_I2C_SDA", "TEMP_ALERT"]
+    },
+    "alert": {
+      "used_for_diagnostics": true,
+      "not_a_replacement_for_fpga_normalized_temperature_hard_limit": true
+    }
+  },
+  "notes": [
+    "ADS131M02 AVDD and DVDD each use local 1 uF decoupling; CAP uses 220 nF because DVDD is above 2.7 V.",
+    "The 8.192 MHz ADC clock matches the nominal high-resolution clock used in ADS131M02 characterization and data-rate tables.",
+    "ADXL355 SPI is CPOL=0/CPHA=0; a dedicated clock is preferred because the datasheet recommends gated SCLK when sharing the bus for lowest-noise operation.",
+    "TMP117 uses the datasheet 5 kOhm-class pull-up recommendation and 0.1 uF local bypass; final I2C pull-ups remain subject to measured bus capacitance."
+  ]
+}
