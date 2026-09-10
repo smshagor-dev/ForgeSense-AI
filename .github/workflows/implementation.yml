@@ -74,6 +74,8 @@ jobs:
           ghdl -a --std=08 fpga/rtl/io/uart_rx.vhd
           ghdl -a --std=08 fpga/rtl/io/uart_tx.vhd
           ghdl -a --std=08 fpga/rtl/io/link_tx_arbiter.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_contract_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_supervisor.vhd
           ghdl -a --std=08 fpga/rtl/sensing/sample_scheduler.vhd
           ghdl -a --std=08 fpga/rtl/sensing/timebase_ms.vhd
           ghdl -a --std=08 fpga/rtl/top/safety_core.vhd
@@ -95,6 +97,11 @@ jobs:
           ghdl -a --std=08 fpga/tb/tb_sensor_link_tx.vhd
           ghdl -e --std=08 tb_sensor_link_tx
           ghdl -r --std=08 tb_sensor_link_tx --assert-level=error
+      - name: Run sensor freshness supervisor testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_sensor_supervisor.vhd
+          ghdl -e --std=08 tb_sensor_supervisor
+          ghdl -r --std=08 tb_sensor_supervisor --assert-level=error
       - name: Run FPGA status transmitter testbench
         run: |
           ghdl -a --std=08 fpga/tb/tb_status_link_tx.vhd

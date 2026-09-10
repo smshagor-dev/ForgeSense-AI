@@ -1,0 +1,14 @@
+{
+  "schema": "forgesense.sensor_contract.v1",
+  "contract_version": 1,
+  "channels": {
+    "temperature": {"wire_unit": "deci_c", "minimum": -400, "maximum": 1250, "stale_after_ms": 1000, "required": true},
+    "vibration": {"wire_unit": "milli_g_rms", "minimum": 0, "maximum": 16000, "stale_after_ms": 500, "required": true},
+    "current": {"wire_unit": "milli_a", "minimum": 0, "maximum": 20000, "stale_after_ms": 500, "required": true}
+  },
+  "export": {"snapshot_rate_hz": 10},
+  "notes": [
+    "Vibration is an RMS feature exported after a higher-rate acquisition window; this contract does not define the raw accelerometer sample rate.",
+    "Plausibility limits are development guards, not certified machine safety limits."
+  ]
+}
