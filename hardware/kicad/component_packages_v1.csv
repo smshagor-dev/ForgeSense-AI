@@ -1,0 +1,15 @@
+RefDes,Function,Manufacturer,Orderable MPN,Package,Pins,Capture status
+U_EFUSE,Protected power entry,Texas Instruments,TPS259470LRPWR,VQFN-HR RPW 2x2mm,10,package_verified_footprint_binding_pending
+D_TVS,Input transient clamp,Littelfuse,SMBJ15A,SMB DO-214AA,2,package_verified_footprint_binding_pending
+U_BUCK,12V to 5V buck,Texas Instruments,TPS54202DDCR,SOT-23-THN DDC,6,package_verified_footprint_binding_pending
+U_3V3,Quiet 3.3V LDO,Texas Instruments,TPS7A2033PDBVR,SOT-23 DBV,5,package_verified_footprint_binding_pending
+U_CS,Current sense,Texas Instruments,INA181A1IDBVR,SOT-23 DBV,6,package_verified_footprint_binding_pending
+U_COMP,Hard-trip comparator,Texas Instruments,TLV3201AIDBVR,SOT-23 DBV,5,package_verified_footprint_binding_pending
+U_ADC,Precision ADC,Texas Instruments,ADS131M02IPWR,TSSOP PW,20,package_verified_footprint_binding_pending
+Y_ADC,ADC master clock,SiTime,SiT8924BA-22-33E-8.192000,3.2x2.5mm 4-SMD,4,package_verified_footprint_binding_pending
+U_ACC,Vibration sensor,Analog Devices,ADXL355BEZ,LCC 6x6mm,14,package_verified_footprint_binding_pending
+U_TEMP,Temperature sensor,Texas Instruments,TMP117AIDRVR,WSON DRV 2x2mm,6,package_verified_footprint_binding_pending
+U_EBUF,E-stop FPGA sense buffer,Texas Instruments,SN74LVC1G17DBVR,SOT-23 DBV,5,package_verified_footprint_binding_pending
+U_GATE,Motor MOSFET driver,Texas Instruments,UCC27511ADBVR,SOT-23 DBV,6,package_verified_footprint_binding_pending
+Q_MOTOR,Motor low-side MOSFET,Texas Instruments,CSD18540Q5B,VSON-CLIP DNK 5x6mm,8,package_verified_footprint_binding_pending
+D_FLY,Motor flyback,STMicroelectronics,STPS5L60U,SMB,2,package_verified_footprint_binding_pending
