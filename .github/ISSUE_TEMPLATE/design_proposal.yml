@@ -1,0 +1,36 @@
+name: Design proposal
+description: Propose a technical architecture or subsystem change
+title: "design: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What measurable problem or requirement needs a design change?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed design
+      description: Describe interfaces, state, data flow, and failure behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: How will we prove this change works and remains safe?
+    validations:
+      required: true
+  - type: textarea
+    id: cost
+    attributes:
+      label: Cost and resource impact
+      description: Include FPGA resources, MCU memory/latency, BOM cost, or maintenance cost where relevant.

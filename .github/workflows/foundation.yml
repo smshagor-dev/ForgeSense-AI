@@ -1,0 +1,66 @@
+name: Foundation checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Verify required project files
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            README.md
+            LICENSE
+            CONTRIBUTING.md
+            CODE_OF_CONDUCT.md
+            SECURITY.md
+            ROADMAP.md
+            CHANGELOG.md
+            docs/README.md
+            docs/ARCHITECTURE.md
+            docs/SAFETY_MODEL.md
+            docs/VERIFICATION.md
+            docs/IP_AND_PUBLICATION.md
+          )
+          for file in "${required[@]}"; do
+            test -s "$file" || { echo "Missing or empty required file: $file"; exit 1; }
+          done
+
+      - name: Reject common committed secret file names
+        shell: bash
+        run: |
+          set -euo pipefail
+          tracked="$(git ls-files)"
+          if printf '%s\n' "$tracked" | grep -E '(^|/)(\.env|id_rsa|id_ed25519|credentials\.json|secrets?\.(json|ya?ml))$'; then
+            echo "A commonly sensitive file name is tracked. Remove it and rotate any exposed secret."
+            exit 1
+          fi
+
+      - name: Check for merge-conflict markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- . ':!*.md'; then
+            echo "Merge-conflict marker found."
+            exit 1
+          fi
+
+      - name: Validate line endings
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -Il $'\r' -- '*.md' '*.yml' '*.yaml' '*.py' '*.vhd' '*.vhdl' '*.c' '*.h' '*.cpp' '*.hpp' '*.ts' '*.tsx' '*.js' 2>/dev/null | grep .; then
+            echo "CRLF detected in a text file expected to use LF."
+            exit 1
+          fi

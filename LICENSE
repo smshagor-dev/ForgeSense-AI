@@ -1,0 +1,29 @@
+ForgeSense AI Development License
+Copyright (c) 2026 Md Shahanur Islam Shagor. All rights reserved.
+
+This repository, including its source code, hardware descriptions, schematics,
+PCB designs, documentation, datasets, models, protocols, diagrams, and related
+materials (the "Work"), is proprietary unless a specific file states otherwise.
+
+No permission is granted to copy, reproduce, modify, distribute, publish,
+sublicense, manufacture from, commercialize, sell, deploy, or create derivative
+works from the Work without prior written permission from the copyright holder.
+
+Viewing or evaluating the Work through an authorized repository account does not
+transfer ownership or grant any patent, design, mask-work, trademark, trade-secret,
+manufacturing, or commercial license.
+
+Contributions accepted into this repository may be used, modified, tested, and
+incorporated into the project by the repository owner. Contributors must only
+submit material they have the right to contribute and must disclose third-party
+license obligations before submission.
+
+THE WORK IS PROVIDED FOR DEVELOPMENT AND EVALUATION "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, SAFETY, RELIABILITY, OR FITNESS FOR
+INDUSTRIAL USE. THE COPYRIGHT HOLDER IS NOT LIABLE FOR ANY CLAIM, DAMAGES, OR
+OTHER LIABILITY ARISING FROM USE OF THE WORK.
+
+This development license may be replaced or supplemented by a public license for
+specific releases or directories in the future. Such a change applies only where
+explicitly stated and does not retroactively grant rights beyond its stated scope.

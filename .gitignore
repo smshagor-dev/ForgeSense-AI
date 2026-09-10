@@ -1,0 +1,87 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets / local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# Python / ML
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+ml/runs/
+ml/checkpoints/
+ml/artifacts/
+*.onnx
+*.tflite
+*.keras
+*.h5
+
+# Node / dashboard
+node_modules/
+.next/
+coverage/
+*.log
+
+# ESP-IDF / embedded
+sdkconfig
+sdkconfig.old
+managed_components/
+firmware/build/
+
+# FPGA / EDA generated
+*.cf
+*.o
+*.jou
+*.log
+*.wlf
+*.vcd
+*.fst
+*.ghw
+*.bit
+*.bin
+*.fs
+*.svf
+*.rpt
+*.tmp
+fpga/build/
+fpga/work/
+
+# PCB / EDA backups and generated outputs
+*.bak
+*.bck
+*-backups/
+*.lck
+hardware/generated/
+hardware/manufacturing/private/
+
+# Data
+*.parquet
+*.npy
+*.npz
+data/raw/
+data/private/
+
+# Local test artifacts
+artifacts/
+tmp/
+temp/
