@@ -2,98 +2,102 @@
 
 ## Scope
 
-These circuits define a testable electrical starting point for the 12 V ForgeSense prototype. They are engineering references, not final certified hardware. Final resistor tolerances, semiconductor part numbers, thermal margins, creepage/clearance, PCB copper, EMC behavior, and machine-specific trip values require measured hardware evidence.
+These circuits define the component-backed electrical starting point for the 12 V ForgeSense reference platform. They remain engineering references rather than certified hardware. Machine-specific limits, EMC, connector ratings, PCB thermal behavior, switching transients, and safety integrity require physical evidence.
 
-The machine-readable source is `hardware/profiles/reference_circuit_v1.json`.
+Machine-readable sources:
+
+- `hardware/profiles/reference_circuit_v1.json`
+- `hardware/profiles/hardware_baseline_v1.json`
+- `hardware/kicad/schematic_contract_v1.json`
 
 ## Power tree
 
 ```text
 12 V input
   |
-  +-- input fuse
-  +-- reverse-polarity protection
-  +-- transient suppression
-  +-- bulk/local decoupling
+  +-- fuse / reverse-polarity / transient protection
   |
-  +-- protected motor branch
+  +-- motor branch
   |
-  +-- 5 V regulator
-        |
-        +-- 3.3 V regulator / board rail
-              |
-              +-- FPGA
-              +-- ESP32-S3
-              +-- sensors / ADC / logic
+  +-- TPS54202 --> +5V_LOGIC
+                       |
+                       +-- Tang Nano 9K
+                       +-- ESP32-S3 DevKit
+                       +-- UCC27511A
+                       |
+                       +-- TPS7A2033 --> +3V3_QUIET
+                                              |
+                                              +-- INA181A1
+                                              +-- ADS131M02
+                                              +-- TLV3201
+                                              +-- ADXL355
+                                              +-- TMP117
 ```
 
-Motor switching current must not return through sensitive logic paths. Ground/current-return layout, shunt Kelvin routing, regulator placement, and decoupling are PCB design items, not merely schematic details.
+TPS54202 is configured from TI's 5 V reference starting network: 15 uH, 10 uF + 0.1 uF input capacitance, 0.1 uF bootstrap, 2 × 22 uF output, 100 kOhm / 13.3 kOhm feedback, and 75 pF feed-forward.
 
 ## Current-sense reference
 
-The concrete baseline now maps the earlier generic current-sense block to a 25 mOhm Kelvin shunt and an INA181A1-class 20 V/V current-sense amplifier. At the 3.2 A reference current this produces about 80 mV across the shunt and 1.60 V at the measurement output. Shunt dissipation is about 0.256 W, while the preliminary BOM keeps at least a 1 W requirement and prefers 2 W before measured thermal derating.
+The reference uses a 25 mOhm Kelvin shunt and INA181A1 at gain 20 V/V.
 
-A 1 kOhm / 100 nF measurement filter gives an analytical cutoff near 1.59 kHz. A separate comparator-style backup reference near 1.73 V corresponds to about 3.46 A and remains independent of software inference.
+At 3.2 A:
 
-The comparator output is represented in RTL as `analog_hard_trip` at `forgesense_phy_board_core`. It propagates through `external_hard_trip` into `safety_core`, joins the deterministic hard-critical path, disables the protected output, latches the FPGA fault state, and appears in FPGA status as hard-critical. It is not represented as an emergency input and is not sourced by the ESP32-S3.
+- shunt voltage: 80 mV;
+- amplifier output: 1.60 V;
+- shunt dissipation: 0.256 W.
 
-The backup comparator is an additional protection path, not permission to weaken normalized FPGA hard limits.
+The ADC path retains the 1 kOhm / 100 nF reference filter.
 
-## Precision acquisition baseline
+## Independent overcurrent backup
 
-The current hardware baseline uses ADS131M02 as the precision-ADC reference. It provides two simultaneously sampled 24-bit channels over SPI and supports programmable data rates up to 64 kSPS. The exact input network, reference/clock implementation, selected data rate, channel allocation, and anti-alias components still require graphical schematic capture and validation.
+TLV3201 compares `CS_OUT` against a divider-generated reference. With 47.5 kOhm from 3.3 V to `CS_TRIP_REF` and 52.3 kOhm from the node to ground, the ideal reference is about 1.729 V. The resulting current threshold is about 3.46 A.
 
-## Vibration and temperature baseline
+`ANALOG_HARD_TRIP` feeds the FPGA deterministic safety path. It is independent of ML and the ESP32-S3.
 
-ADXL355 is the low-noise digital vibration reference. SPI is preferred so the raw acceleration path remains isolated from the slower I2C temperature bus. The current software contract consumes conditioned milli-g samples and computes RMS windows downstream.
+A hysteresis footprint is reserved but not populated until switching-noise measurements support a value.
 
-TMP117 is the digital temperature reference over I2C/SMBus. Its output must still pass the existing normalized range/freshness supervision before becoming safety-valid.
+## Gate drive and motor switch
 
-## Protected motor output
+UCC27511A runs from 5 V. The topology uses its two logic inputs as a hardware interlock:
 
-The motor-output reference uses a low-side N-channel MOSFET behavioral model with:
+```text
+FPGA_LOAD_ENABLE ---------> IN+
+ESTOP_INHIBIT_5V ---------> IN-
+                               |
+                               v
+                         UCC27511A
+                               |
+                     22R on / 4.7R off
+                               |
+                               v
+                        CSD18540Q5B
+```
 
-- minimum 40 V drain-source rating target for a 12 V prototype;
-- 33 Ohm gate resistor;
-- 100 kOhm gate pulldown;
-- flyback path across the inductive load;
-- hardware E-stop gate inhibit in addition to FPGA command logic;
-- 5 A reference fuse target.
+The driver output can be high only when `IN+` is high and `IN-` is low. That makes the inverting input suitable for a physical active-high inhibit.
 
-The final MOSFET must be specified for low RDS(on) at the actual available gate voltage, not merely at a 10 V datasheet condition. The final flyback/TVS network must be selected from measured motor current and transient energy.
+CSD18540Q5B is a 60 V N-MOSFET with a maximum 3.3 mOhm RDS(on) specification at 4.5 V gate drive. A 100 kOhm gate pulldown keeps the switch off if drive is absent.
 
-## E-stop principle
+STPS5L60 is the 60 V, 5 A flyback reference.
 
-The emergency input must have two effects in the final circuit:
+## E-stop fail behavior
 
-1. enter the FPGA deterministic emergency/fault state; and
-2. physically inhibit the output-driver gate/enable path.
+The E-stop loop is normally closed. Healthy wiring pulls `ESTOP_INHIBIT_5V` low. A pressed switch or cable-open condition leaves the 10 kOhm pull-up in control and drives the node high, disabling UCC27511A.
 
-This avoids relying on the edge processor or ML software to remove motor drive.
-
-## Independent protection paths
-
-The architecture distinguishes three separate intervention sources:
-
-- normalized FPGA hard limits derived from validated temperature/vibration/current measurements;
-- the independent analog comparator `external_hard_trip` path;
-- the physical E-stop path.
-
-ML remains predictive/advisory and cannot mask any of the three.
+SN74LVC1G17 translates/conditions this 5 V inhibit node into a 3.3 V FPGA-readable signal. The output-disable path itself does not depend on the FPGA.
 
 ## SPICE references
 
 - `hardware/circuits/current_sense_reference.cir`
 - `hardware/circuits/motor_output_reference.cir`
 
-The current-sense file is a behavioral mapping of the 25 mOhm / 20 V/V baseline, not a transistor-level vendor macro-model. The files still require execution in a SPICE simulator before SPICE evidence is claimed.
+They are behavioral verification inputs. A SPICE file in the repository is not simulation evidence until executed with a compatible simulator and retained with results.
 
-## Analytical check
+## Analytical checks
 
 Run:
 
 ```bash
-python tools/check_reference_circuits.py
+make hardware-check
 ```
 
-The check verifies current-sense headroom, shunt thermal margin, backup-trip ordering, MOSFET voltage-rating target, RC cutoff, flyback requirement, and hardware E-stop inhibit policy.
+Checks include rail/component contracts, current transfer, shunt thermal ratio, divider threshold, backup-trip ordering, MOSFET/flyback voltage and current ratings, E-stop fail-high behavior, BOM coverage, and unresolved FPGA pin safeguards.
