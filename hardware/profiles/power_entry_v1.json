@@ -1,0 +1,83 @@
+{
+  "schema": "forgesense.power_entry.v1",
+  "revision": "PWR-IN-001",
+  "status": "schematic_reference_pre_hardware",
+  "input": {
+    "nominal_v": 12.0,
+    "expected_source": "regulated_12V_DC_adapter_or_lab_supply",
+    "continuous_reference_a": 3.2,
+    "passive_fuse_a": 5.0
+  },
+  "tvs": {
+    "reference": "Littelfuse SMBJ15A",
+    "polarity": "unidirectional",
+    "reverse_standoff_v": 15.0,
+    "breakdown_min_v": 16.7,
+    "clamp_max_v_at_ipp": 24.4,
+    "peak_pulse_w": 600.0,
+    "placement": "after_F1_across_VIN_RAW_to_GND",
+    "validation_note": "TVS/source-impedance pulse coordination must be measured before any surge-compliance claim"
+  },
+  "efuse": {
+    "reference": "TPS259470LRPWR",
+    "family": "TPS25947",
+    "response": "current_limit_with_latch_off_variant",
+    "vin_operating_v": [2.7, 23.0],
+    "vin_abs_max_v": 28.0,
+    "continuous_switch_a": 5.5,
+    "ron_typ_mohm": 28.3,
+    "reverse_polarity_protection": true,
+    "true_reverse_current_blocking": true,
+    "uvlo": {
+      "target_v_ideal": 9.0,
+      "r1_top_ohm": 470000.0,
+      "r2_mid_ohm": 36000.0,
+      "r3_bottom_ohm": 36000.0,
+      "threshold_reference_v": 1.2
+    },
+    "ovlo": {
+      "target_v_ideal": 18.0,
+      "same_three_resistor_string": true,
+      "threshold_reference_v": 1.2
+    },
+    "overcurrent": {
+      "target_a": 4.0,
+      "rilm_ohm": 825.0,
+      "equation_numerator": 3334.0,
+      "expected_from_rilm_a": 4.0412121212,
+      "ordering": "above_3p46A_analog_trip_below_5A_fuse"
+    },
+    "blanking": {
+      "itimer_cap_nf": 12.0,
+      "reference_discharge_current_uA": 1.8,
+      "reference_delta_v": 1.51,
+      "approx_ms": 10.0666666667
+    },
+    "slew": {
+      "dvdt_cap_pf": 3300.0,
+      "reference_equation_constant": 2000.0,
+      "approx_v_per_ms": 0.6060606061,
+      "approx_12v_rise_ms": 19.8
+    },
+    "fault_output": "PWR_ENTRY_FAULT_N_to_observation_only",
+    "must_not_enable_motor": true
+  },
+  "output": {
+    "net": "VIN_12V_PROTECTED",
+    "bulk_cap_uF_starting": 100.0,
+    "ceramic_cap_uF": 1.0,
+    "feeds": ["motor_branch", "TPS54202"]
+  },
+  "protection_order": [
+    "connector",
+    "5A_passive_fuse",
+    "SMBJ15A_TVS",
+    "TPS259470L_eFuse",
+    "VIN_12V_PROTECTED"
+  ],
+  "notes": [
+    "The 4 A eFuse threshold is a power-entry protection layer and does not replace the independent approximately 3.46 A analog FPGA hard-trip path.",
+    "The selected TVS clamps below the eFuse 28 V absolute maximum at its specified pulse point, but real cable/source inductance and surge energy must be measured.",
+    "The input source is currently constrained to a regulated 12 V DC adapter or lab supply; automotive load-dump compliance is not claimed."
+  ]
+}
