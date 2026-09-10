@@ -84,7 +84,7 @@ begin
                   rx_byte => spi_rx, sclk => sclk, mosi => din);
 
     process(clk)
-        variable id_ok, clock_ok, status_ok : boolean;
+        variable id_ok, clock_ok, frame_ok : boolean;
     begin
         if rising_edge(clk) then
             spi_start <= '0'; frame_error <= '0'; sample_valid <= '0'; drdy_d <= drdy_n;
@@ -130,8 +130,11 @@ begin
                                 if clock_ok then startup_step <= 5; device_ok_reg <= '1'; state <= WAIT_TRIGGER;
                                 else frame_error <= '1'; state <= FAULT_HOLD; end if;
                             when FRAME_SAMPLE =>
-                                status_ok := crc_is_valid(frame_bytes) and frame_bytes(0)(1 downto 0) = "01" and frame_bytes(2) = x"00";
-                                if status_ok then
+                                -- The response word is STATUS after a NULL command. WLENGTH lives
+                                -- in MODE and must not be inferred from STATUS low bits. A normal
+                                -- sample is accepted only when the mandatory output CRC validates.
+                                frame_ok := crc_is_valid(frame_bytes);
+                                if frame_ok then
                                     status_word <= frame_bytes(0) & frame_bytes(1);
                                     channel0_raw <= signed(frame_bytes(3) & frame_bytes(4) & frame_bytes(5));
                                     channel1_raw <= signed(frame_bytes(6) & frame_bytes(7) & frame_bytes(8));
