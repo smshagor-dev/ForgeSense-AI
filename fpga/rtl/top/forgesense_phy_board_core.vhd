@@ -25,22 +25,18 @@ entity forgesense_phy_board_core is
         rst : in std_logic;
         uart_rx_i : in std_logic;
         uart_tx_o : out std_logic;
-
         temperature_sample_valid : in std_logic;
         temperature_deci_c_sample : in signed(15 downto 0);
         temperature_sample_error : in std_logic;
-
         current_adc_valid : in std_logic;
         current_adc_signed24 : in signed(23 downto 0);
         current_adc_error : in std_logic;
-
         vibration_sample_valid : in std_logic;
         vibration_sample_milli_g : in signed(15 downto 0);
         vibration_sample_error : in std_logic;
-
         emergency : in std_logic;
+        analog_hard_trip : in std_logic := '0';
         recovery_req : in std_logic;
-
         state_code : out std_logic_vector(2 downto 0);
         load_enable : out std_logic;
         warning_active : out std_logic;
@@ -75,9 +71,7 @@ begin
 
     temperature_phy : entity work.digital_temperature_adapter
         port map (
-            clk => clk,
-            rst => rst,
-            sample_valid => temperature_sample_valid,
+            clk => clk, rst => rst, sample_valid => temperature_sample_valid,
             temperature_deci_c_in => temperature_deci_c_sample,
             sample_error => temperature_sample_error,
             normalized_valid => temp_norm_valid,
@@ -89,22 +83,16 @@ begin
 
     current_phy : entity work.generic_adc_sample_adapter
         port map (
-            clk => clk,
-            rst => rst,
-            sample_valid => current_adc_valid,
-            sample_signed24 => current_adc_signed24,
-            sample_error => current_adc_error,
-            raw_valid => current_raw_valid_i,
-            raw_value => current_raw_i,
+            clk => clk, rst => rst, sample_valid => current_adc_valid,
+            sample_signed24 => current_adc_signed24, sample_error => current_adc_error,
+            raw_valid => current_raw_valid_i, raw_value => current_raw_i,
             diagnostic_error => current_error_i
         );
 
     vibration_phy : entity work.accelerometer_conditioner
         generic map (ABS_LIMIT_MILLI_G => VIBRATION_ABS_LIMIT_MILLI_G)
         port map (
-            clk => clk,
-            rst => rst,
-            sample_valid => vibration_sample_valid,
+            clk => clk, rst => rst, sample_valid => vibration_sample_valid,
             sample_milli_g => vibration_sample_milli_g,
             sample_error => vibration_sample_error,
             conditioned_valid => vibration_conditioned_valid_i,
@@ -115,26 +103,20 @@ begin
 
     phy_self_test : entity work.sensor_self_test
         port map (
-            clk => clk,
-            rst => rst,
-            monotonic_ms => monotonic_ms_i,
+            clk => clk, rst => rst, monotonic_ms => monotonic_ms_i,
             temperature_update => temp_norm_valid,
             current_update => current_raw_valid_i,
             vibration_update => vibration_conditioned_valid_i,
             temperature_error => temp_error_i,
             current_error => current_error_i,
             vibration_error => vibration_range_error_i or vibration_transport_error_i,
-            calibration_valid => '1',
-            self_test_pass => self_test_i,
-            temperature_alive => open,
-            current_alive => open,
-            vibration_alive => open
+            calibration_valid => '1', self_test_pass => self_test_i,
+            temperature_alive => open, current_alive => open, vibration_alive => open
         );
 
     sensor_board : entity work.forgesense_sensor_board_core
         generic map (
-            CLK_FREQ_HZ => CLK_FREQ_HZ,
-            UART_BAUD_RATE => UART_BAUD_RATE,
+            CLK_FREQ_HZ => CLK_FREQ_HZ, UART_BAUD_RATE => UART_BAUD_RATE,
             SENSOR_SAMPLE_RATE_HZ => SENSOR_SAMPLE_RATE_HZ,
             STATUS_RATE_HZ => STATUS_RATE_HZ,
             WATCHDOG_TIMEOUT_MS => WATCHDOG_TIMEOUT_MS,
@@ -149,22 +131,15 @@ begin
             VIBRATION_WINDOW_SAMPLES => VIBRATION_WINDOW_SAMPLES
         )
         port map (
-            clk => clk,
-            rst => rst,
-            uart_rx_i => uart_rx_i,
-            uart_tx_o => uart_tx_o,
-            temperature_raw_valid => temp_norm_valid,
-            temperature_raw => temp_raw24_i,
-            current_raw_valid => current_raw_valid_i,
-            current_raw => current_raw_i,
+            clk => clk, rst => rst, uart_rx_i => uart_rx_i, uart_tx_o => uart_tx_o,
+            temperature_raw_valid => temp_norm_valid, temperature_raw => temp_raw24_i,
+            current_raw_valid => current_raw_valid_i, current_raw => current_raw_i,
             vibration_sample_valid => vibration_conditioned_valid_i,
             vibration_conditioned_milli_g => vibration_conditioned_i,
-            emergency => emergency,
+            emergency => emergency, external_hard_trip => analog_hard_trip,
             recovery_req => recovery_req,
-            state_code => state_code,
-            load_enable => load_enable,
-            warning_active => warning_active,
-            fault_latched => fault_latched,
+            state_code => state_code, load_enable => load_enable,
+            warning_active => warning_active, fault_latched => fault_latched,
             operational_ready => operational_ready,
             uart_framing_error => uart_framing_error,
             sensor_sample_dropped => sensor_sample_dropped,

@@ -19,7 +19,8 @@
     "adc_full_scale_v": 3.3,
     "filter_r_ohm": 1000.0,
     "filter_c_f": 1e-7,
-    "backup_trip_reference_v": 1.73
+    "backup_trip_reference_v": 1.73,
+    "backup_trip_target": "fpga_external_hard_trip"
   },
   "power": {
     "input_fuse_required": true,
@@ -31,7 +32,7 @@
   },
   "notes": [
     "Reference values are for low-voltage prototype analysis and are not final certified component values.",
-    "The analog overcurrent comparator is an independent backup indication and does not replace FPGA hard-limit logic.",
+    "The analog overcurrent comparator feeds the independent FPGA external hard-trip path and does not replace normalized FPGA hard-limit logic.",
     "Final ratings require the selected motor, MOSFET, regulator, sensor, PCB copper, thermal design, and measured transients."
   ]
 }

@@ -9,6 +9,7 @@ entity safety_core is
         rst : in std_logic;
         startup_done : in std_logic;
         emergency : in std_logic;
+        external_hard_trip : in std_logic := '0';
         sensors_valid : in std_logic;
         temperature_deci_c : in unsigned(15 downto 0);
         vibration_milli_g : in unsigned(15 downto 0);
@@ -30,6 +31,7 @@ end entity;
 
 architecture rtl of safety_core is
     signal hard_warning_i : std_logic;
+    signal hard_critical_limits_i : std_logic;
     signal hard_critical_i : std_logic;
     signal comm_timeout_i : std_logic;
     signal watchdog_rst_i : std_logic;
@@ -41,8 +43,13 @@ begin
             current_milli_a => current_milli_a,
             sensors_valid => sensors_valid,
             hard_warning => hard_warning_i,
-            hard_critical => hard_critical_i
+            hard_critical => hard_critical_limits_i
         );
+
+    -- Independent physical comparators/interlocks join the same deterministic
+    -- hard-critical path as normalized FPGA limits. This signal is not sourced
+    -- by the edge processor or monitoring software.
+    hard_critical_i <= hard_critical_limits_i or external_hard_trip;
 
     watchdog_rst_i <= rst or not startup_done;
 

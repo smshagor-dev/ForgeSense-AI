@@ -24,17 +24,15 @@ entity forgesense_sensor_board_core is
         rst : in std_logic;
         uart_rx_i : in std_logic;
         uart_tx_o : out std_logic;
-
         temperature_raw_valid : in std_logic;
         temperature_raw : in signed(23 downto 0);
         current_raw_valid : in std_logic;
         current_raw : in signed(23 downto 0);
         vibration_sample_valid : in std_logic;
         vibration_conditioned_milli_g : in signed(15 downto 0);
-
         emergency : in std_logic;
+        external_hard_trip : in std_logic := '0';
         recovery_req : in std_logic;
-
         state_code : out std_logic_vector(2 downto 0);
         load_enable : out std_logic;
         warning_active : out std_logic;
@@ -58,11 +56,7 @@ architecture rtl of forgesense_sensor_board_core is
 begin
     frontend_timebase : entity work.timebase_ms
         generic map (CLK_FREQ_HZ => CLK_FREQ_HZ)
-        port map (
-            clk => clk,
-            rst => rst,
-            monotonic_ms => monotonic_ms_i
-        );
+        port map (clk => clk, rst => rst, monotonic_ms => monotonic_ms_i);
 
     frontend : entity work.sensor_frontend
         generic map (
@@ -77,8 +71,7 @@ begin
             VIBRATION_WINDOW_SAMPLES => VIBRATION_WINDOW_SAMPLES
         )
         port map (
-            clk => clk,
-            rst => rst,
+            clk => clk, rst => rst,
             temperature_raw_valid => temperature_raw_valid,
             temperature_raw => temperature_raw,
             current_raw_valid => current_raw_valid,
@@ -97,49 +90,32 @@ begin
 
     supervisor : entity work.sensor_supervisor
         port map (
-            clk => clk,
-            rst => rst,
-            monotonic_ms => monotonic_ms_i,
-            temperature_update => temp_update_i,
-            temperature_deci_c_in => temp_i,
-            vibration_update => vibration_update_i,
-            vibration_milli_g_in => vibration_i,
-            current_update => current_update_i,
-            current_milli_a_in => current_i,
-            temperature_deci_c => open,
-            vibration_milli_g => open,
-            current_milli_a => open,
-            temperature_valid => temp_valid_i,
-            vibration_valid => vibration_valid_i,
-            current_valid => current_valid_i,
-            sensors_valid => sensors_valid_i
+            clk => clk, rst => rst, monotonic_ms => monotonic_ms_i,
+            temperature_update => temp_update_i, temperature_deci_c_in => temp_i,
+            vibration_update => vibration_update_i, vibration_milli_g_in => vibration_i,
+            current_update => current_update_i, current_milli_a_in => current_i,
+            temperature_deci_c => open, vibration_milli_g => open, current_milli_a => open,
+            temperature_valid => temp_valid_i, vibration_valid => vibration_valid_i,
+            current_valid => current_valid_i, sensors_valid => sensors_valid_i
         );
 
     board : entity work.forgesense_board_core
         generic map (
-            CLK_FREQ_HZ => CLK_FREQ_HZ,
-            UART_BAUD_RATE => UART_BAUD_RATE,
+            CLK_FREQ_HZ => CLK_FREQ_HZ, UART_BAUD_RATE => UART_BAUD_RATE,
             SENSOR_SAMPLE_RATE_HZ => SENSOR_SAMPLE_RATE_HZ,
             STATUS_RATE_HZ => STATUS_RATE_HZ,
             WATCHDOG_TIMEOUT_MS => WATCHDOG_TIMEOUT_MS
         )
         port map (
-            clk => clk,
-            rst => rst,
-            uart_rx_i => uart_rx_i,
-            uart_tx_o => uart_tx_o,
-            temperature_deci_c => temp_i,
-            vibration_milli_g => vibration_i,
+            clk => clk, rst => rst, uart_rx_i => uart_rx_i, uart_tx_o => uart_tx_o,
+            temperature_deci_c => temp_i, vibration_milli_g => vibration_i,
             current_milli_a => current_i,
-            temperature_valid => temp_valid_i,
-            vibration_valid => vibration_valid_i,
+            temperature_valid => temp_valid_i, vibration_valid => vibration_valid_i,
             current_valid => current_valid_i,
-            emergency => emergency,
+            emergency => emergency, external_hard_trip => external_hard_trip,
             recovery_req => recovery_req,
-            state_code => state_code,
-            load_enable => load_enable,
-            warning_active => warning_active,
-            fault_latched => fault_latched,
+            state_code => state_code, load_enable => load_enable,
+            warning_active => warning_active, fault_latched => fault_latched,
             operational_ready => operational_ready,
             uart_framing_error => uart_framing_error,
             sensor_sample_dropped => sensor_sample_dropped
