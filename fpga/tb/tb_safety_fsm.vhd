@@ -35,24 +35,50 @@ begin
         wait for 20 ns;
         rst <= '0';
         wait until rising_edge(clk);
-        assert load_enable = '0' report "startup must be safe" severity failure;
+        assert load_enable = '0'
+            report "startup must be safe"
+            severity failure;
 
+        ml_valid <= '1';
+        ml_critical <= '1';
         startup_done <= '1';
         wait until rising_edge(clk);
         wait for 1 ns;
-        assert state_code = "001" and load_enable = '1' report "normal startup did not reach RUN" severity failure;
+        assert state_code = "011" and load_enable = '0'
+            report "critical first intelligence must never transiently energize load"
+            severity failure;
+
+        rst <= '1';
+        wait until rising_edge(clk);
+        wait for 1 ns;
+        rst <= '0';
+        ml_valid <= '0';
+        ml_critical <= '0';
+        startup_done <= '0';
+
+        wait until rising_edge(clk);
+        startup_done <= '1';
+        wait until rising_edge(clk);
+        wait for 1 ns;
+        assert state_code = "001" and load_enable = '1'
+            report "normal startup did not reach RUN"
+            severity failure;
 
         hard_warning <= '1';
         wait until rising_edge(clk);
         wait for 1 ns;
-        assert state_code = "010" and warning_active = '1' and load_enable = '1' report "hard warning behavior incorrect" severity failure;
+        assert state_code = "010" and warning_active = '1' and load_enable = '1'
+            report "hard warning behavior incorrect"
+            severity failure;
 
         hard_warning <= '0';
         ml_valid <= '1';
         ml_critical <= '1';
         wait until rising_edge(clk);
         wait for 1 ns;
-        assert state_code = "011" and load_enable = '0' report "accepted ML critical must request safe shutdown" severity failure;
+        assert state_code = "011" and load_enable = '0'
+            report "accepted ML critical must request safe shutdown"
+            severity failure;
 
         ml_critical <= '0';
         recovery_req <= '1';
@@ -60,19 +86,26 @@ begin
         recovery_req <= '0';
         wait until rising_edge(clk);
         wait for 1 ns;
-        assert state_code = "000" and load_enable = '0' report "recovery must return through startup" severity failure;
+        assert state_code = "000" and load_enable = '0'
+            report "recovery must return through startup"
+            severity failure;
 
         startup_done <= '1';
+        ml_valid <= '0';
         wait until rising_edge(clk);
         hard_critical <= '1';
         wait until rising_edge(clk);
         wait for 1 ns;
-        assert state_code = "100" and fault_latched = '1' and load_enable = '0' report "hard critical must latch fault" severity failure;
+        assert state_code = "100" and fault_latched = '1' and load_enable = '0'
+            report "hard critical must latch fault"
+            severity failure;
 
         rst <= '1';
         wait until rising_edge(clk);
         wait for 1 ns;
-        assert load_enable = '0' report "reset must never energize load" severity failure;
+        assert load_enable = '0'
+            report "reset must never energize load"
+            severity failure;
 
         report "tb_safety_fsm PASS" severity note;
         wait;

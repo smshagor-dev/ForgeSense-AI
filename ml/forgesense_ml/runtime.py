@@ -17,8 +17,6 @@ class FeatureWindowConfig:
 
 
 class FeatureWindow:
-    """Small deterministic feature window for the first edge runtime."""
-
     def __init__(self, config: FeatureWindowConfig = FeatureWindowConfig()) -> None:
         if config.size < 2:
             raise ValueError("feature window size must be at least 2")
@@ -49,8 +47,6 @@ class FeatureWindow:
 
 
 class EdgeInferenceRuntime:
-    """Converts validated sensor windows into bounded protocol observations."""
-
     def __init__(self, model: DiagonalGaussianModel, *, window_size: int = 8) -> None:
         self.model = model
         self.window = FeatureWindow(FeatureWindowConfig(window_size))

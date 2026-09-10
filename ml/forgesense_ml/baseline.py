@@ -25,8 +25,6 @@ class InferenceResult:
 
 @dataclass(frozen=True)
 class DiagonalGaussianModel:
-    """Compact statistical anomaly model suitable as a measurable edge baseline."""
-
     model_id: int
     model_version: int
     feature_schema_version: int
@@ -82,19 +80,3 @@ class DiagonalGaussianModel:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.to_dict(), indent=2) + "\n", encoding="utf-8")
-
-    @classmethod
-    def load(cls, path: str | Path) -> "DiagonalGaussianModel":
-        raw = json.loads(Path(path).read_text(encoding="utf-8"))
-        if raw.get("format") != "forgesense.diag-gaussian.v1":
-            raise ValueError("unsupported model artifact format")
-        return cls(
-            model_id=int(raw["model_id"]),
-            model_version=int(raw["model_version"]),
-            feature_schema_version=int(raw["feature_schema_version"]),
-            feature_names=tuple(raw["feature_names"]),
-            mean=tuple(float(x) for x in raw["mean"]),
-            scale=tuple(float(x) for x in raw["scale"]),
-            warning_threshold=float(raw["warning_threshold"]),
-            critical_threshold=float(raw["critical_threshold"]),
-        )

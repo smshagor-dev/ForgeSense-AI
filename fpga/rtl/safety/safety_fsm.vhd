@@ -38,36 +38,52 @@ begin
             else
                 case state is
                     when ST_STARTUP =>
-                        if comm_timeout = '1' then
+                        if comm_timeout = '1' or
+                           (ml_valid = '1' and ml_critical = '1') then
                             state <= ST_SHUTDOWN;
                         elsif startup_done = '1' then
-                            state <= ST_RUN;
+                            if hard_warning = '1' or
+                               (ml_valid = '1' and ml_warning = '1') then
+                                state <= ST_WARNING;
+                            else
+                                state <= ST_RUN;
+                            end if;
                         end if;
+
                     when ST_RUN =>
-                        if comm_timeout = '1' then
+                        if comm_timeout = '1' or
+                           (ml_valid = '1' and ml_critical = '1') then
                             state <= ST_SHUTDOWN;
-                        elsif ml_valid = '1' and ml_critical = '1' then
-                            state <= ST_SHUTDOWN;
-                        elsif hard_warning = '1' or (ml_valid = '1' and ml_warning = '1') then
+                        elsif hard_warning = '1' or
+                              (ml_valid = '1' and ml_warning = '1') then
                             state <= ST_WARNING;
                         end if;
+
                     when ST_WARNING =>
-                        if comm_timeout = '1' then
+                        if comm_timeout = '1' or
+                           (ml_valid = '1' and ml_critical = '1') then
                             state <= ST_SHUTDOWN;
-                        elsif ml_valid = '1' and ml_critical = '1' then
-                            state <= ST_SHUTDOWN;
-                        elsif hard_warning = '0' and (ml_valid = '0' or ml_warning = '0') then
+                        elsif hard_warning = '0' and ml_warning = '0' then
                             state <= ST_RUN;
                         end if;
+
                     when ST_SHUTDOWN =>
-                        if recovery_req = '1' and comm_timeout = '0' and hard_warning = '0' and hard_critical = '0' then
+                        if recovery_req = '1' and
+                           comm_timeout = '0' and
+                           hard_warning = '0' and
+                           hard_critical = '0' and
+                           ml_critical = '0' then
                             state <= ST_RECOVERY;
                         end if;
+
                     when ST_FAULT_LATCHED =>
-                        if recovery_req = '1' and emergency = '0' and hard_critical = '0' then
+                        if recovery_req = '1' and
+                           emergency = '0' and
+                           hard_critical = '0' then
                             latched <= '0';
                             state <= ST_RECOVERY;
                         end if;
+
                     when ST_RECOVERY =>
                         state <= ST_STARTUP;
                 end case;

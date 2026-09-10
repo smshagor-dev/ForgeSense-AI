@@ -1,38 +1,66 @@
 #include "forgesense_stream.h"
 
 namespace forgesense {
+namespace {
+
+template <std::size_t N>
+void reset_stream_size(std::size_t& size, std::array<std::uint8_t, N>& buffer) {
+    size = 0;
+    buffer.fill(0);
+}
+
+template <std::size_t N>
+void restart_stream(
+    std::uint8_t byte,
+    std::size_t& size,
+    std::array<std::uint8_t, N>& buffer) {
+    size = 0;
+    if (byte == 0xA5) {
+        buffer[0] = byte;
+        size = 1;
+    }
+}
+
+template <std::size_t N>
+bool push_prefix(
+    std::uint8_t byte,
+    std::size_t& size,
+    std::array<std::uint8_t, N>& buffer) {
+    if (size == 0) {
+        if (byte == 0xA5) {
+            buffer[0] = byte;
+            size = 1;
+        }
+        return true;
+    }
+
+    if (size == 1) {
+        if (byte == 0x5A) {
+            buffer[1] = byte;
+            size = 2;
+        } else if (byte == 0xA5) {
+            buffer[0] = byte;
+            size = 1;
+        } else {
+            size = 0;
+        }
+        return true;
+    }
+    return false;
+}
+
+}  // namespace
 
 void MlStreamDecoder::reset() {
-    size_ = 0;
+    reset_stream_size(size_, buffer_);
 }
 
 void MlStreamDecoder::restart_from(std::uint8_t byte) {
-    size_ = 0;
-    if (byte == 0xA5) {
-        buffer_[0] = byte;
-        size_ = 1;
-    }
+    restart_stream(byte, size_, buffer_);
 }
 
 StreamEvent MlStreamDecoder::push(std::uint8_t byte, ParsedMlFrame& out) {
-    if (size_ == 0) {
-        if (byte == 0xA5) {
-            buffer_[0] = byte;
-            size_ = 1;
-        }
-        return StreamEvent::None;
-    }
-
-    if (size_ == 1) {
-        if (byte == 0x5A) {
-            buffer_[1] = byte;
-            size_ = 2;
-        } else if (byte == 0xA5) {
-            buffer_[0] = byte;
-            size_ = 1;
-        } else {
-            size_ = 0;
-        }
+    if (push_prefix(byte, size_, buffer_)) {
         return StreamEvent::None;
     }
 
@@ -58,6 +86,50 @@ StreamEvent MlStreamDecoder::push(std::uint8_t byte, ParsedMlFrame& out) {
     }
 
     const auto status = parse_ml_frame(buffer_.data(), buffer_.size(), out);
+    size_ = 0;
+    if (status == ParseStatus::Ok) {
+        ++accepted_frames_;
+        return StreamEvent::Frame;
+    }
+    ++rejected_frames_;
+    return StreamEvent::Rejected;
+}
+
+void SensorStreamDecoder::reset() {
+    reset_stream_size(size_, buffer_);
+}
+
+void SensorStreamDecoder::restart_from(std::uint8_t byte) {
+    restart_stream(byte, size_, buffer_);
+}
+
+StreamEvent SensorStreamDecoder::push(std::uint8_t byte, ParsedSensorFrame& out) {
+    if (push_prefix(byte, size_, buffer_)) {
+        return StreamEvent::None;
+    }
+
+    buffer_[size_++] = byte;
+
+    if (size_ == 3 && buffer_[2] != kProtocolVersion) {
+        ++rejected_frames_;
+        restart_from(byte);
+        return StreamEvent::Rejected;
+    }
+    if (size_ == 4 && buffer_[3] != kMessageSensorSnapshot) {
+        ++rejected_frames_;
+        restart_from(byte);
+        return StreamEvent::Rejected;
+    }
+    if (size_ == 8 && (buffer_[6] != 0x08 || buffer_[7] != 0x00)) {
+        ++rejected_frames_;
+        restart_from(byte);
+        return StreamEvent::Rejected;
+    }
+    if (size_ < kSensorFrameSize) {
+        return StreamEvent::None;
+    }
+
+    const auto status = parse_sensor_frame(buffer_.data(), buffer_.size(), out);
     size_ = 0;
     if (status == ParseStatus::Ok) {
         ++accepted_frames_;

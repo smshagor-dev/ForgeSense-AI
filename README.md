@@ -1,172 +1,233 @@
 # ForgeSense AI
 
-**Low-cost FPGA + TinyML predictive maintenance, fail-safe control, and industrial automation research platform.**
+**Low-cost FPGA + edge ML predictive maintenance, fail-safe control, and industrial automation research platform.**
 
-ForgeSense AI is a hardware-software co-design project for building an intelligent industrial controller that combines deterministic FPGA safety logic with edge machine learning. The system is being designed to observe machine condition, detect abnormal behavior, estimate developing faults, and trigger bounded automation while preserving a hard real-time safety path that does not depend on ML inference.
+ForgeSense AI is a hardware-software co-design system that combines deterministic FPGA safety logic with local edge intelligence. The reference design observes machine condition, detects abnormal behavior, estimates developing faults, and requests bounded automation while preserving a hard real-time safety path that does not depend on ML inference or network availability.
 
-> **Project status:** Active pre-hardware implementation. The repository now includes an executable virtual plant, edge ML baseline/runtime, a versioned FPGA/MCU protocol, host-tested firmware parsing, a raw-byte FPGA receiver, deterministic safety logic, and a closed-loop software safety oracle.
+> **Project status:** Active pre-hardware implementation. The repository contains an executable digital reference, a versioned bidirectional FPGA/ESP32-S3 link, a host-tested embedded inference implementation, deterministic VHDL control logic, persistent event-record infrastructure, and multi-scenario closed-loop validation.
 
 ## Why ForgeSense AI
 
-Industrial predictive-maintenance products commonly separate condition monitoring from machine control. ForgeSense AI explores a tighter architecture in which:
+The system is built around a strict separation of authority:
 
-- FPGA logic owns deterministic timing, interlocks, watchdogs, emergency behavior, and final safety authority.
-- Edge ML analyzes multivariate sensor behavior and produces bounded health, anomaly, and fault information.
-- The intelligent layer can recommend or request actions, but it cannot override hard safety rules.
-- The same interfaces are designed for simulation first and physical hardware later.
-- Cost, reproducibility, inspectability, and offline operation are treated as first-class design constraints.
+- the FPGA owns deterministic timing, hard limits, emergency behavior, watchdogs, interlocks, state transitions, and final output authority;
+- the ESP32-S3 receives normalized sensor snapshots, performs bounded edge inference, and returns versioned health observations;
+- accepted intelligence can influence only documented FPGA state transitions and cannot override hard safety rules;
+- communication corruption, replay, stale inference, sensor invalidity, or loss of the edge processor produce deterministic behavior;
+- the same wire contracts are shared by simulation, host tests, embedded firmware, and synthesizable RTL;
+- offline operation, low cost, inspectability, and reproducibility are first-class constraints.
 
-The project does **not** currently claim to be the first implementation of these ideas. Any novelty, patentability, or prior-art claim must be established through a documented technical and legal review before public claims are made.
+The project does **not** claim unverified uniqueness, patentability, or industrial certification. Technical novelty and protectable work require documented prior-art and legal review before public claims are made.
 
-## Current Executable System
+## Current End-to-End Architecture
 
 ```text
-Synthetic/real sensors
-        |
-        v
-Feature window + edge ML
-        |
-        v
-ForgeSense Link v1
-        |
-        v
-Byte-stream receiver + CRC
-        |
-        v
-Compatibility / freshness gate
-        |
-        v
-Deterministic FPGA safety core -----------------> Protected output path
-        |                                              |
-        +--> state / fault / warning telemetry         v
-                                                  Test machine/load
+Temperature / vibration / current inputs
+                |
+                v
+      FPGA sensor normalization
+                |
+                v
+     ForgeSense Link SENSOR frame
+                |
+                v
+          UART 8N1 transport
+                |
+                v
+        ESP32-S3 link service
+                |
+                v
+       8-sample feature window
+                |
+                v
+       compact edge inference
+                |
+                v
+       ForgeSense Link ML frame
+                |
+                v
+       UART -> FPGA receiver
+                |
+                v
+ CRC + version + type + model/schema + age + sequence checks
+                |
+                v
+       latched accepted ML state
+                |
+                +---------------------------+
+                v                           |
+      deterministic safety FSM             |
+                |                           |
+        hard limits / emergency <-----------+
+                |
+                v
+        protected load enable
 ```
 
-The current reference includes deterministic normal and fault scenarios, a compact anomaly detector, protocol CRC and replay protection, watchdog supervision, hard-limit monitoring, fault latching, controlled recovery, and a closed-loop integration demo.
+The FPGA sends normalized sensor snapshots at a configured sampling rate. The ESP32-S3 maintains a fixed-size feature window, performs local inference, and returns a bounded ML observation. The FPGA validates every received observation before it can affect control state. Accepted health state is retained until replaced by a newer accepted observation; missing, invalid, replayed, or corrupt traffic never clears it.
 
-## Core Engineering Principles
+## Safety Invariants
 
-### Safety authority is deterministic
+- Hard critical conditions and emergency input take priority over ML.
+- Sensor invalidity fails closed through the deterministic hard-fault path.
+- ML warm-up cannot cause a premature communication timeout.
+- Only fresh, compatible, CRC-valid ML observations reset the intelligence watchdog.
+- Replayed or duplicate observations cannot keep the system operational.
+- A critical first operational observation goes directly to shutdown; the load is never transiently enabled.
+- An accepted warning remains active until a newer accepted observation clears it or another safety condition takes precedence.
+- Wi-Fi, dashboard, telemetry, or storage failure cannot become the sole safety path.
 
-ML output is treated as untrusted advisory input. Hard limits, emergency inputs, watchdog behavior, state transitions, and output interlocks remain in synthesizable deterministic logic.
-
-### Simulation before hardware
-
-Every major interface should have a software or RTL simulation path before a physical board is required. Hardware procurement should validate an existing design rather than define it.
-
-### Failure-aware communication
-
-Loss, delay, corruption, replay, reset, stale inference, or malformed messages between the FPGA and edge processor must result in a defined safe behavior.
-
-### Measurable ML
-
-Models must be evaluated against explicit datasets, splits, metrics, thresholds, latency, memory use, and false-alarm behavior. A model is not accepted because a demo appears to work.
-
-### Low-cost by design
-
-The reference target is a low-cost FPGA board plus ESP32-S3 for early hardware validation, followed by a custom PCB only after interfaces and safety behavior stabilize.
-
-### Reproducible engineering
-
-Requirements, assumptions, test vectors, datasets, model artifacts, RTL simulations, firmware builds, PCB revisions, and validation results should be traceable to source control.
+ForgeSense AI remains a research and engineering platform, not a certified industrial safety controller. Experimental validation must use current-limited, low-voltage loads until the electrical design and hazard controls are independently validated.
 
 ## Repository Layout
 
 ```text
 ForgeSense-AI/
-├── fpga/                 # VHDL RTL, protocol receiver, safety core, testbenches
-├── firmware/             # ESP32-S3-oriented C++ protocol/runtime components
-├── ml/                   # preprocessing, model baseline, edge feature runtime
-├── simulator/            # machine, sensor, fault, and closed-loop reference behavior
-├── hardware/             # schematics, PCB, BOM, manufacturing outputs
-├── dashboard/            # local monitoring and configuration UI
-├── protocol/             # FPGA <-> edge processor protocol specification/reference
-├── tests/                # cross-component and integration tests
-├── tools/                # executable demos and reproducibility utilities
-├── docs/                 # architecture, safety, verification and implementation docs
-└── .github/              # contribution templates and repository automation
+├── fpga/                 # VHDL UART, sensing, protocol, safety and board-level core
+├── firmware/             # ESP32-S3 application + portable C++ components
+├── ml/                   # reference model, export and edge-runtime behavior
+├── simulator/            # deterministic plant, scenarios and safety oracle
+├── protocol/             # ForgeSense Link wire specification and Python reference
+├── tests/                # software and cross-language regression tests
+├── tools/                # demos, validation and model export utilities
+├── hardware/             # schematic/PCB evidence as physical design is finalized
+├── dashboard/            # local monitoring UI as the telemetry interface matures
+├── docs/                 # engineering source of truth
+└── .github/              # repository and implementation checks
 ```
 
-Directories containing implementation code include their own build or usage notes as they mature.
+## ForgeSense Link v1
 
-## Technical Stack
+The reference uses one full-duplex UART connection with independent rolling sequence spaces in each direction.
 
-| Area | Current direction |
-| --- | --- |
-| FPGA RTL | VHDL-2008, synthesizable deterministic control and protocol logic |
-| FPGA target | Low-cost Tang Nano-class device for early validation |
-| Edge MCU | ESP32-S3 |
-| ML | Python training/reference runtime, compact edge-oriented inference |
-| Sensors | Temperature, vibration/IMU, current, discrete safety inputs |
-| FPGA/MCU link | ForgeSense Link v1 with CRC, versioning, freshness and compatibility checks |
-| Outputs | Protected low-voltage driver path and relay/MOSFET abstraction |
-| Dashboard | Local-first web interface and telemetry API |
-| PCB | Two-layer prototype where electrical constraints allow |
-| CI | Python, host C++, VHDL and repository policy checks |
+| Direction | Message | Type | Frame size |
+| --- | --- | ---: | ---: |
+| FPGA -> ESP32-S3 | Sensor snapshot | `0x11` | 22 bytes |
+| ESP32-S3 -> FPGA | ML observation | `0x10` | 28 bytes |
 
-Specific physical parts are not frozen until electrical requirements and sourcing are validated.
+Both frames use `A5 5A` framing, protocol versioning, explicit payload length, sender monotonic timestamp, and CRC-16/CCITT-FALSE. The sensor frame carries signed temperature, vibration RMS, current, and per-sensor validity flags. The ML frame carries model identity, model version, feature-schema version, anomaly score, health class, confidence, and inference age.
 
-## Run the Current Reference
+See [`protocol/SPEC_V1.md`](protocol/SPEC_V1.md).
 
-Python tests:
+## Reference ML Model
+
+The current model is deliberately small and auditable: a diagonal-Gaussian anomaly baseline fitted over the complete settled normal operating envelope after the first 80 synthetic samples. The same parameters are exported deterministically into a generated C++ header used by the embedded reference runtime.
+
+This model is an integration baseline, not a claim of production predictive-maintenance accuracy. Real hardware data, grouped/time-aware evaluation, drift testing, false-alarm measurement, and model comparison are required before such claims.
+
+Regenerate and verify the embedded model constants:
+
+```bash
+make model-export
+```
+
+## ESP32-S3 Runtime
+
+`firmware/esp32` is an ESP-IDF application scaffold with:
+
+- configurable UART port, TX/RX GPIOs and baud rate;
+- fixed-memory sensor stream decoding and sequence freshness checks;
+- invalid-sensor feature-window reset;
+- host-tested edge inference component;
+- ML frame encoding and UART transmission;
+- link-loss detection;
+- transition-based ML warning/critical event records;
+- CRC-protected fixed-size persistent event records stored in an NVS ring.
+
+The portable C++ protocol, stream, inference, and event components are host tested without requiring an ESP32 board. The complete ESP-IDF application must still be built and hardware-tested with the selected ESP32-S3 target before it is considered device-validated.
+
+## FPGA Runtime
+
+The VHDL reference now includes:
+
+- millisecond timebase and configurable sensor sample scheduler;
+- 8N1 UART receiver and transmitter;
+- sensor validity normalization;
+- 22-byte sensor-frame transmitter;
+- 28-byte ML-frame receiver;
+- CRC-16 validation;
+- compatibility, freshness and replay gate;
+- persistent accepted ML health state;
+- hard-limit monitor;
+- supervised communication watchdog;
+- deterministic safety FSM;
+- board-level integration core.
+
+The default board-facing clock profile is 27 MHz with 115200-baud UART and a 10 Hz sensor snapshot rate. These defaults are engineering placeholders until the physical FPGA board and electrical interfaces are frozen.
+
+## Current Validation Evidence
+
+The software reference currently passes eleven Python regression tests and four host C++ executables. The deterministic scenario matrix is:
+
+| Scenario | Injected at | First warning | Terminal action | Hard critical at terminal |
+| --- | ---: | ---: | --- | --- |
+| Normal | - | - | none | - |
+| Bearing degradation | 220 | 238 | shutdown at 240 | no |
+| Overcurrent trend | 180 | 240 | shutdown at 248 | no |
+| Cooling loss | 260 | 391 | shutdown at 521 | no |
+| Sensor dropout | 180 | - | fault-latched at 180 | yes |
+| Intelligence link loss | 180 | - | watchdog shutdown at 194 | no |
+| Emergency | 180 | - | fault-latched at 180 | no |
+
+These are deterministic virtual-reference results only. They demonstrate system behavior and interface correctness, not real-machine detection performance.
+
+Run the matrix:
+
+```bash
+make validate
+```
+
+## Development Commands
 
 ```bash
 make test
-```
-
-Virtual anomaly demo:
-
-```bash
 make demo
-```
-
-Closed-loop control demo:
-
-```bash
 make closed-loop
-```
-
-Host firmware protocol/stream tests:
-
-```bash
+make validate
+make model-export
 make firmware-host
 ```
 
-The current deterministic closed-loop reference injects progressive bearing degradation at sample 220 and reaches a bounded ML-requested shutdown at sample 238 while the hard critical threshold remains false. This is integration evidence only, not physical-machine performance evidence.
+`make firmware-host` compiles portable embedded components with C++20, `-Wall -Wextra -Werror -pedantic` and executes protocol, stream, inference, and event-record tests.
 
-## Safety Boundary
+## Hardware Boundary
 
-ForgeSense AI is a research and engineering platform, not a certified industrial safety controller. Until appropriate hardware protections, hazard analysis, verification, and applicable certification are completed:
+The first physical reference remains intentionally low voltage. The planned board path is:
 
-- do not use it to protect people from hazardous machinery;
-- do not switch mains voltage directly from experimental circuitry;
-- do not rely on ML output as a safety function;
-- do not bypass a machine's existing certified protection system;
-- use current-limited, isolated, low-voltage test loads during development.
+```text
+low-voltage machine/load
+        |
+temperature / vibration / current sensing
+        |
+input protection and conditioning
+        |
+FPGA deterministic domain <----UART----> ESP32-S3 edge domain
+        |
+protected MOSFET/driver abstraction
+        |
+controlled low-voltage load
+```
 
-See [`docs/SAFETY_MODEL.md`](docs/SAFETY_MODEL.md), [`docs/TRANSPORT_AND_CONTROL.md`](docs/TRANSPORT_AND_CONTROL.md), and [`SECURITY.md`](SECURITY.md).
+Exact FPGA device, sensors, analog front end, output driver, protection network, PCB stack-up, connectors, and power tree are not frozen until the electrical requirements are validated.
 
 ## Documentation
 
-Start with [`docs/README.md`](docs/README.md) and [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md). The documentation set covers product vision, system requirements, architecture, electronics, FPGA/VHDL rules, ML contracts, firmware responsibilities, safety, verification, protocol behavior, roadmap, and IP/publication discipline.
+Start at [`docs/README.md`](docs/README.md). Important implementation documents include:
 
-## Roadmap
+- [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md)
+- [`docs/TRANSPORT_AND_CONTROL.md`](docs/TRANSPORT_AND_CONTROL.md)
+- [`docs/SENSOR_ACQUISITION.md`](docs/SENSOR_ACQUISITION.md)
+- [`docs/FIRMWARE.md`](docs/FIRMWARE.md)
+- [`docs/EVENT_RECORDS.md`](docs/EVENT_RECORDS.md)
+- [`docs/VALIDATION_MATRIX.md`](docs/VALIDATION_MATRIX.md)
+- [`docs/SAFETY_MODEL.md`](docs/SAFETY_MODEL.md)
+- [`docs/VERIFICATION.md`](docs/VERIFICATION.md)
 
-The detailed roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). Near-term work is ordered around reducing technical uncertainty before buying or fabricating hardware: close interface contracts, deepen the virtual twin and fault model, harden synthesizable RTL, complete the ESP32-S3 transport/runtime boundary, expand ML evaluation, then validate on low-cost hardware before committing to a custom PCB.
+## Contributing, Security and IP
 
-## Contributing
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and [`SECURITY.md`](SECURITY.md) before proposing changes. Do not disclose suspected vulnerabilities in public issues.
 
-This repository is currently under controlled development. Read [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and [`SECURITY.md`](SECURITY.md) before proposing changes.
-
-Do not disclose suspected vulnerabilities in public issues.
-
-## Intellectual Property and Licensing
-
-The project is currently maintained under an **all-rights-reserved development license** while architecture, prior art, publication strategy, and potential protectable work are evaluated. No permission to copy, redistribute, manufacture from, commercialize, sublicense, or create derivative works is granted unless explicitly stated in writing.
-
-See [`LICENSE`](LICENSE) and [`docs/IP_AND_PUBLICATION.md`](docs/IP_AND_PUBLICATION.md).
-
-A future public-source license can be selected deliberately once the project's publication and IP strategy is settled.
+The repository remains under an **all-rights-reserved development license** while architecture, prior art, publication strategy, and potentially protectable work are evaluated. See [`LICENSE`](LICENSE) and [`docs/IP_AND_PUBLICATION.md`](docs/IP_AND_PUBLICATION.md).
 
 ## Author
 
@@ -176,4 +237,4 @@ GitHub: [@smshagor-dev](https://github.com/smshagor-dev)
 
 ---
 
-ForgeSense AI is being built as an engineering system first: every intelligent behavior should be bounded, every safety behavior should be testable, and every hardware decision should be justified by measurable requirements.
+ForgeSense AI is built as an engineering system first: every intelligent behavior is bounded, every safety behavior is testable, and every hardware decision must be justified by measurable evidence.

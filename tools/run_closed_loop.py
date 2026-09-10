@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from forgesense_ml.baseline import DiagonalGaussianModel
+from forgesense_ml.reference import STARTUP_SETTLE_SAMPLES, fit_reference_model
 from forgesense_ml.runtime import EdgeInferenceRuntime
 from forgesense_protocol import encode_ml_observation
 from forgesense_sim import SafetyControllerModel, SafetyState, build_scenario, run_scenario
 
 
 def main() -> int:
-    baseline = run_scenario(build_scenario("normal"))
-    model = DiagonalGaussianModel.fit([sample.feature_vector() for sample in baseline[80:200]])
+    model = fit_reference_model()
     runtime = EdgeInferenceRuntime(model, window_size=8)
     scenario = build_scenario("bearing_degradation")
     samples = run_scenario(scenario)
@@ -22,7 +21,9 @@ def main() -> int:
 
     for index, sample in enumerate(samples):
         observation = runtime.ingest(sample)
-        operational_ready = index >= 80 and observation is not None
+        operational_ready = (
+            index >= STARTUP_SETTLE_SAMPLES and observation is not None
+        )
         frame = None
         if operational_ready:
             frame = encode_ml_observation(
@@ -31,10 +32,19 @@ def main() -> int:
                 timestamp_ms=int(sample.time_s * 1000),
             )
             sequence = (sequence + 1) & 0xFFFF
-        output = controller.step(sample, startup_done=operational_ready, ml_frame=frame)
+        output = controller.step(
+            sample,
+            startup_done=operational_ready,
+            ml_frame=frame,
+        )
         accepted += int(output.accepted_ml)
-        rejected += int(output.rejection_reason is not None and not output.accepted_ml)
-        if index >= 80 and output.state in (SafetyState.SHUTDOWN, SafetyState.FAULT_LATCHED):
+        rejected += int(
+            output.rejection_reason is not None and not output.accepted_ml
+        )
+        if (
+            index >= STARTUP_SETTLE_SAMPLES
+            and output.state in (SafetyState.SHUTDOWN, SafetyState.FAULT_LATCHED)
+        ):
             shutdown_index = index
             shutdown_state = output.state.name
             hard_critical = output.hard_critical

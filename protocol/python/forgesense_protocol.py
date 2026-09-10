@@ -6,10 +6,17 @@ import struct
 
 SOF = b"\xA5\x5A"
 PROTOCOL_VERSION = 1
+
 VALID_OBSERVATION = 0x0001
+
+SENSOR_VALID_TEMPERATURE = 0x0001
+SENSOR_VALID_VIBRATION = 0x0002
+SENSOR_VALID_CURRENT = 0x0004
+SENSOR_ALL_VALID = SENSOR_VALID_TEMPERATURE | SENSOR_VALID_VIBRATION | SENSOR_VALID_CURRENT
 
 _HEADER = struct.Struct("<2sBBHHI")
 _ML_PAYLOAD = struct.Struct("<HHHHHBBH")
+_SENSOR_PAYLOAD = struct.Struct("<hHHH")
 _CRC = struct.Struct("<H")
 
 
@@ -19,8 +26,10 @@ class ProtocolError(ValueError):
 
 class MessageType(IntEnum):
     ML_OBSERVATION = 0x10
+    SENSOR_SNAPSHOT = 0x11
     HEARTBEAT = 0x20
     STATUS = 0x30
+    EVENT = 0x31
 
 
 class HealthClass(IntEnum):
@@ -51,6 +60,35 @@ class MlObservation:
     inference_age_ms: int
 
 
+@dataclass(frozen=True)
+class SensorSnapshotWire:
+    temperature_deci_c: int
+    vibration_milli_g: int
+    current_milli_a: int
+    flags: int = SENSOR_ALL_VALID
+
+    @property
+    def all_valid(self) -> bool:
+        return (self.flags & SENSOR_ALL_VALID) == SENSOR_ALL_VALID
+
+    @property
+    def temperature_c(self) -> float:
+        return self.temperature_deci_c / 10.0
+
+    @property
+    def vibration_rms_g(self) -> float:
+        return self.vibration_milli_g / 1000.0
+
+    @property
+    def current_a(self) -> float:
+        return self.current_milli_a / 1000.0
+
+    def feature_vector(self) -> tuple[float, float, float]:
+        if not self.all_valid:
+            raise ValueError("invalid sensor snapshot cannot be converted to an ML feature vector")
+        return self.temperature_c, self.vibration_rms_g, self.current_a
+
+
 def crc16_ccitt(data: bytes, initial: int = 0xFFFF) -> int:
     crc = initial
     for byte in data:
@@ -60,7 +98,14 @@ def crc16_ccitt(data: bytes, initial: int = 0xFFFF) -> int:
     return crc
 
 
-def encode_frame(*, message_type: int, sequence: int, timestamp_ms: int, payload: bytes, version: int = PROTOCOL_VERSION) -> bytes:
+def encode_frame(
+    *,
+    message_type: int,
+    sequence: int,
+    timestamp_ms: int,
+    payload: bytes,
+    version: int = PROTOCOL_VERSION,
+) -> bytes:
     if not (0 <= sequence <= 0xFFFF):
         raise ProtocolError("sequence out of range")
     if not (0 <= timestamp_ms <= 0xFFFFFFFF):
@@ -95,6 +140,8 @@ def decode_frame(data: bytes, *, expected_version: int = PROTOCOL_VERSION) -> Fr
 def encode_ml_observation(observation: MlObservation, *, sequence: int, timestamp_ms: int) -> bytes:
     score_q15 = round(min(max(observation.anomaly_score, 0.0), 1.0) * 32767)
     confidence_q8 = round(min(max(observation.confidence, 0.0), 1.0) * 255)
+    if not (0 <= observation.inference_age_ms <= 0xFFFF):
+        raise ProtocolError("inference age out of range")
     payload = _ML_PAYLOAD.pack(
         observation.model_id,
         observation.model_version,
@@ -105,7 +152,12 @@ def encode_ml_observation(observation: MlObservation, *, sequence: int, timestam
         confidence_q8,
         observation.inference_age_ms,
     )
-    return encode_frame(message_type=MessageType.ML_OBSERVATION, sequence=sequence, timestamp_ms=timestamp_ms, payload=payload)
+    return encode_frame(
+        message_type=MessageType.ML_OBSERVATION,
+        sequence=sequence,
+        timestamp_ms=timestamp_ms,
+        payload=payload,
+    )
 
 
 def decode_ml_observation(frame: Frame) -> MlObservation:
@@ -114,6 +166,8 @@ def decode_ml_observation(frame: Frame) -> MlObservation:
     if len(frame.payload) != _ML_PAYLOAD.size:
         raise ProtocolError("invalid ML observation payload length")
     model_id, model_version, schema, flags, score_q15, health, confidence_q8, age_ms = _ML_PAYLOAD.unpack(frame.payload)
+    if score_q15 > 32767:
+        raise ProtocolError("invalid Q15 anomaly score")
     try:
         health_class = HealthClass(health)
     except ValueError as exc:
@@ -127,6 +181,48 @@ def decode_ml_observation(frame: Frame) -> MlObservation:
         health_class=health_class,
         confidence=confidence_q8 / 255.0,
         inference_age_ms=age_ms,
+    )
+
+
+def encode_sensor_snapshot(
+    snapshot: SensorSnapshotWire,
+    *,
+    sequence: int,
+    timestamp_ms: int,
+) -> bytes:
+    if not (-32768 <= snapshot.temperature_deci_c <= 32767):
+        raise ProtocolError("temperature out of range")
+    if not (0 <= snapshot.vibration_milli_g <= 0xFFFF):
+        raise ProtocolError("vibration out of range")
+    if not (0 <= snapshot.current_milli_a <= 0xFFFF):
+        raise ProtocolError("current out of range")
+    if not (0 <= snapshot.flags <= 0xFFFF):
+        raise ProtocolError("sensor flags out of range")
+    payload = _SENSOR_PAYLOAD.pack(
+        snapshot.temperature_deci_c,
+        snapshot.vibration_milli_g,
+        snapshot.current_milli_a,
+        snapshot.flags,
+    )
+    return encode_frame(
+        message_type=MessageType.SENSOR_SNAPSHOT,
+        sequence=sequence,
+        timestamp_ms=timestamp_ms,
+        payload=payload,
+    )
+
+
+def decode_sensor_snapshot(frame: Frame) -> SensorSnapshotWire:
+    if frame.message_type != MessageType.SENSOR_SNAPSHOT:
+        raise ProtocolError("not a sensor snapshot frame")
+    if len(frame.payload) != _SENSOR_PAYLOAD.size:
+        raise ProtocolError("invalid sensor snapshot payload length")
+    temperature, vibration, current, flags = _SENSOR_PAYLOAD.unpack(frame.payload)
+    return SensorSnapshotWire(
+        temperature_deci_c=temperature,
+        vibration_milli_g=vibration,
+        current_milli_a=current,
+        flags=flags,
     )
 
 

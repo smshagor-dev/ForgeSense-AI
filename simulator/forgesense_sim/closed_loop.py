@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 
 from forgesense_protocol import FreshnessGate, HealthClass
-from forgesense_protocol import decode_frame, decode_ml_observation, encode_ml_observation
+from forgesense_protocol import decode_frame, decode_ml_observation
 
 
 class SafetyState(IntEnum):
@@ -39,7 +39,7 @@ class ControllerOutput:
 
 
 class SafetyControllerModel:
-    """Cycle-level software oracle mirroring the FPGA safety authority."""
+    """Cycle-level software oracle mirroring persistent accepted FPGA intelligence."""
 
     def __init__(
         self,
@@ -54,12 +54,16 @@ class SafetyControllerModel:
         self.state = SafetyState.STARTUP
         self.latched = False
         self._steps_since_kick = 0
+        self._have_ml = False
+        self._last_ml_health = HealthClass.ABSTAIN
         self.gate = FreshnessGate(1, 1, 1)
 
     def reset(self) -> None:
         self.state = SafetyState.STARTUP
         self.latched = False
         self._steps_since_kick = 0
+        self._have_ml = False
+        self._last_ml_health = HealthClass.ABSTAIN
         self.gate.last_sequence = None
 
     def _hard_limits(self, snapshot) -> tuple[bool, bool]:
@@ -88,26 +92,28 @@ class SafetyControllerModel:
         recovery_req: bool = False,
     ) -> ControllerOutput:
         hard_warning, hard_critical = self._hard_limits(snapshot)
-        ml_valid = False
-        ml_warning = False
-        ml_critical = False
+        accepted_this_step = False
         reason = None
 
         if ml_frame is not None:
             try:
                 frame = decode_frame(ml_frame)
                 observation = decode_ml_observation(frame)
-                ml_valid, reason = self.gate.accept(frame, observation)
-                if ml_valid:
-                    ml_warning = observation.health_class is HealthClass.WARNING
-                    ml_critical = observation.health_class is HealthClass.CRITICAL
+                accepted_this_step, reason = self.gate.accept(frame, observation)
+                if accepted_this_step:
+                    self._have_ml = True
+                    self._last_ml_health = observation.health_class
             except ValueError as exc:
                 reason = str(exc)
+
+        ml_valid = self._have_ml
+        ml_warning = ml_valid and self._last_ml_health is HealthClass.WARNING
+        ml_critical = ml_valid and self._last_ml_health is HealthClass.CRITICAL
 
         if not startup_done:
             self._steps_since_kick = 0
             comm_timeout = False
-        elif ml_valid:
+        elif accepted_this_step:
             self._steps_since_kick = 0
             comm_timeout = False
         else:
@@ -118,10 +124,13 @@ class SafetyControllerModel:
             self.state = SafetyState.FAULT_LATCHED
             self.latched = True
         elif self.state is SafetyState.STARTUP:
-            if comm_timeout:
+            if comm_timeout or (ml_valid and ml_critical):
                 self.state = SafetyState.SHUTDOWN
             elif startup_done:
-                self.state = SafetyState.RUN
+                if hard_warning or (ml_valid and ml_warning):
+                    self.state = SafetyState.WARNING
+                else:
+                    self.state = SafetyState.RUN
         elif self.state is SafetyState.RUN:
             if comm_timeout or (ml_valid and ml_critical):
                 self.state = SafetyState.SHUTDOWN
@@ -130,10 +139,16 @@ class SafetyControllerModel:
         elif self.state is SafetyState.WARNING:
             if comm_timeout or (ml_valid and ml_critical):
                 self.state = SafetyState.SHUTDOWN
-            elif not hard_warning and (not ml_valid or not ml_warning):
+            elif not hard_warning and not ml_warning:
                 self.state = SafetyState.RUN
         elif self.state is SafetyState.SHUTDOWN:
-            if recovery_req and not comm_timeout and not hard_warning and not hard_critical:
+            if (
+                recovery_req
+                and not comm_timeout
+                and not hard_warning
+                and not hard_critical
+                and not ml_critical
+            ):
                 self.state = SafetyState.RECOVERY
         elif self.state is SafetyState.FAULT_LATCHED:
             if recovery_req and not emergency and not hard_critical:
@@ -149,10 +164,6 @@ class SafetyControllerModel:
             fault_latched=self.latched,
             hard_warning=hard_warning,
             hard_critical=hard_critical,
-            accepted_ml=ml_valid,
+            accepted_ml=accepted_this_step,
             rejection_reason=reason,
         )
-
-
-def encode_runtime_observation(observation, *, sequence: int, timestamp_ms: int) -> bytes:
-    return encode_ml_observation(observation, sequence=sequence, timestamp_ms=timestamp_ms)

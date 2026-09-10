@@ -20,10 +20,16 @@ jobs:
           python-version: "3.12"
       - name: Install test runner
         run: python -m pip install --disable-pip-version-check pytest
-      - name: Run Python reference tests
+      - name: Run Python regression tests
         env:
           PYTHONPATH: simulator:ml:protocol/python
         run: python -m pytest
+      - name: Verify generated embedded model
+        env:
+          PYTHONPATH: simulator:ml:protocol/python
+        run: |
+          python tools/export_reference_model.py --out build/reference_model.h
+          diff -u firmware/components/forgesense_inference/include/forgesense_reference_model_generated.h build/reference_model.h
       - name: Run virtual anomaly demo
         env:
           PYTHONPATH: simulator:ml:protocol/python
@@ -32,30 +38,18 @@ jobs:
         env:
           PYTHONPATH: simulator:ml:protocol/python
         run: python tools/run_closed_loop.py
+      - name: Run deterministic validation matrix
+        env:
+          PYTHONPATH: simulator:ml:protocol/python
+        run: python tools/run_validation_matrix.py
 
   firmware-host:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Compile protocol parser with warnings as errors
-        run: |
-          mkdir -p build
-          g++ -std=c++20 -Wall -Wextra -Werror \
-            -Ifirmware/components/forgesense_protocol/include \
-            firmware/components/forgesense_protocol/forgesense_protocol.cpp \
-            firmware/tests/protocol_test.cpp \
-            -o build/firmware_protocol_test
-          ./build/firmware_protocol_test
-      - name: Compile stream and freshness gate with warnings as errors
-        run: |
-          g++ -std=c++20 -Wall -Wextra -Werror \
-            -Ifirmware/components/forgesense_protocol/include \
-            firmware/components/forgesense_protocol/forgesense_protocol.cpp \
-            firmware/components/forgesense_protocol/forgesense_stream.cpp \
-            firmware/tests/stream_test.cpp \
-            -o build/firmware_stream_test
-          ./build/firmware_stream_test
+      - name: Compile and run portable embedded checks
+        run: make firmware-host
 
   vhdl:
     runs-on: ubuntu-latest
@@ -75,15 +69,32 @@ jobs:
           ghdl -a --std=08 fpga/rtl/protocol/crc16_ccitt_pkg.vhd
           ghdl -a --std=08 fpga/rtl/protocol/link_receiver.vhd
           ghdl -a --std=08 fpga/rtl/protocol/intelligence_gate.vhd
+          ghdl -a --std=08 fpga/rtl/protocol/sensor_link_tx.vhd
+          ghdl -a --std=08 fpga/rtl/io/uart_rx.vhd
+          ghdl -a --std=08 fpga/rtl/io/uart_tx.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sample_scheduler.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/timebase_ms.vhd
           ghdl -a --std=08 fpga/rtl/top/safety_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_platform_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_board_core.vhd
       - name: Run safety state testbench
         run: |
           ghdl -a --std=08 fpga/tb/tb_safety_fsm.vhd
           ghdl -e --std=08 tb_safety_fsm
           ghdl -r --std=08 tb_safety_fsm --assert-level=error
-      - name: Run link receiver testbench
+      - name: Run ML frame receiver testbench
         run: |
           ghdl -a --std=08 fpga/tb/tb_link_receiver.vhd
           ghdl -e --std=08 tb_link_receiver
           ghdl -r --std=08 tb_link_receiver --assert-level=error
+      - name: Run sensor frame transmitter testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_sensor_link_tx.vhd
+          ghdl -e --std=08 tb_sensor_link_tx
+          ghdl -r --std=08 tb_sensor_link_tx --assert-level=error
+      - name: Run first-critical startup integration testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_platform_startup_critical.vhd
+          ghdl -e --std=08 tb_platform_startup_critical
+          ghdl -r --std=08 tb_platform_startup_critical --assert-level=error

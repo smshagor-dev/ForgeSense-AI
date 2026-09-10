@@ -1,0 +1,33 @@
+menu "ForgeSense AI"
+
+config FORGESENSE_UART_PORT
+    int "FPGA link UART port"
+    range 1 2
+    default 1
+
+config FORGESENSE_UART_TX_GPIO
+    int "FPGA link TX GPIO"
+    range 0 48
+    default 17
+
+config FORGESENSE_UART_RX_GPIO
+    int "FPGA link RX GPIO"
+    range 0 48
+    default 18
+
+config FORGESENSE_UART_BAUD
+    int "FPGA link baud rate"
+    range 9600 2000000
+    default 115200
+
+config FORGESENSE_EVENT_RING_SIZE
+    int "Persistent critical-event ring size"
+    range 16 256
+    default 64
+
+config FORGESENSE_LINK_LOSS_MS
+    int "Sensor link loss detection interval in milliseconds"
+    range 250 30000
+    default 2000
+
+endmenu

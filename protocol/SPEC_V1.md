@@ -2,38 +2,44 @@
 
 ## Purpose
 
-This protocol carries bounded intelligence and status information between the deterministic FPGA domain and the ESP32-S3 domain. An accepted ML observation can influence only documented state transitions; it cannot override hard FPGA faults.
+ForgeSense Link carries normalized sensor snapshots from the FPGA domain to the ESP32-S3 domain and bounded intelligence observations back to the deterministic FPGA safety domain. The protocol is small, versioned, checksummed, and independent of Wi-Fi or dashboard availability.
+
+An accepted ML observation may influence only documented state transitions. It cannot override an emergency input, invalid-sensor policy, hard threshold, fault latch, or deterministic output interlock.
+
+## Transport profile
+
+The initial physical profile is UART 8-N-1 at 115200 baud. The binary frame format is transport-independent. All multi-byte integers are little-endian.
 
 ## Frame
-
-All multi-byte integers are little-endian.
 
 | Field | Size | Meaning |
 | --- | ---: | --- |
 | SOF | 2 | `A5 5A` |
-| version | 1 | `01` for this specification |
+| version | 1 | `01` |
 | message_type | 1 | typed payload identifier |
 | sequence | 2 | unsigned rolling sequence |
 | payload_length | 2 | payload bytes |
-| timestamp_ms | 4 | sender monotonic time modulo 2^32 |
+| timestamp_ms | 4 | sender-local monotonic milliseconds modulo 2^32 |
 | payload | variable | message-specific |
-| CRC-16/CCITT-FALSE | 2 | over bytes from `version` through final payload byte |
+| CRC-16/CCITT-FALSE | 2 | bytes from `version` through final payload byte |
 
-CRC parameters: polynomial `0x1021`, initial value `0xFFFF`, no reflection, no final XOR.
-
-Unknown versions or malformed frames are rejected.
+CRC parameters: polynomial `0x1021`, initial value `0xFFFF`, no reflection, no final XOR. Malformed, CRC-invalid, unsupported-version, unsupported-length, and type-incompatible frames are rejected before use.
 
 ## Message types
 
-| Value | Name | Current control-path status |
+| Value | Name | Initial direction |
 | ---: | --- | --- |
-| `0x10` | ML observation | implemented |
+| `0x10` | ML observation | ESP32-S3 -> FPGA |
+| `0x11` | sensor snapshot | FPGA -> ESP32-S3 |
 | `0x20` | heartbeat | reserved |
 | `0x30` | status | reserved |
+| `0x31` | event | reserved |
 
-A reserved message type must not affect safety state until its acceptance and failure semantics are separately specified and verified.
+The initial sensor and ML streams maintain independent 16-bit sequence counters.
 
 ## ML observation payload
+
+Payload length: 14 bytes.
 
 | Field | Size | Notes |
 | --- | ---: | --- |
@@ -44,26 +50,59 @@ A reserved message type must not affect safety state until its acceptance and fa
 | anomaly_q15 | 2 | 0..32767 maps to 0..1 |
 | health_class | 1 | 0 normal, 1 warning, 2 critical, 3 abstain |
 | confidence_q8 | 1 | 0..255 maps to 0..1 |
-| inference_age_ms | 2 | age of represented sample window |
+| inference_age_ms | 2 | edge-local processing age |
 
-The v1 ML payload is 14 bytes and the complete ML frame is therefore 28 bytes.
+The FPGA rejects incompatible model/schema identifiers, observations without the valid flag, out-of-range fields, stale observations, duplicate/replayed sequence numbers, and CRC-invalid frames.
 
-An FPGA-side gate must reject incompatible model/schema identifiers, observations without the valid flag, stale observations, duplicate/replayed sequence numbers, and CRC-invalid frames.
+Accepted health state is retained in the FPGA domain until a newer accepted observation replaces it. A missing or rejected frame therefore cannot silently clear a previously accepted warning or critical result.
 
-Sequence freshness uses modular unsigned 16-bit ordering. A candidate is newer when `(candidate - previous) mod 65536` is in `1..32767`.
+## Sensor snapshot payload
 
-## Stream behavior
+Payload length: 8 bytes.
 
-A receiver may receive bytes in arbitrary chunks and may encounter unrelated or corrupted bytes before a valid frame. Implementations must resynchronize on the two-byte start marker and must not expose partially decoded values as a valid observation.
+| Field | Size | Type / unit |
+| --- | ---: | --- |
+| temperature_deci_c | 2 | signed int16, 0.1 °C |
+| vibration_milli_g | 2 | uint16, 0.001 g RMS |
+| current_milli_a | 2 | uint16, mA |
+| sensor_flags | 2 | validity/quality bits |
 
-The current FPGA receiver performs early rejection for an unsupported protocol version, unsupported control-path message type, wrong ML payload length, or invalid health-class value, and performs final rejection on CRC mismatch.
+Validity bits are bit 0 temperature, bit 1 vibration, bit 2 current; bits 3..15 are reserved and transmit zero.
 
-## Watchdog behavior
+The ESP32-S3 does not infer from a snapshot unless all features required by the deployed schema are valid. The first runtime clears its feature window whenever a required sensor becomes invalid. A separate sequence gate rejects duplicate or backwards sensor snapshots so repeated telemetry cannot artificially fill the inference window.
 
-The intelligence watchdog is not evidence that arbitrary bytes are arriving. Only a fully decoded observation that also passes the model/schema/age/sequence gate may kick the operational watchdog.
+## Sequence freshness
 
-During feature-window/model warm-up, `startup_done` remains deasserted and operational intelligence supervision is held reset. After `startup_done` is asserted, missing, malformed, incompatible, stale, or replayed observations do not kick the watchdog and therefore lead to the defined communication-loss behavior.
+A candidate sequence is newer when `(candidate - previous) mod 65536` is in `1..32767`. This permits wrap from 65535 to 0 while rejecting duplicates and backwards/replayed values.
+
+## Timestamp model
+
+`timestamp_ms` is local to the sender. FPGA and ESP32-S3 monotonic clocks are not assumed synchronized. A receiver must not subtract timestamps from different clock domains unless explicit synchronization is added. The ESP32-S3 computes `inference_age_ms` from its own receipt/inference timing.
+
+## Startup and watchdog semantics
+
+The FPGA begins with load authority disabled. Sensor frames may flow immediately. The ESP32-S3 fills its feature window and returns ML observations. Intelligence becomes operational only after a valid, compatible, fresh ML frame has been accepted.
+
+Before that event the intelligence watchdog is held reset. Afterwards only accepted fresh ML observations kick it. CRC-invalid, stale, incompatible, and replayed traffic cannot keep the watchdog healthy.
+
+A critical first accepted ML observation must not transiently energize the load; startup resolves directly to safe shutdown.
+
+## Golden frames
+
+ML observation:
+
+```text
+a55a011007000e00393000000100010001000100ff6701e01900e3c8
+```
+
+Sensor snapshot:
+
+```text
+a55a011134120800040302011f018e00b4050700d9b7
+```
+
+Python and host C++ verify both contracts. VHDL verifies the sensor transmitter against its matching sequence-zero golden frame.
 
 ## Safety behavior
 
-A missing or rejected observation never clears a hard warning, hard critical condition, emergency request, or latched fault. ML critical output can request the documented controlled shutdown state, while emergency and hard-critical inputs retain deterministic priority and fault-latching authority.
+Protocol acceptance is not actuator authority. The FPGA safety state machine remains the final decision layer. Communication loss, hard faults, invalid sensors, and emergency input have deterministic behavior independent of dashboard/network state.
