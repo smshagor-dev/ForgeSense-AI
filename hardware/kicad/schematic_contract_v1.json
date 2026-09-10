@@ -1,31 +1,38 @@
 {
   "schema": "forgesense.schematic_contract.v1",
-  "revision": "SCH-CON-001",
+  "revision": "SCH-CON-002",
   "board": "ForgeSense carrier/reference board",
   "sheets": [
-    {"id": "01_input_protection", "ports_in": ["VIN_12V_RAW", "GND"], "ports_out": ["VIN_12V_PROTECTED", "GND"], "required": ["F1", "reverse_polarity_stage", "TVS", "bulk_cap"]},
-    {"id": "02_power", "ports_in": ["VIN_12V_PROTECTED"], "ports_out": ["+5V_LOGIC", "+3V3_QUIET"], "required": ["TPS54202", "TPS7A2033"]},
+    {"id": "01_input_protection", "ports_in": ["VIN_12V_RAW", "GND"], "ports_out": ["VIN_12V_PROTECTED", "PWR_ENTRY_FAULT_N", "GND"], "required": ["F1_5A", "SMBJ15A", "TPS259470LRPWR", "100uF_bulk", "1uF_ceramic"]},
+    {"id": "02_power", "ports_in": ["VIN_12V_PROTECTED"], "ports_out": ["+5V_LOGIC", "+3V3_QUIET"], "required": ["TPS54202DDCR", "TPS7A2033PDBVR"]},
     {"id": "03_compute", "ports_in": ["+5V_LOGIC", "+3V3_QUIET"], "ports_out": ["FPGA_LOAD_ENABLE", "FPGA_UART_TX", "ESP32_UART_TX"], "required": ["Tang Nano 9K", "ESP32-S3-DevKitC-1"]},
-    {"id": "04_current_sense", "ports_in": ["MOTOR_RETURN"], "ports_out": ["CS_OUT", "ANALOG_HARD_TRIP"], "required": ["25mR_Kelvin", "INA181A1", "TLV3201"]},
-    {"id": "05_precision_adc", "ports_in": ["CS_OUT", "+3V3_QUIET"], "ports_out": ["ADC_SPI_SCLK", "ADC_SPI_MOSI", "ADC_SPI_MISO", "ADC_DRDY"], "required": ["ADS131M02"]},
-    {"id": "06_vibration", "ports_in": ["+3V3_QUIET"], "ports_out": ["ACC_SPI_SCLK", "ACC_SPI_MOSI", "ACC_SPI_MISO", "ACC_DRDY"], "required": ["ADXL355"]},
-    {"id": "07_temperature", "ports_in": ["+3V3_QUIET"], "ports_out": ["TEMP_I2C_SCL", "TEMP_I2C_SDA", "TEMP_ALERT"], "required": ["TMP117"]},
-    {"id": "08_motor_output", "ports_in": ["VIN_12V_PROTECTED", "FPGA_LOAD_ENABLE", "ESTOP_INHIBIT_5V"], "ports_out": ["MOTOR_PLUS", "MOTOR_RETURN"], "required": ["UCC27511A", "CSD18540Q5B", "STPS5L60"]},
-    {"id": "09_safety_io", "ports_in": ["ESTOP_LOOP_NC", "ANALOG_HARD_TRIP"], "ports_out": ["ESTOP_INHIBIT_5V", "FPGA_ESTOP_SENSE", "FPGA_ANALOG_HARD_TRIP"], "required": ["SN74LVC1G17"]},
+    {"id": "04_current_sense", "ports_in": ["MOTOR_RETURN"], "ports_out": ["CS_OUT", "ANALOG_HARD_TRIP"], "required": ["25mR_Kelvin", "INA181A1IDBVR", "TLV3201AIDBVR"]},
+    {"id": "05_precision_adc", "ports_in": ["CS_OUT", "+3V3_QUIET"], "ports_out": ["ADC_SPI_SCLK", "ADC_SPI_MOSI", "ADC_SPI_MISO", "ADC_DRDY"], "required": ["ADS131M02IPWR", "SiT8924_8p192MHz", "AVDD_1uF", "DVDD_1uF", "CAP_220nF"]},
+    {"id": "06_vibration", "ports_in": ["+3V3_QUIET"], "ports_out": ["ACC_SPI_SCLK", "ACC_SPI_MOSI", "ACC_SPI_MISO", "ACC_DRDY"], "required": ["ADXL355BEZ", "local_bypass_network", "100k_LDO_bleeds"]},
+    {"id": "07_temperature", "ports_in": ["+3V3_QUIET"], "ports_out": ["TEMP_I2C_SCL", "TEMP_I2C_SDA", "TEMP_ALERT"], "required": ["TMP117AIDRVR", "SCL_4k99", "SDA_4k99", "ALERT_4k99", "VDD_100nF"]},
+    {"id": "08_motor_output", "ports_in": ["VIN_12V_PROTECTED", "FPGA_LOAD_ENABLE", "ESTOP_INHIBIT_5V"], "ports_out": ["MOTOR_PLUS", "MOTOR_RETURN"], "required": ["UCC27511ADBVR", "CSD18540Q5B", "STPS5L60U"]},
+    {"id": "09_safety_io", "ports_in": ["ESTOP_LOOP_NC", "ANALOG_HARD_TRIP"], "ports_out": ["ESTOP_INHIBIT_5V", "FPGA_ESTOP_SENSE", "FPGA_ANALOG_HARD_TRIP"], "required": ["SN74LVC1G17DBVR"]},
     {"id": "10_debug_service", "ports_in": ["+5V_LOGIC", "+3V3_QUIET"], "ports_out": ["TP_12V", "TP_5V", "TP_3V3", "TP_CS_OUT", "TP_TRIP", "TP_UART"], "required": []}
   ],
   "critical_nets": {
+    "VIN_12V_PROTECTED": {"source": "TPS259470L", "uvlo_v_reference": 9.0333333333, "ovlo_v_reference": 18.0666666667, "current_limit_a_reference": 4.0412121212},
     "ESTOP_INHIBIT_5V": {"default": "HIGH_DISABLE", "healthy": "LOW_ENABLE", "must_not_depend_on_fpga_clock": true},
     "FPGA_LOAD_ENABLE": {"default": "LOW", "hardware_estop_can_override": true},
     "ANALOG_HARD_TRIP": {"default": "LOW_NONTRIP", "source": "TLV3201", "destination": "FPGA"},
     "CS_OUT": {"nominal_at_3p2A_v": 1.6},
+    "ADC_CLK_8M192": {"source": "SiT8924", "frequency_hz": 8192000},
     "+5V_LOGIC": {"source": "TPS54202", "rated_a": 2.0},
     "+3V3_QUIET": {"source": "TPS7A2033", "rated_a": 0.3}
   },
+  "linked_profiles": [
+    "hardware/profiles/power_entry_v1.json",
+    "hardware/profiles/sensor_support_v1.json",
+    "hardware/profiles/interconnect_v1.json"
+  ],
   "unresolved": {
     "tang_nano_9k_external_signal_pins": "must_be_verified_against_exact_board_revision_before_CST_freeze",
-    "reverse_polarity_device": "selection_pending_transient_and_drop_budget",
-    "input_tvs": "selection_pending_measured_adapter_and_cable_transients",
-    "connectors": "mechanical_series_pending_enclosure_and_current_validation"
+    "connectors": "mechanical_series_pending_enclosure_and_current_validation",
+    "input_surge_compliance": "requires_measured_source_cable_waveform_and_TVS_coordination",
+    "comparator_hysteresis": "DNI_until_switching_noise_measurement"
   }
 }
