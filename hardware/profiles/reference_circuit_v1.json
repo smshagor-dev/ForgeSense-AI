@@ -1,0 +1,37 @@
+{
+  "schema": "forgesense.reference_circuit.v1",
+  "nominal_input_v": 12.0,
+  "logic_v": 3.3,
+  "motor": {
+    "reference_continuous_a": 3.2,
+    "fuse_a": 5.0,
+    "mosfet_min_vds_v": 40.0,
+    "gate_resistor_ohm": 33.0,
+    "gate_pulldown_ohm": 100000.0,
+    "flyback_required": true,
+    "estop_hardware_gate_inhibit": true
+  },
+  "current_sense": {
+    "topology": "low_side_shunt_plus_gain",
+    "shunt_ohm": 0.05,
+    "shunt_min_power_w": 2.0,
+    "gain": 10.0,
+    "adc_full_scale_v": 3.3,
+    "filter_r_ohm": 1000.0,
+    "filter_c_f": 1e-7,
+    "backup_trip_reference_v": 1.73
+  },
+  "power": {
+    "input_fuse_required": true,
+    "reverse_polarity_protection_required": true,
+    "transient_suppression_required": true,
+    "motor_and_logic_branching_required": true,
+    "logic_5v_regulator_required": true,
+    "logic_3v3_regulator_required": true
+  },
+  "notes": [
+    "Reference values are for low-voltage prototype analysis and are not final certified component values.",
+    "The analog overcurrent comparator is an independent backup indication and does not replace FPGA hard-limit logic.",
+    "Final ratings require the selected motor, MOSFET, regulator, sensor, PCB copper, thermal design, and measured transients."
+  ]
+}

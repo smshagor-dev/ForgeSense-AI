@@ -6,7 +6,7 @@ EVENT_INC := -Ifirmware/components/forgesense_events/include
 TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -34,6 +34,9 @@ sensor-contract:
 
 phy-sim:
 	python tools/simulate_sensor_phy.py
+
+circuit-check:
+	python tools/check_reference_circuits.py
 
 firmware-host:
 	mkdir -p build

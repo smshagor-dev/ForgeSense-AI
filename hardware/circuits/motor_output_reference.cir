@@ -1,0 +1,17 @@
+* ForgeSense AI protected 12 V motor-output behavioral reference
+V_BUS bus 0 12
+V_CMD cmd 0 PULSE(0 3.3 1m 10u 10u 5m 10m)
+V_ESTOP_OK estopok 0 PWL(0 3.3 4m 3.3 4.01m 0 8m 0)
+B_GATE gate 0 V=if(V(cmd)>1.5 && V(estopok)>1.5,3.3,0)
+R_GATE gate gate_sw 33
+R_GATE_PD gate_sw 0 100k
+R_MOTOR bus motor_hi 3.0
+L_MOTOR motor_hi drain 1m
+S_LOAD drain shunt gate_sw 0 SWMOD
+R_SHUNT shunt 0 0.05
+D_FLYBACK drain bus DFAST
+.model SWMOD SW(Ron=0.02 Roff=10Meg Vt=1.5 Vh=0.1)
+.model DFAST D(Is=1n Rs=0.05 Cjo=50p Tt=50n)
+.tran 10u 10m
+.print tran V(gate_sw) V(drain) I(R_MOTOR)
+.end

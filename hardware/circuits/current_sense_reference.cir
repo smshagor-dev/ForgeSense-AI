@@ -1,0 +1,13 @@
+* ForgeSense AI low-voltage current-sense reference
+* Behavioral reference only; final amplifier/comparator parts are not selected.
+VDD vdd 0 3.3
+I_LOAD 0 sense PWL(0 0 1m 1 2m 2 3m 3.2 4m 3.6 5m 4.0)
+R_SHUNT sense 0 0.05
+B_AMP amp 0 V=min(3.3,max(0,10*V(sense)))
+R_FILTER amp adc 1k
+C_FILTER adc 0 100n
+V_TRIP_REF tripref 0 1.73
+B_BACKUP_TRIP trip 0 V=if(V(amp)>V(tripref),3.3,0)
+.tran 10u 6m
+.print tran V(sense) V(amp) V(adc) V(trip)
+.end

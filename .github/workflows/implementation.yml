@@ -35,6 +35,10 @@ jobs:
           python tools/generate_sensor_contract.py hardware/profiles/sensor_contract_v1.json --cxx build/sensor_contract.h --vhdl build/sensor_contract_pkg.vhd
           diff -u firmware/components/forgesense_protocol/include/forgesense_sensor_contract_generated.h build/sensor_contract.h
           diff -u fpga/rtl/sensing/sensor_contract_pkg.vhd build/sensor_contract_pkg.vhd
+      - name: Run sensor PHY reference simulation
+        run: python tools/simulate_sensor_phy.py
+      - name: Validate low-voltage reference circuits
+        run: python tools/check_reference_circuits.py
       - name: Run virtual anomaly demo
         env:
           PYTHONPATH: simulator:ml:protocol/python:telemetry
@@ -43,8 +47,6 @@ jobs:
         env:
           PYTHONPATH: simulator:ml:protocol/python:telemetry
         run: python tools/run_closed_loop.py
-      - name: Run sensor PHY reference simulation
-        run: python tools/simulate_sensor_phy.py
       - name: Run deterministic validation matrix
         env:
           PYTHONPATH: simulator:ml:protocol/python:telemetry

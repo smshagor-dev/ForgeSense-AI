@@ -13,6 +13,7 @@ This directory is the engineering source of truth for system behavior, interface
 - [`SENSOR_CONTRACT.md`](SENSOR_CONTRACT.md) — generated cross-language sensor ranges, freshness limits, and FPGA supervision rules.
 - [`SENSOR_FRONTEND.md`](SENSOR_FRONTEND.md) — deterministic calibration, RMS extraction, diagnostics, and normalized hardware boundary.
 - [`SENSOR_PHY_REFERENCE.md`](SENSOR_PHY_REFERENCE.md) — vendor-neutral ADC/temperature/accelerometer transport, calibration record, self-test, and electronics boundary.
+- [`REFERENCE_CIRCUITS.md`](REFERENCE_CIRCUITS.md) — 12 V prototype power tree, current sensing, protected motor output, E-stop hardware inhibit, and SPICE references.
 - [`FIRMWARE.md`](FIRMWARE.md) — ESP32-S3 runtime, UART service, inference, persistence, and host telemetry responsibilities.
 - [`DEVICE_TELEMETRY.md`](DEVICE_TELEMETRY.md) — ESP32-S3-to-PC read-only telemetry records, freshness, and host bridge.
 - [`TELEMETRY_API.md`](TELEMETRY_API.md) — local read-only monitoring API, authority model, freshness, and dashboard contract.
