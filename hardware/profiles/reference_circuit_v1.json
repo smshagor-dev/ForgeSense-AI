@@ -1,6 +1,6 @@
 {
   "schema": "forgesense.reference_circuit.v1",
-  "revision": "RC-002",
+  "revision": "RC-003",
   "nominal_input_v": 12.0,
   "logic_v": 3.3,
   "motor": {
@@ -22,17 +22,20 @@
   "current_sense": {
     "topology": "low_side_kelvin_shunt_plus_ina181a1",
     "amplifier_reference": "INA181A1",
-    "shunt_ohm": 0.025,
+    "shunt_ohm": 0.015,
     "shunt_min_power_w": 1.0,
     "shunt_preferred_power_w": 2.0,
     "gain": 20.0,
-    "adc_full_scale_v": 3.3,
+    "adc_reference": "ADS131M02",
+    "adc_pga_gain": 1,
+    "adc_differential_full_scale_v": 1.2,
+    "reference_fsr_utilization_max": 0.8,
     "filter_r_ohm": 1000.0,
     "filter_c_f": 1e-7,
     "comparator_reference": "TLV3201",
     "comparator_supply_v": 3.3,
-    "trip_divider_top_ohm": 47500.0,
-    "trip_divider_bottom_ohm": 52300.0,
+    "trip_divider_top_ohm": 23200.0,
+    "trip_divider_bottom_ohm": 10700.0,
     "backup_trip_target": "fpga_external_hard_trip"
   },
   "power": {
@@ -47,7 +50,7 @@
   },
   "notes": [
     "Reference values target the low-voltage prototype and are not final machine-specific safety limits.",
-    "The normally-closed E-stop loop directly inhibits UCC27511A IN- through fail-high logic and separately reports state to the FPGA.",
-    "Final input protection, connector, PCB copper, thermal behavior, EMC, and trip tolerances require physical validation."
+    "The revised 15 mOhm shunt keeps the 3.2 A reference signal at 0.96 V within the ADS131M02 gain-1 +/-1.2 V differential range.",
+    "The normally-closed E-stop loop directly inhibits the gate driver and separately reports state to the FPGA."
   ]
 }
