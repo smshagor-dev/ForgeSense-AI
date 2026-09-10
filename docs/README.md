@@ -14,6 +14,7 @@ This directory is the engineering source of truth for system behavior, interface
 - [`SENSOR_FRONTEND.md`](SENSOR_FRONTEND.md) — deterministic calibration, RMS extraction, diagnostics, and normalized hardware boundary.
 - [`SENSOR_PHY_REFERENCE.md`](SENSOR_PHY_REFERENCE.md) — vendor-neutral ADC/temperature/accelerometer transport, calibration record, self-test, and electronics boundary.
 - [`REFERENCE_CIRCUITS.md`](REFERENCE_CIRCUITS.md) — 12 V prototype power tree, current sensing, protected motor output, E-stop hardware inhibit, and SPICE references.
+- [`HARDWARE_BASELINE_V1.md`](HARDWARE_BASELINE_V1.md) — concrete pre-hardware component set, current-sense refinement, pin-freeze policy, and schematic gate.
 - [`FIRMWARE.md`](FIRMWARE.md) — ESP32-S3 runtime, UART service, inference, persistence, and host telemetry responsibilities.
 - [`DEVICE_TELEMETRY.md`](DEVICE_TELEMETRY.md) — ESP32-S3-to-PC read-only telemetry records, freshness, and host bridge.
 - [`TELEMETRY_API.md`](TELEMETRY_API.md) — local read-only monitoring API, authority model, freshness, and dashboard contract.
@@ -25,5 +26,7 @@ This directory is the engineering source of truth for system behavior, interface
 - [`FPGA_VHDL.md`](FPGA_VHDL.md) — RTL structure and VHDL engineering rules.
 - [`AI_ML.md`](AI_ML.md) — dataset, model, evaluation, and deployment requirements.
 - [`IP_AND_PUBLICATION.md`](IP_AND_PUBLICATION.md) — prior-art, disclosure, and publication discipline.
+
+Hardware implementation artifacts live under `hardware/`, including `bom/preliminary_bom_v1.csv`, `profiles/interconnect_v1.json`, and the KiCad hierarchy/net-class definitions. `make hardware-check` verifies cross-file baseline consistency and the analytical low-voltage circuit constraints.
 
 The root [`ROADMAP.md`](../ROADMAP.md) tracks future engineering work. The root `README.md` is the project overview; this documentation set should remain precise and evidence-driven.
