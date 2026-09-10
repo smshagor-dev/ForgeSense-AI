@@ -4,7 +4,7 @@
 
 ForgeSense AI is a hardware-software co-design project for building an intelligent industrial controller that combines deterministic FPGA safety logic with edge machine learning. The system is being designed to observe machine condition, detect abnormal behavior, estimate developing faults, and trigger bounded automation while preserving a hard real-time safety path that does not depend on ML inference.
 
-> **Project status:** Foundation and pre-hardware implementation. The repository is intentionally structured so RTL, firmware, ML, simulation, electronics, PCB, dashboard, and validation work can evolve together from a single set of system requirements.
+> **Project status:** Foundation and executable pre-hardware reference implementation are now in place. The repository includes a deterministic machine/sensor simulator, an ML anomaly baseline, a versioned FPGA↔ESP32 protocol, host-testable firmware parsing, and synthesizable VHDL safety/control logic.
 
 ## Why ForgeSense AI
 
@@ -18,9 +18,29 @@ Industrial predictive-maintenance products commonly separate condition monitorin
 
 The project does **not** currently claim to be the first implementation of these ideas. Any novelty, patentability, or prior-art claim must be established through a documented technical and legal review before public claims are made.
 
-## Intended V1 System
+## Current Executable Stack
 
-The initial complete system targets a small motor, fan, pump, conveyor, or comparable electromechanical load.
+```text
+Deterministic virtual machine
+        ↓
+Synthetic temperature / vibration / current sensors
+        ↓
+Versioned feature vector
+        ↓
+Compact anomaly model
+        ↓
+ForgeSense Link Protocol v1
+        ↓
+Freshness / compatibility gate
+        ↓
+FPGA safety state logic
+        ↓
+Safe output decision
+```
+
+The end-to-end virtual demo is runnable now and is covered by automated tests. See [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md).
+
+## Intended System
 
 ```text
 Machine / Test Load
@@ -84,24 +104,45 @@ Requirements, assumptions, test vectors, datasets, model artifacts, RTL simulati
 
 ## Repository Layout
 
-The repository will grow into the following structure:
-
 ```text
 ForgeSense-AI/
-├── fpga/                 # VHDL RTL, constraints, reusable IP, testbenches
-├── firmware/             # ESP32-S3 firmware and hardware abstraction
-├── ml/                   # datasets, preprocessing, training, evaluation, export
-├── simulator/            # machine, sensor, fault, and protocol simulation
+├── fpga/                 # VHDL RTL and testbenches
+├── firmware/             # ESP32-S3-side protocol/runtime code
+├── ml/                   # training, evaluation, model export
+├── simulator/            # deterministic plant and sensor simulation
 ├── hardware/             # schematics, PCB, BOM, manufacturing outputs
-├── dashboard/            # local monitoring and configuration UI
-├── protocol/             # FPGA <-> edge processor protocol specification
-├── tests/                # cross-component and integration tests
-├── tools/                # developer utilities and reproducibility scripts
-├── docs/                 # system, architecture, safety, verification documentation
-└── .github/              # contribution templates and repository automation
+├── dashboard/            # local monitoring/configuration UI
+├── protocol/             # FPGA ↔ edge processor contract
+├── tests/                # automated cross-component tests
+├── tools/                # reproducibility and virtual-demo tools
+├── docs/                 # system and engineering documentation
+└── .github/              # workflows and contribution templates
 ```
 
-Directories containing implementation code will be added with their own README and build instructions when development begins.
+## Quick Start
+
+Python tests:
+
+```bash
+PYTHONPATH=simulator:ml:protocol/python python -m pytest
+```
+
+End-to-end virtual demo:
+
+```bash
+PYTHONPATH=simulator:ml:protocol/python python tools/run_virtual_demo.py
+```
+
+Firmware protocol host test:
+
+```bash
+g++ -std=c++20 -Wall -Wextra -Werror \
+  -Ifirmware/components/forgesense_protocol/include \
+  firmware/components/forgesense_protocol/forgesense_protocol.cpp \
+  firmware/tests/protocol_test.cpp \
+  -o build/firmware_protocol_test
+./build/firmware_protocol_test
+```
 
 ## Planned Technical Stack
 
@@ -116,9 +157,9 @@ Directories containing implementation code will be added with their own README a
 | Outputs | Protected low-voltage driver path and relay/MOSFET abstraction |
 | Dashboard | Local-first web interface and telemetry API |
 | PCB | Two-layer prototype where signal integrity and safety constraints allow |
-| CI | Deterministic checks for docs, RTL, firmware, ML, and tests as each subsystem lands |
+| CI | Python, host C++, protocol-vector, and VHDL verification |
 
-Specific parts are not frozen until electrical requirements and sourcing are validated.
+Specific physical parts are not frozen until electrical requirements and sourcing are validated.
 
 ## Safety Boundary
 
@@ -130,36 +171,23 @@ ForgeSense AI is a research and engineering platform, not a certified industrial
 - do not bypass a machine's existing certified protection system;
 - use current-limited, isolated, low-voltage test loads during development.
 
-See [`docs/SAFETY_MODEL.md`](docs/SAFETY_MODEL.md) and [`SECURITY.md`](SECURITY.md) as the repository develops.
+See [`docs/SAFETY_MODEL.md`](docs/SAFETY_MODEL.md) and [`SECURITY.md`](SECURITY.md).
 
 ## Documentation
 
-Start with [`docs/README.md`](docs/README.md). The documentation set is designed to cover:
-
-- product vision and engineering scope;
-- system requirements and assumptions;
-- architecture and interface contracts;
-- circuit and PCB design rules;
-- VHDL/FPGA design conventions;
-- ML data, training, evaluation, and deployment rules;
-- firmware responsibilities;
-- safety and threat models;
-- verification and validation strategy;
-- roadmap and release criteria;
-- intellectual-property and publication discipline.
+Start with [`docs/README.md`](docs/README.md) and [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md). The documentation covers system requirements, architecture, hardware design rules, FPGA/VHDL conventions, ML contracts, firmware boundaries, safety, verification, roadmap, and IP/publication discipline.
 
 ## Roadmap
 
-The detailed roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). Near-term work is ordered around reducing technical uncertainty before buying or fabricating hardware:
+The detailed roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). Near-term engineering work is ordered around reducing technical uncertainty before buying or fabricating hardware:
 
-1. Freeze system boundaries, safety invariants, signals, and interfaces.
-2. Build the executable digital twin and sensor/fault simulator.
-3. Implement synthesizable VHDL safety/control logic with self-checking tests.
-4. Implement the edge firmware protocol and ML runtime boundary.
-5. Establish a reproducible ML training/evaluation baseline using synthetic and later real data.
-6. Integrate end-to-end virtual fault scenarios and recovery behavior.
-7. Validate on low-cost FPGA + ESP32-S3 hardware.
-8. Design and manufacture the custom electronics only after the reference implementation is stable.
+1. Extend the executable digital twin and fault-injection matrix.
+2. Complete the byte-stream parser and FPGA protocol receive path.
+3. Add ESP32-S3 transport and feature-window scheduling.
+4. Add stronger ML baselines and reproducible evaluation reports.
+5. Integrate end-to-end virtual fault/recovery scenarios.
+6. Validate on low-cost FPGA + ESP32-S3 hardware.
+7. Design and manufacture the custom electronics after the reference implementation is stable.
 
 ## Contributing
 
@@ -172,8 +200,6 @@ Do not disclose suspected vulnerabilities in public issues.
 The project is currently maintained under an **all-rights-reserved development license** while architecture, prior art, publication strategy, and potential protectable work are evaluated. No permission to copy, redistribute, manufacture from, commercialize, sublicense, or create derivative works is granted unless explicitly stated in writing.
 
 See [`LICENSE`](LICENSE) and [`docs/IP_AND_PUBLICATION.md`](docs/IP_AND_PUBLICATION.md).
-
-A future public-source license can be selected deliberately once the project's publication and IP strategy is settled.
 
 ## Author
 
