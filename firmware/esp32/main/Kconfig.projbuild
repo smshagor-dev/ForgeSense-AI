@@ -30,4 +30,20 @@ config FORGESENSE_LINK_LOSS_MS
     range 250 30000
     default 2000
 
+config FORGESENSE_TELEMETRY_ENABLE
+    bool "Emit read-only host telemetry records"
+    default y
+    help
+        Emit @FS1 JSON monitoring records to ESP-IDF standard output. This
+        transport is diagnostic-only and never reads actuator/control commands.
+
+config FORGESENSE_TELEMETRY_PERIOD_MS
+    int "Host telemetry publication interval in milliseconds"
+    depends on FORGESENSE_TELEMETRY_ENABLE
+    range 100 10000
+    default 500
+    help
+        Periodic publication interval. Important FPGA state transitions may
+        cause an earlier record so the dashboard does not wait for this period.
+
 endmenu

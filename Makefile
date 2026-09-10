@@ -3,6 +3,7 @@ CXXFLAGS := -std=c++20 -Wall -Wextra -Werror -pedantic
 PROTO_INC := -Ifirmware/components/forgesense_protocol/include
 INFER_INC := -Ifirmware/components/forgesense_inference/include
 EVENT_INC := -Ifirmware/components/forgesense_events/include
+TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 
 .PHONY: test demo closed-loop validate dashboard model model-export firmware-host
 
@@ -37,3 +38,5 @@ firmware-host:
 	./build/firmware_inference_test
 	g++ $(CXXFLAGS) $(PROTO_INC) $(EVENT_INC) firmware/components/forgesense_events/forgesense_events.cpp firmware/tests/events_test.cpp -o build/firmware_events_test
 	./build/firmware_events_test
+	g++ $(CXXFLAGS) $(PROTO_INC) $(TELEM_INC) firmware/components/forgesense_telemetry/forgesense_telemetry.cpp firmware/tests/telemetry_test.cpp -o build/firmware_telemetry_test
+	./build/firmware_telemetry_test

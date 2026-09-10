@@ -1,0 +1,35 @@
+{
+  "schema": "forgesense.hardware_profile.v1",
+  "profile_id": "esp32s3-devkit-prehardware-reference",
+  "validation_status": "pre_hardware_unverified",
+  "target": "esp32s3",
+  "fpga_link": {
+    "transport": "uart_8n1",
+    "uart_port": 1,
+    "baud": 115200,
+    "tx_gpio": 17,
+    "rx_gpio": 18,
+    "logic_voltage_v": 3.3,
+    "pin_assignment_validated_on_hardware": false
+  },
+  "host_telemetry": {
+    "transport": "esp_idf_console",
+    "preferred_when_exposed": "usb_serial_jtag",
+    "record_prefix": "@FS1 ",
+    "schema": "forgesense.edge.telemetry.v1",
+    "period_ms": 500,
+    "read_only": true,
+    "shares_fpga_control_uart": false
+  },
+  "safety_boundary": {
+    "fpga_is_final_output_authority": true,
+    "telemetry_can_command_load": false,
+    "telemetry_can_request_recovery": false,
+    "ml_can_override_hard_limits": false
+  },
+  "notes": [
+    "This profile records development defaults; it is not hardware-validation evidence.",
+    "Pin assignment and console routing must be checked against the exact selected board revision before flashing.",
+    "The host telemetry path must remain logically separate from the FPGA control UART."
+  ]
+}
