@@ -1,30 +1,68 @@
 RefDes,Function,Reference part,Qty,Status,Engineering note
 U_FPGA,Deterministic safety and acquisition,Sipeed Tang Nano 9K,1,reference,GW1NR-9 module; external application pins not frozen
 U_EDGE,Edge ML and telemetry,ESP32-S3-DevKitC-1,1,reference,GPIO17 U1TXD and GPIO18 U1RXD reserved for FPGA link
-U_BUCK,12 V to 5 V converter,TPS54202,1,reference,2 A synchronous buck; TI 5 V reference network retained
+F1,Passive input protection,5 A fuse reference,1,reference,Final time-current curve must match motor startup and eFuse coordination
+D_TVS,Input transient clamp,SMBJ15A,1,reference,15 V standoff; physical surge coordination not yet validated
+U_EFUSE,Reverse-polarity/reverse-current and overload protection,TPS259470LRPWR,1,reference,4.04 A reference limit; latch-off response
+R_UVOV_TOP,eFuse UV/OV divider top,470 kOhm 1%,1,reference,Sets UVLO/OVLO with 36k/36k lower network
+R_UVOV_MID,eFuse UV/OV divider middle,36 kOhm 1%,1,reference,Reference divider
+R_UVOV_BOT,eFuse UV/OV divider bottom,36 kOhm 1%,1,reference,Reference divider
+R_ILIM,eFuse current-limit resistor,825 Ohm 1%,1,reference,Reference ILIM about 4.04 A
+C_ITIMER,eFuse overcurrent blanking capacitor,12 nF,1,reference,Reference blanking about 10.1 ms
+C_DVDT,eFuse slew capacitor,3.3 nF,1,reference,Reference 12 V rise about 19.8 ms
+C_ENTRY_BULK,Protected 12 V bulk capacitor,100 uF >=25 V low-ESR,1,reference,Starting value; validate inrush and motor transients
+C_ENTRY_HF,Protected 12 V ceramic,1 uF >=25 V X7R,1,reference,High-frequency local decoupling
+U_BUCK,12 V to 5 V converter,TPS54202DDCR,1,reference,2 A synchronous buck; TI 5 V reference network retained
 L_BUCK,Buck inductor,15 uH >=2.5 A low-DCR,1,reference,Revalidate saturation and thermal margin
 CIN_BUCK,Buck input bulk,10 uF >=35 V X7R plus 0.1 uF,1,reference,Place at VIN/GND pins
+CBOOT_BUCK,Buck bootstrap capacitor,0.1 uF,1,reference,BOOT to SW
 COUT_BUCK,Buck output,22 uF >=10 V X7R,2,reference,TI 5 V reference starting point
-U_3V3,Quiet sensor/ADC rail,TPS7A2033,1,reference,300 mA low-noise 3.3 V LDO from 5 V
+R_FB_TOP,Buck feedback top,100 kOhm 1%,1,reference,TPS54202 5 V starting network
+R_FB_BOT,Buck feedback bottom,13.3 kOhm 1%,1,reference,TPS54202 5 V starting network
+C_FF,Buck feed-forward capacitor,75 pF C0G,1,reference,TPS54202 5 V starting network
+U_3V3,Quiet sensor/ADC rail,TPS7A2033PDBVR,1,reference,300 mA low-noise 3.3 V LDO from 5 V
 C_3V3_IN,LDO input,2.2 uF X7R,1,reference,Near LDO input
 C_3V3_OUT,LDO output,2.2 uF X7R,1,reference,Above 1 uF stability minimum
-U_CS,Current-sense amplifier,INA181A1,1,reference,20 V/V gain
+U_CS,Current-sense amplifier,INA181A1IDBVR,1,reference,20 V/V gain
 R_SHUNT,Motor current shunt,25 mOhm >=1 W preferably 2 W Kelvin,1,reference,0.256 W at 3.2 A before derating
-U_COMP,Independent overcurrent comparator,TLV3201,1,reference,3.3 V push-pull comparator; hysteresis footprint DNI initially
+R_CS_FILTER,Current measurement filter resistor,1 kOhm,1,reference,With 100 nF gives about 1.59 kHz pole
+C_CS_FILTER,Current measurement filter capacitor,100 nF,1,reference,With 1 kOhm gives about 1.59 kHz pole
+U_COMP,Independent overcurrent comparator,TLV3201AIDBVR,1,reference,3.3 V push-pull comparator; hysteresis footprint DNI initially
 R_TRIP_TOP,Comparator reference top,47.5 kOhm 0.1%,1,reference,3.3 V to trip-reference node
 R_TRIP_BOT,Comparator reference bottom,52.3 kOhm 0.1%,1,reference,Trip-reference node to GND
-U_ADC,Precision ADC,ADS131M02,1,reference,24-bit two-channel simultaneous delta-sigma ADC; SPI
-U_ACC,Vibration sensor,ADXL355,1,reference,20-bit low-noise MEMS accelerometer; SPI
-U_TEMP,Temperature sensor,TMP117,1,reference,16-bit I2C temperature sensor
-U_EBUF,E-stop logic-level buffer,SN74LVC1G17,1,reference,3.3 V Schmitt buffer; input tolerates 5 V E-stop inhibit node
-U_GATE,MOSFET gate driver,UCC27511A,1,reference,5 V; IN+=FPGA command and IN-=hardware E-stop inhibit
+R_HYST,Comparator hysteresis footprint,DNI,1,reference,Populate only after switching-noise measurement
+U_ADC,Precision ADC,ADS131M02IPWR,1,reference,24-bit two-channel simultaneous delta-sigma ADC; SPI
+Y_ADC,ADC master clock,SiT8924BA-22-33E-8.192000,1,reference,8.192 MHz 3.3 V LVCMOS reference clock
+C_ADC_AVDD,ADC AVDD decoupling,1 uF X7R,1,reference,Local AVDD to AGND
+C_ADC_DVDD,ADC DVDD decoupling,1 uF X7R,1,reference,Local DVDD to DGND
+C_ADC_CAP,ADC CAP decoupling,220 nF X7R,1,reference,CAP to DGND for DVDD above 2.7 V
+R_ADC_SCLK,ADC SPI source damping,33 Ohm,1,reference,Starting value near FPGA source
+R_ADC_MOSI,ADC SPI source damping,33 Ohm,1,reference,Starting value near FPGA source
+U_ACC,Vibration sensor,ADXL355BEZ,1,reference,20-bit low-noise MEMS accelerometer; SPI mode 0
+C_ACC_VSUP_HF,ADXL355 VSUPPLY bypass,0.1 uF X7R,1,reference,Local bypass
+C_ACC_VSUP_BULK,ADXL355 VSUPPLY bulk,1 uF X7R,1,reference,Local bypass
+C_ACC_VDDIO_HF,ADXL355 VDDIO bypass,0.1 uF X7R,1,reference,Local bypass
+C_ACC_VDDIO_BULK,ADXL355 VDDIO bulk,1 uF X7R,1,reference,Local bypass
+C_ACC_A_HF,ADXL355 V1P8ANA bypass,0.1 uF X7R,1,reference,Internal LDO output bypass
+C_ACC_A_BULK,ADXL355 V1P8ANA bulk,1 uF X7R,1,reference,Internal LDO output bypass
+C_ACC_D_HF,ADXL355 V1P8DIG bypass,0.1 uF X7R,1,reference,Internal LDO output bypass
+C_ACC_D_BULK,ADXL355 V1P8DIG bulk,1 uF X7R,1,reference,Internal LDO output bypass
+R_ACC_A_BLEED,ADXL355 analog-LDO discharge,100 kOhm,1,reference,Supports full discharge on power cycle
+R_ACC_D_BLEED,ADXL355 digital-LDO discharge,100 kOhm,1,reference,Supports full discharge on power cycle
+U_TEMP,Temperature sensor,TMP117AIDRVR,1,reference,16-bit I2C temperature sensor; ADD0 to GND
+C_TEMP,TMP117 bypass,0.1 uF X7R,1,reference,Place close to V+
+R_TEMP_SCL,TMP117 SCL pull-up,4.99 kOhm,1,reference,3.3 V quiet rail; validate against bus capacitance
+R_TEMP_SDA,TMP117 SDA pull-up,4.99 kOhm,1,reference,3.3 V quiet rail; validate against bus capacitance
+R_TEMP_ALERT,TMP117 ALERT pull-up,4.99 kOhm,1,reference,3.3 V quiet rail
+U_EBUF,E-stop logic-level buffer,SN74LVC1G17DBVR,1,reference,3.3 V Schmitt buffer; input tolerates 5 V E-stop inhibit node
+R_ESTOP_PU,E-stop fail-high pull-up,10 kOhm,1,reference,Open cable or pressed NC switch produces hardware inhibit
+U_GATE,MOSFET gate driver,UCC27511ADBVR,1,reference,5 V; IN+=FPGA command and IN-=hardware E-stop inhibit
 Q_MOTOR,Protected low-side switch,CSD18540Q5B,1,reference,60 V; max 3.3 mOhm at VGS=4.5 V
 R_GON,MOSFET turn-on resistor,22 Ohm,1,reference,Starting value; tune from EMI/thermal measurements
 R_GOFF,MOSFET turn-off resistor,4.7 Ohm,1,reference,Faster turn-off starting value
 R_GPD,MOSFET gate pulldown,100 kOhm,1,reference,Default-off bias
-D_FLY,Motor flyback diode,STPS5L60,1,reference,60 V and 5 A Schottky; validate thermal/transient energy
-F1,Input/motor protection fuse,5 A reference,1,reference,Final time-current characteristic must match motor startup
+D_FLY,Motor flyback diode,STPS5L60U,1,reference,60 V and 5 A Schottky; validate thermal/transient energy
 J_PWR,12 V power connector,TBD locking connector,1,pending,Rated and keyed after enclosure/current freeze
 J_MOTOR,Motor connector,TBD locking connector,1,pending,Rated above protected load current
 J_ESTOP,Normally-closed E-stop loop,TBD locking connector,1,pending,Cable-open and pressed state both disable UCC27511A
-TP_SET,Bring-up test points,12V/5V/3V3/GND/CS_OUT/TRIP/UART,1,required,Accessible without defeating protection
+TP_SET,Bring-up test points,12V_RAW/12V_PROTECTED/5V/3V3/CS_OUT/TRIP/UART/PWR_FAULT,1,required,Accessible without defeating protection
