@@ -4,6 +4,7 @@ PROTO_INC := -Ifirmware/components/forgesense_protocol/include
 INFER_INC := -Ifirmware/components/forgesense_inference/include
 EVENT_INC := -Ifirmware/components/forgesense_events/include
 TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
+SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 
 .PHONY: test demo closed-loop validate dashboard model model-export sensor-contract firmware-host
 
@@ -45,3 +46,5 @@ firmware-host:
 	./build/firmware_telemetry_test
 	g++ $(CXXFLAGS) $(PROTO_INC) firmware/tests/sensor_contract_test.cpp -o build/sensor_contract_test
 	./build/sensor_contract_test
+	g++ $(CXXFLAGS) $(SENSING_INC) firmware/components/forgesense_sensing/forgesense_sensing.cpp firmware/tests/sensing_test.cpp -o build/sensing_test
+	./build/sensing_test
