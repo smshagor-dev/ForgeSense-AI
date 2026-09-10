@@ -6,6 +6,9 @@ All notable repository-level changes are recorded here.
 
 ### Added
 
+- Low-voltage 12 V power-tree, protected motor-output, current-sense, flyback, and hardware E-stop reference architecture.
+- Machine-readable circuit profile plus analytical electrical checks for shunt headroom/thermal margin, backup-trip ordering, RC filtering, and MOSFET voltage-rating targets.
+- Behavioral SPICE references for the current-sense path and protected inductive motor output.
 - Vendor-neutral sensor PHY/electronics reference profile for signed 24-bit ADC samples, digital temperature, conditioned accelerometer data, and immutable safety-boundary calibration policy.
 - Fixed-size CRC32/IEEE calibration record with version, sequence, temperature/current coefficients, and strict integrity validation.
 - Portable C++ sensor PHY reference that suppresses invalid transport samples before normalized updates and produces windowed vibration RMS.
