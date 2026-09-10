@@ -8,8 +8,7 @@ namespace forgesense::sensing {
 inline constexpr std::uint16_t kDiagNone = 0x0000;
 inline constexpr std::uint16_t kDiagBadCalibration = 0x0001;
 inline constexpr std::uint16_t kDiagNumericSaturation = 0x0002;
-inline constexpr std::uint16_t kDiagWindowNotReady = 0x0004;
-inline constexpr std::uint16_t kDiagRawOutOfRange = 0x0008;
+inline constexpr std::uint16_t kDiagRawOutOfRange = 0x0004;
 inline constexpr std::int32_t kRaw24Min = -8388608;
 inline constexpr std::int32_t kRaw24Max = 8388607;
 
@@ -41,9 +40,7 @@ public:
 
     std::uint16_t window_samples() const { return window_samples_; }
     std::uint16_t samples_collected() const { return samples_collected_; }
-    std::uint16_t diagnostics() const {
-        return samples_collected_ == 0 ? kDiagWindowNotReady : kDiagNone;
-    }
+    bool window_in_progress() const { return samples_collected_ != 0; }
 
 private:
     std::uint16_t window_samples_{64};
