@@ -2,37 +2,97 @@
 
 ## Purpose
 
-This document turns the generic pre-hardware electronics model into a concrete but still revisable prototype baseline. It is not certification evidence and does not claim that unbuilt hardware has passed EMC, thermal, electrical-safety or functional-safety testing.
+`HW-BL-002` is the first component-backed schematic baseline for the ForgeSense low-voltage reference platform. It is detailed enough to drive schematic capture, BOM review, analytical checks, and later PCB layout, while deliberately leaving board-revision-dependent FPGA header assignments unresolved.
 
-## Reference component set
+This is engineering reference material. It is not certification evidence and does not establish safe limits for an arbitrary motor or industrial machine.
 
-- Tang Nano 9K / GW1NR-9 for deterministic FPGA logic. The board provides 8640 LUT4 resources, 468 Kbit block SRAM, two PLLs, 32 Mbit SPI flash and 2x24 header pads according to Sipeed documentation.
-- ESP32-S3-DevKitC-1 for edge inference and telemetry. GPIO17 and GPIO18 are exposed as U1TXD/U1RXD on the board header and are reserved for the FPGA link.
-- INA181A1 as the current-sense amplifier reference. The A1 option provides 20 V/V gain and the family supports a -0.2 V to 26 V common-mode range.
-- ADS131M02 as the precision ADC reference: two simultaneously sampled 24-bit channels, SPI and programmable data rates up to 64 kSPS.
-- ADXL355 as the vibration reference: low-noise digital three-axis accelerometer with SPI/I2C, integrated 20-bit conversion and selectable ±2/±4/±8 g ranges.
-- TMP117 as the temperature reference: 16-bit I2C/SMBus device with -55 °C to 150 °C operating range and high specified accuracy.
+## Compute
 
-The machine-readable record is `hardware/profiles/hardware_baseline_v1.json`; procurement substitutions must preserve the electrical/software contracts or explicitly revise them.
+- FPGA: Sipeed Tang Nano 9K, GW1NR-9, 27 MHz onboard clock.
+- Edge processor: ESP32-S3-DevKitC-1.
+- FPGA/ESP32 transport: UART 115200 8N1.
+- ESP32 GPIO17 is U1TXD and GPIO18 is U1RXD in the selected development-board profile.
+- Tang Nano external application pins remain unfrozen until the exact board revision is verified.
 
-## Current measurement revision
+## Power
 
-The generic 50 mOhm / gain-10 behavioral path is refined to 25 mOhm plus 20 V/V. At 3.2 A:
+The 12 V protected input is split into the motor branch and logic conversion.
 
-- shunt voltage = 80 mV;
-- amplified signal = 1.60 V;
-- shunt dissipation = 0.256 W.
+### 5 V logic rail
 
-The existing 1.73 V independent comparator reference still corresponds to approximately 3.46 A. A preferred 2 W Kelvin shunt keeps substantial thermal margin, but final pulse/current derating still depends on the chosen part and PCB.
+TPS54202 is the reference 12 V to 5 V synchronous buck. The starting network follows TI's 5 V reference design:
 
-## Safety partition
+- 15 uH inductor;
+- 10 uF plus 0.1 uF input decoupling;
+- 0.1 uF bootstrap capacitor;
+- two 22 uF output capacitors;
+- 100 kOhm / 13.3 kOhm feedback divider;
+- 75 pF feed-forward capacitor;
+- 2 A device output rating.
 
-The motor output can be removed by any of three independent FPGA/hardware paths: normalized hard limits, `ANALOG_HARD_TRIP`, or physical E-stop. ML may request bounded intervention but cannot mask these signals. The E-stop also has a physical gate-inhibit path outside clocked logic.
+### 3.3 V quiet rail
 
-## Pin-freeze policy
+TPS7A2033 creates `+3V3_QUIET` from 5 V for the precision sensing domain. The reference starts with 2.2 uF input and 2.2 uF output ceramics. The LDO is rated for 300 mA and requires at least 1 uF output capacitance.
 
-The Tang Nano 9K 27 MHz clock is verified at FPGA pin 52. Other carrier I/O pins remain intentionally unfrozen until each external header position, FPGA bank voltage and onboard peripheral conflict is checked against the exact board revision. ESP32-S3 GPIO17/18 are documentation-verified for UART1 use but still require physical-board validation before a hardware-pass claim.
+The quiet rail does not carry motor or gate-driver current.
 
-## Next schematic gate
+## Current sensing
 
-Before PCB layout begins, the repository must contain a real KiCad schematic with ERC results, concrete regulator/comparator/MOSFET/passive part numbers, connector pinout, exact FPGA header mapping, ADC reference/clock network and an annotated current-return review.
+The current path uses a 25 mOhm Kelvin shunt and INA181A1 at 20 V/V.
+
+At the 3.2 A reference point:
+
+```text
+Vshunt = 3.2 A × 0.025 Ohm = 0.080 V
+CS_OUT = 0.080 V × 20 = 1.600 V
+Pshunt = 3.2² × 0.025 = 0.256 W
+```
+
+The BOM requires at least 1 W and preferably 2 W for the shunt before real thermal validation.
+
+## Independent analog trip
+
+TLV3201 is the reference comparator, powered from 3.3 V. A 47.5 kOhm / 52.3 kOhm 0.1% divider creates approximately 1.729 V. With the current transfer above, the ideal reference trip is approximately 3.46 A.
+
+Comparator hysteresis is intentionally a DNI footprint until motor-switching noise is measured. The comparator output feeds the FPGA `external_hard_trip` path and is never routed through the ESP32-S3.
+
+## Motor switch and physical E-stop
+
+UCC27511A is the reference 5 V low-side gate driver. `IN+` receives the FPGA load command. `IN-` is the independent active-high hardware inhibit.
+
+The E-stop is a normally-closed loop:
+
+- healthy closed loop pulls `ESTOP_INHIBIT_5V` low;
+- pressed switch or broken cable releases the node;
+- a 10 kOhm pull-up drives it high;
+- high `IN-` forces the gate driver output low.
+
+The motor MOSFET is CSD18540Q5B, a 60 V logic-level N-channel device with RDS(on) specified at 4.5 V. Starting gate resistors are 22 Ohm turn-on and 4.7 Ohm turn-off, with a 100 kOhm gate-to-source pulldown.
+
+STPS5L60 is the initial 60 V, 5 A flyback reference. Final thermal suitability depends on measured motor current and transient energy.
+
+SN74LVC1G17, powered at 3.3 V, buffers the 5 V E-stop inhibit state into the FPGA sensing domain. The hardware gate inhibit itself remains independent of that buffer and FPGA clocking.
+
+## Precision sensing
+
+- ADS131M02: 24-bit, two-channel simultaneous-sampling delta-sigma ADC; SPI; 3.3 V analog/digital rail; internal reference.
+- ADXL355: low-noise 20-bit digital accelerometer; SPI; ±8 g reference configuration; 1 kHz ForgeSense raw acquisition target.
+- TMP117: 16-bit I2C temperature sensor; 3.3 V rail; 0.0078125 °C per LSB.
+
+## Schematic source of truth
+
+The following files must agree:
+
+- `hardware/profiles/hardware_baseline_v1.json`
+- `hardware/profiles/reference_circuit_v1.json`
+- `hardware/kicad/schematic_contract_v1.json`
+- `hardware/kicad/POWER_AND_SAFETY_SHEET_V1.md`
+- `hardware/bom/preliminary_bom_v1.csv`
+
+Run:
+
+```bash
+make hardware-check
+```
+
+The checker prevents silent drift between the hardware profile, schematic contract, BOM, current-transfer calculation, trip threshold, E-stop policy, and development-board UART mapping.
