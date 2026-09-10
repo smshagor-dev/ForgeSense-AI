@@ -1,19 +1,30 @@
 RefDes,Function,Reference part,Qty,Status,Engineering note
-U_FPGA,Deterministic safety and acquisition,Sipeed Tang Nano 9K,1,reference,Prototype module around GW1NR-9
-U_EDGE,Edge ML and telemetry,ESP32-S3-DevKitC-1,1,reference,GPIO17/18 reserved for FPGA UART
-U_CS,Current-sense amplifier,INA181A1,1,reference,20 V/V gain; final package TBD
+U_FPGA,Deterministic safety and acquisition,Sipeed Tang Nano 9K,1,reference,GW1NR-9 module; external application pins not frozen
+U_EDGE,Edge ML and telemetry,ESP32-S3-DevKitC-1,1,reference,GPIO17 U1TXD and GPIO18 U1RXD reserved for FPGA link
+U_BUCK,12 V to 5 V converter,TPS54202,1,reference,2 A synchronous buck; TI 5 V reference network retained
+L_BUCK,Buck inductor,15 uH >=2.5 A low-DCR,1,reference,Revalidate saturation and thermal margin
+CIN_BUCK,Buck input bulk,10 uF >=35 V X7R plus 0.1 uF,1,reference,Place at VIN/GND pins
+COUT_BUCK,Buck output,22 uF >=10 V X7R,2,reference,TI 5 V reference starting point
+U_3V3,Quiet sensor/ADC rail,TPS7A2033,1,reference,300 mA low-noise 3.3 V LDO from 5 V
+C_3V3_IN,LDO input,2.2 uF X7R,1,reference,Near LDO input
+C_3V3_OUT,LDO output,2.2 uF X7R,1,reference,Above 1 uF stability minimum
+U_CS,Current-sense amplifier,INA181A1,1,reference,20 V/V gain
 R_SHUNT,Motor current shunt,25 mOhm >=1 W preferably 2 W Kelvin,1,reference,0.256 W at 3.2 A before derating
-U_ADC,Precision ADC,ADS131M02,1,reference,24-bit 2-channel simultaneous-sampling SPI ADC
-U_ACC,Vibration sensor,ADXL355,1,reference,Digital low-noise accelerometer; SPI preferred
-U_TEMP,Temperature sensor,TMP117,1,reference,High-accuracy I2C digital temperature sensor
-U_COMP,Independent overcurrent comparator,TBD 3.3 V comparator,1,pending,Must drive FPGA external hard-trip independently of ESP32
-Q_MOTOR,Protected low-side switch,TBD logic-compatible >=40 V N-MOSFET,1,pending,RDS(on) must be specified at actual gate voltage
-D_FLY,Flyback/transient clamp,TBD,1,pending,Select from measured motor current and transient energy
-F1,Input/motor protection fuse,5 A reference,1,reference,Final time-current characteristic must match load
-U_5V,12 V to 5 V regulator,TBD,1,pending,Current and thermal budget required
-U_3V3,5 V to 3.3 V regulator,TBD,1,pending,Noise/current budget required
-J_PWR,12 V power connector,TBD locking connector,1,pending,Voltage/current/polarity keyed
+U_COMP,Independent overcurrent comparator,TLV3201,1,reference,3.3 V push-pull comparator; hysteresis footprint DNI initially
+R_TRIP_TOP,Comparator reference top,47.5 kOhm 0.1%,1,reference,3.3 V to trip-reference node
+R_TRIP_BOT,Comparator reference bottom,52.3 kOhm 0.1%,1,reference,Trip-reference node to GND
+U_ADC,Precision ADC,ADS131M02,1,reference,24-bit two-channel simultaneous delta-sigma ADC; SPI
+U_ACC,Vibration sensor,ADXL355,1,reference,20-bit low-noise MEMS accelerometer; SPI
+U_TEMP,Temperature sensor,TMP117,1,reference,16-bit I2C temperature sensor
+U_EBUF,E-stop logic-level buffer,SN74LVC1G17,1,reference,3.3 V Schmitt buffer; input tolerates 5 V E-stop inhibit node
+U_GATE,MOSFET gate driver,UCC27511A,1,reference,5 V; IN+=FPGA command and IN-=hardware E-stop inhibit
+Q_MOTOR,Protected low-side switch,CSD18540Q5B,1,reference,60 V; max 3.3 mOhm at VGS=4.5 V
+R_GON,MOSFET turn-on resistor,22 Ohm,1,reference,Starting value; tune from EMI/thermal measurements
+R_GOFF,MOSFET turn-off resistor,4.7 Ohm,1,reference,Faster turn-off starting value
+R_GPD,MOSFET gate pulldown,100 kOhm,1,reference,Default-off bias
+D_FLY,Motor flyback diode,STPS5L60,1,reference,60 V and 5 A Schottky; validate thermal/transient energy
+F1,Input/motor protection fuse,5 A reference,1,reference,Final time-current characteristic must match motor startup
+J_PWR,12 V power connector,TBD locking connector,1,pending,Rated and keyed after enclosure/current freeze
 J_MOTOR,Motor connector,TBD locking connector,1,pending,Rated above protected load current
-J_ESTOP,E-stop connector,TBD 2-pin/3-pin safety input,1,pending,Must affect FPGA state and physical gate inhibit
-J_SENS,Sensor/service connectors,TBD,3,pending,Separate vibration/temperature/current-service interfaces
-TP_SET,Bring-up test points,3V3/5V/12V/GND/CS_OUT/TRIP/UART,1,required,Accessible without defeating protection
+J_ESTOP,Normally-closed E-stop loop,TBD locking connector,1,pending,Cable-open and pressed state both disable UCC27511A
+TP_SET,Bring-up test points,12V/5V/3V3/GND/CS_OUT/TRIP/UART,1,required,Accessible without defeating protection
