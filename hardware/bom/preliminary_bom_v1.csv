@@ -24,14 +24,14 @@ U_3V3,Quiet sensor/ADC rail,TPS7A2033PDBVR,1,reference,300 mA low-noise 3.3 V LD
 C_3V3_IN,LDO input,2.2 uF X7R,1,reference,Near LDO input
 C_3V3_OUT,LDO output,2.2 uF X7R,1,reference,Above 1 uF stability minimum
 U_CS,Current-sense amplifier,INA181A1IDBVR,1,reference,20 V/V gain
-R_SHUNT,Motor current shunt,25 mOhm >=1 W preferably 2 W Kelvin,1,reference,0.256 W at 3.2 A before derating
+R_SHUNT,Motor current shunt,15 mOhm >=1 W preferably 2 W Kelvin,1,reference,0.154 W at 3.2 A; gives 0.96 V at ADC after 20x gain
 R_CS_FILTER,Current measurement filter resistor,1 kOhm,1,reference,With 100 nF gives about 1.59 kHz pole
 C_CS_FILTER,Current measurement filter capacitor,100 nF,1,reference,With 1 kOhm gives about 1.59 kHz pole
 U_COMP,Independent overcurrent comparator,TLV3201AIDBVR,1,reference,3.3 V push-pull comparator; hysteresis footprint DNI initially
-R_TRIP_TOP,Comparator reference top,47.5 kOhm 0.1%,1,reference,3.3 V to trip-reference node
-R_TRIP_BOT,Comparator reference bottom,52.3 kOhm 0.1%,1,reference,Trip-reference node to GND
+R_TRIP_TOP,Comparator reference top,23.2 kOhm 0.1%,1,reference,3.3 V to trip-reference node
+R_TRIP_BOT,Comparator reference bottom,10.7 kOhm 0.1%,1,reference,Creates about 1.042 V trip reference
 R_HYST,Comparator hysteresis footprint,DNI,1,reference,Populate only after switching-noise measurement
-U_ADC,Precision ADC,ADS131M02IPWR,1,reference,24-bit two-channel simultaneous delta-sigma ADC; SPI
+U_ADC,Precision ADC,ADS131M02IPWR,1,reference,24-bit two-channel simultaneous delta-sigma ADC; CPOL0/CPHA1 transport
 Y_ADC,ADC master clock,SiT8924BA-22-33E-8.192000,1,reference,8.192 MHz 3.3 V LVCMOS reference clock
 C_ADC_AVDD,ADC AVDD decoupling,1 uF X7R,1,reference,Local AVDD to AGND
 C_ADC_DVDD,ADC DVDD decoupling,1 uF X7R,1,reference,Local DVDD to DGND
