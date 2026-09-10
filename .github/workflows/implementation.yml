@@ -24,10 +24,14 @@ jobs:
         env:
           PYTHONPATH: simulator:ml:protocol/python
         run: python -m pytest
-      - name: Run end-to-end virtual demo
+      - name: Run virtual anomaly demo
         env:
           PYTHONPATH: simulator:ml:protocol/python
         run: python tools/run_virtual_demo.py
+      - name: Run closed-loop control demo
+        env:
+          PYTHONPATH: simulator:ml:protocol/python
+        run: python tools/run_closed_loop.py
 
   firmware-host:
     runs-on: ubuntu-latest
@@ -43,6 +47,15 @@ jobs:
             firmware/tests/protocol_test.cpp \
             -o build/firmware_protocol_test
           ./build/firmware_protocol_test
+      - name: Compile stream and freshness gate with warnings as errors
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror \
+            -Ifirmware/components/forgesense_protocol/include \
+            firmware/components/forgesense_protocol/forgesense_protocol.cpp \
+            firmware/components/forgesense_protocol/forgesense_stream.cpp \
+            firmware/tests/stream_test.cpp \
+            -o build/firmware_stream_test
+          ./build/firmware_stream_test
 
   vhdl:
     runs-on: ubuntu-latest
@@ -53,12 +66,24 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ghdl
-      - name: Analyze and run safety FSM testbench
+      - name: Analyze RTL
         run: |
           ghdl -a --std=08 fpga/rtl/safety/safety_pkg.vhd
           ghdl -a --std=08 fpga/rtl/safety/watchdog.vhd
           ghdl -a --std=08 fpga/rtl/safety/hard_limit_monitor.vhd
           ghdl -a --std=08 fpga/rtl/safety/safety_fsm.vhd
+          ghdl -a --std=08 fpga/rtl/protocol/crc16_ccitt_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/protocol/link_receiver.vhd
+          ghdl -a --std=08 fpga/rtl/protocol/intelligence_gate.vhd
+          ghdl -a --std=08 fpga/rtl/top/safety_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_core.vhd
+      - name: Run safety state testbench
+        run: |
           ghdl -a --std=08 fpga/tb/tb_safety_fsm.vhd
           ghdl -e --std=08 tb_safety_fsm
           ghdl -r --std=08 tb_safety_fsm --assert-level=error
+      - name: Run link receiver testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_link_receiver.vhd
+          ghdl -e --std=08 tb_link_receiver
+          ghdl -r --std=08 tb_link_receiver --assert-level=error

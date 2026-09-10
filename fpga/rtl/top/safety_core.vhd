@@ -29,6 +29,7 @@ architecture rtl of safety_core is
     signal hard_warning_i : std_logic;
     signal hard_critical_i : std_logic;
     signal comm_timeout_i : std_logic;
+    signal watchdog_rst_i : std_logic;
 begin
     limits : entity work.hard_limit_monitor
         port map (
@@ -40,9 +41,16 @@ begin
             hard_critical => hard_critical_i
         );
 
+    watchdog_rst_i <= rst or not startup_done;
+
     comm_watchdog : entity work.watchdog
         generic map (TIMEOUT_CYCLES => WATCHDOG_TIMEOUT_CYCLES)
-        port map (clk => clk, rst => rst, kick => intelligence_kick, expired => comm_timeout_i);
+        port map (
+            clk => clk,
+            rst => watchdog_rst_i,
+            kick => intelligence_kick,
+            expired => comm_timeout_i
+        );
 
     controller : entity work.safety_fsm
         port map (
