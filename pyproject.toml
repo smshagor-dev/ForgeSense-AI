@@ -1,0 +1,10 @@
+[project]
+name = "forgesense-ai"
+version = "0.1.0"
+description = "Virtual reference implementation for ForgeSense AI"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["simulator", "ml", "protocol/python"]
+addopts = "-q"
