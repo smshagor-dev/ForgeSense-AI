@@ -1,12 +1,12 @@
 {
   "schema": "forgesense.schematic_contract.v1",
-  "revision": "SCH-CON-002",
+  "revision": "SCH-CON-003",
   "board": "ForgeSense carrier/reference board",
   "sheets": [
     {"id": "01_input_protection", "ports_in": ["VIN_12V_RAW", "GND"], "ports_out": ["VIN_12V_PROTECTED", "PWR_ENTRY_FAULT_N", "GND"], "required": ["F1_5A", "SMBJ15A", "TPS259470LRPWR", "100uF_bulk", "1uF_ceramic"]},
     {"id": "02_power", "ports_in": ["VIN_12V_PROTECTED"], "ports_out": ["+5V_LOGIC", "+3V3_QUIET"], "required": ["TPS54202DDCR", "TPS7A2033PDBVR"]},
     {"id": "03_compute", "ports_in": ["+5V_LOGIC", "+3V3_QUIET"], "ports_out": ["FPGA_LOAD_ENABLE", "FPGA_UART_TX", "ESP32_UART_TX"], "required": ["Tang Nano 9K", "ESP32-S3-DevKitC-1"]},
-    {"id": "04_current_sense", "ports_in": ["MOTOR_RETURN"], "ports_out": ["CS_OUT", "ANALOG_HARD_TRIP"], "required": ["25mR_Kelvin", "INA181A1IDBVR", "TLV3201AIDBVR"]},
+    {"id": "04_current_sense", "ports_in": ["MOTOR_RETURN"], "ports_out": ["CS_OUT", "ANALOG_HARD_TRIP"], "required": ["15mR_Kelvin", "INA181A1IDBVR", "TLV3201AIDBVR", "23k2_trip_top", "10k7_trip_bottom"]},
     {"id": "05_precision_adc", "ports_in": ["CS_OUT", "+3V3_QUIET"], "ports_out": ["ADC_SPI_SCLK", "ADC_SPI_MOSI", "ADC_SPI_MISO", "ADC_DRDY"], "required": ["ADS131M02IPWR", "SiT8924_8p192MHz", "AVDD_1uF", "DVDD_1uF", "CAP_220nF"]},
     {"id": "06_vibration", "ports_in": ["+3V3_QUIET"], "ports_out": ["ACC_SPI_SCLK", "ACC_SPI_MOSI", "ACC_SPI_MISO", "ACC_DRDY"], "required": ["ADXL355BEZ", "local_bypass_network", "100k_LDO_bleeds"]},
     {"id": "07_temperature", "ports_in": ["+3V3_QUIET"], "ports_out": ["TEMP_I2C_SCL", "TEMP_I2C_SDA", "TEMP_ALERT"], "required": ["TMP117AIDRVR", "SCL_4k99", "SDA_4k99", "ALERT_4k99", "VDD_100nF"]},
@@ -18,8 +18,9 @@
     "VIN_12V_PROTECTED": {"source": "TPS259470L", "uvlo_v_reference": 9.0333333333, "ovlo_v_reference": 18.0666666667, "current_limit_a_reference": 4.0412121212},
     "ESTOP_INHIBIT_5V": {"default": "HIGH_DISABLE", "healthy": "LOW_ENABLE", "must_not_depend_on_fpga_clock": true},
     "FPGA_LOAD_ENABLE": {"default": "LOW", "hardware_estop_can_override": true},
-    "ANALOG_HARD_TRIP": {"default": "LOW_NONTRIP", "source": "TLV3201", "destination": "FPGA"},
-    "CS_OUT": {"nominal_at_3p2A_v": 1.6},
+    "ANALOG_HARD_TRIP": {"default": "LOW_NONTRIP", "source": "TLV3201", "destination": "FPGA", "trip_a_reference": 3.472},
+    "CS_OUT": {"nominal_at_3p2A_v": 0.96, "ads131m02_gain1_fsr_v": 1.2, "reference_fsr_utilization": 0.8},
+    "CS_TRIP_REF": {"reference_v": 1.0416, "divider_top_ohm": 23200.0, "divider_bottom_ohm": 10700.0},
     "ADC_CLK_8M192": {"source": "SiT8924", "frequency_hz": 8192000},
     "+5V_LOGIC": {"source": "TPS54202", "rated_a": 2.0},
     "+3V3_QUIET": {"source": "TPS7A2033", "rated_a": 0.3}
@@ -27,6 +28,7 @@
   "linked_profiles": [
     "hardware/profiles/power_entry_v1.json",
     "hardware/profiles/sensor_support_v1.json",
+    "hardware/profiles/sensor_devices_v1.json",
     "hardware/profiles/interconnect_v1.json"
   ],
   "unresolved": {
