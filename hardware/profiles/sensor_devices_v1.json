@@ -1,0 +1,68 @@
+{
+  "schema": "forgesense.sensor_devices.v1",
+  "revision": "SDEV-001",
+  "clock_hz": 27000000,
+  "tmp117": {
+    "address_7bit": 72,
+    "temp_result_register": 0,
+    "device_id_register": 15,
+    "expected_device_id": 279,
+    "lsb_c": 0.0078125,
+    "i2c_max_hz": 400000,
+    "normalized_unit": "deci_c"
+  },
+  "adxl355": {
+    "spi_mode": 0,
+    "spi_max_hz_reference": 2000000,
+    "devid_ad": 173,
+    "devid_mst": 29,
+    "part_id": 237,
+    "xdata3_register": 8,
+    "filter_register": 40,
+    "filter_1khz_value": 2,
+    "range_register": 44,
+    "range_8g_value": 3,
+    "power_ctl_register": 45,
+    "measurement_value": 0,
+    "resolution_bits": 20,
+    "sensitivity_ug_per_lsb_at_8g": 15.6,
+    "drdy_active": "high"
+  },
+  "ads131m02": {
+    "spi_mode": 1,
+    "spi_hz_reference": 2000000,
+    "clock_hz": 8192000,
+    "word_bits": 24,
+    "frame_words": 4,
+    "drdy_active": "low",
+    "id_register": 0,
+    "expected_id_high_byte": 34,
+    "rreg_id_command": 40960,
+    "clock_register": 3,
+    "wreg_clock_command": 24960,
+    "rreg_clock_command": 41344,
+    "clock_1ksps_hr_value": 790,
+    "target_sample_rate_sps": 1000,
+    "crc_polynomial": 4129,
+    "crc_seed": 65535,
+    "crc_output_required": true,
+    "internal_reference_v": 1.2,
+    "pga_gain": 1,
+    "differential_fsr_v": 1.2,
+    "current_channel": 0
+  },
+  "current_frontend": {
+    "shunt_ohm": 0.015,
+    "gain_v_per_v": 20.0,
+    "reference_current_a": 3.2,
+    "reference_output_v": 0.96,
+    "reference_fsr_utilization": 0.8,
+    "analog_trip_target_a": 3.472,
+    "trip_reference_v": 1.0416
+  },
+  "notes": [
+    "Device register constants are implementation contracts derived from manufacturer data sheets and must be reviewed when a part revision changes.",
+    "The current frontend is intentionally limited to 80 percent of the ADS131M02 gain-1 differential full scale at the 3.2 A reference point.",
+    "Hardware timing, EMC, calibration accuracy, and sensor mounting remain unverified until physical bring-up."
+  ]
+}
