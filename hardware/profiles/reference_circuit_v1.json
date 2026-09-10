@@ -1,19 +1,27 @@
 {
   "schema": "forgesense.reference_circuit.v1",
+  "revision": "RC-002",
   "nominal_input_v": 12.0,
   "logic_v": 3.3,
   "motor": {
     "reference_continuous_a": 3.2,
     "fuse_a": 5.0,
-    "mosfet_min_vds_v": 40.0,
-    "gate_resistor_ohm": 33.0,
+    "mosfet_reference": "CSD18540Q5B",
+    "mosfet_vds_v": 60.0,
+    "mosfet_rds_on_max_mohm_at_4v5": 3.3,
+    "gate_driver_reference": "UCC27511A",
+    "gate_driver_v": 5.0,
+    "gate_turn_on_ohm": 22.0,
+    "gate_turn_off_ohm": 4.7,
     "gate_pulldown_ohm": 100000.0,
-    "flyback_required": true,
+    "flyback_reference": "STPS5L60",
+    "flyback_vrrm_v": 60.0,
+    "flyback_forward_a": 5.0,
     "estop_hardware_gate_inhibit": true
   },
   "current_sense": {
-    "topology": "low_side_shunt_plus_ina181a1_reference",
-    "reference_amplifier": "INA181A1",
+    "topology": "low_side_kelvin_shunt_plus_ina181a1",
+    "amplifier_reference": "INA181A1",
     "shunt_ohm": 0.025,
     "shunt_min_power_w": 1.0,
     "shunt_preferred_power_w": 2.0,
@@ -21,7 +29,10 @@
     "adc_full_scale_v": 3.3,
     "filter_r_ohm": 1000.0,
     "filter_c_f": 1e-7,
-    "backup_trip_reference_v": 1.73,
+    "comparator_reference": "TLV3201",
+    "comparator_supply_v": 3.3,
+    "trip_divider_top_ohm": 47500.0,
+    "trip_divider_bottom_ohm": 52300.0,
     "backup_trip_target": "fpga_external_hard_trip"
   },
   "power": {
@@ -29,12 +40,14 @@
     "reverse_polarity_protection_required": true,
     "transient_suppression_required": true,
     "motor_and_logic_branching_required": true,
-    "logic_5v_regulator_required": true,
-    "logic_3v3_regulator_required": true
+    "buck_5v_reference": "TPS54202",
+    "buck_5v_output_a": 2.0,
+    "quiet_3v3_reference": "TPS7A2033",
+    "quiet_3v3_output_a": 0.3
   },
   "notes": [
-    "Reference values are for low-voltage prototype analysis and are not final certified component values.",
-    "The analog overcurrent comparator feeds the independent FPGA external hard-trip path and does not replace normalized FPGA hard-limit logic.",
-    "Final ratings require the selected motor, MOSFET, regulator, sensor, PCB copper, thermal design, and measured transients."
+    "Reference values target the low-voltage prototype and are not final machine-specific safety limits.",
+    "The normally-closed E-stop loop directly inhibits UCC27511A IN- through fail-high logic and separately reports state to the FPGA.",
+    "Final input protection, connector, PCB copper, thermal behavior, EMC, and trip tolerances require physical validation."
   ]
 }
