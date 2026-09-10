@@ -12,9 +12,9 @@ This directory is the engineering source of truth for system behavior, interface
 - [`SENSOR_ACQUISITION.md`](SENSOR_ACQUISITION.md) — normalized sensor units, validity, sampling, and FPGA-to-edge wire contract.
 - [`SENSOR_CONTRACT.md`](SENSOR_CONTRACT.md) — generated cross-language sensor ranges, freshness limits, and FPGA supervision rules.
 - [`SENSOR_FRONTEND.md`](SENSOR_FRONTEND.md) — deterministic calibration, RMS extraction, diagnostics, and normalized hardware boundary.
-- [`SENSOR_PHY_REFERENCE.md`](SENSOR_PHY_REFERENCE.md) — vendor-neutral ADC/temperature/accelerometer transport, calibration record, self-test, and electronics boundary.
-- [`REFERENCE_CIRCUITS.md`](REFERENCE_CIRCUITS.md) — component-backed 12 V power tree, current sensing, protected motor output, E-stop hardware inhibit, and SPICE references.
-- [`HARDWARE_BASELINE_V1.md`](HARDWARE_BASELINE_V1.md) — concrete schematic baseline, selected reference parts, formulas, and evidence boundary.
+- [`SENSOR_PHY_REFERENCE.md`](SENSOR_PHY_REFERENCE.md) — acquisition, calibration record, self-test, and electronics boundary.
+- [`REFERENCE_CIRCUITS.md`](REFERENCE_CIRCUITS.md) — component-backed 12 V current sensing, analog hard trip, protected motor output, E-stop, and SPICE references.
+- [`HARDWARE_BASELINE_V1.md`](HARDWARE_BASELINE_V1.md) — `HW-BL-003` protected power entry, selected reference parts, precision sensor support, schematic contracts, and evidence boundary.
 - [`HARDWARE_DESIGN.md`](HARDWARE_DESIGN.md) — electronics, protection, power, sensing, and PCB design rules.
 - [`FIRMWARE.md`](FIRMWARE.md) — ESP32-S3 runtime, UART service, inference, persistence, and host telemetry responsibilities.
 - [`DEVICE_TELEMETRY.md`](DEVICE_TELEMETRY.md) — ESP32-S3-to-PC read-only telemetry records, freshness, and host bridge.
@@ -27,6 +27,6 @@ This directory is the engineering source of truth for system behavior, interface
 - [`AI_ML.md`](AI_ML.md) — dataset, model, evaluation, and deployment requirements.
 - [`IP_AND_PUBLICATION.md`](IP_AND_PUBLICATION.md) — prior-art, disclosure, and publication discipline.
 
-Hardware implementation artifacts live under `hardware/`, including the preliminary BOM, schematic hierarchy, machine-readable `kicad/schematic_contract_v1.json`, and `kicad/POWER_AND_SAFETY_SHEET_V1.md`. `make hardware-check` verifies cross-file consistency and low-voltage analytical constraints.
+Hardware implementation artifacts live under `hardware/`. The active electrical sources include `profiles/power_entry_v1.json`, `profiles/sensor_support_v1.json`, the preliminary BOM, the machine-readable schematic contract, the package/MPN manifest, and the net-endpoint freeze table. `make hardware-check` verifies their cross-file consistency and analytical constraints.
 
 The root [`ROADMAP.md`](../ROADMAP.md) tracks future engineering work. The root `README.md` is the project overview; this documentation set should remain precise and evidence-driven.
