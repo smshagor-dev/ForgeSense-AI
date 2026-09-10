@@ -1,37 +1,163 @@
 {
   "schema": "forgesense.hardware_baseline.v1",
-  "revision": "HW-BL-001",
-  "status": "pre_hardware_reference",
-  "input": {"nominal_v": 12.0, "logic_v": 3.3, "motor_reference_a": 3.2},
+  "revision": "HW-BL-002",
+  "status": "schematic_reference_pre_hardware",
+  "input": {
+    "nominal_v": 12.0,
+    "logic_v": 3.3,
+    "motor_reference_a": 3.2,
+    "motor_fuse_a": 5.0
+  },
   "compute": {
-    "fpga": {"board": "Sipeed Tang Nano 9K", "device": "GW1NR-9", "clock_hz": 27000000},
-    "edge": {"board": "ESP32-S3-DevKitC-1", "fpga_uart_tx_gpio": 17, "fpga_uart_rx_gpio": 18, "baud": 115200}
+    "fpga": {
+      "board": "Sipeed Tang Nano 9K",
+      "device": "GW1NR-9",
+      "clock_hz": 27000000
+    },
+    "edge": {
+      "board": "ESP32-S3-DevKitC-1",
+      "fpga_uart_tx_gpio": 17,
+      "fpga_uart_rx_gpio": 18,
+      "baud": 115200
+    }
+  },
+  "power": {
+    "buck_5v": {
+      "reference": "TPS54202",
+      "vin_min_v": 4.5,
+      "vin_max_v": 28.0,
+      "output_v": 5.0,
+      "output_current_a": 2.0,
+      "switching_hz": 500000,
+      "inductor_uH": 15.0,
+      "cin_uF": 10.0,
+      "cin_bypass_uF": 0.1,
+      "boot_uF": 0.1,
+      "cout_uF_each": 22.0,
+      "cout_count": 2,
+      "feedback_top_ohm": 100000.0,
+      "feedback_bottom_ohm": 13300.0,
+      "feedforward_pf": 75.0
+    },
+    "quiet_3v3": {
+      "reference": "TPS7A2033",
+      "input_v": 5.0,
+      "output_v": 3.3,
+      "output_current_a": 0.3,
+      "cin_uF": 2.2,
+      "cout_uF": 2.2,
+      "minimum_stable_cout_uF": 1.0,
+      "consumers": [
+        "ADS131M02",
+        "INA181A1",
+        "TLV3201",
+        "TMP117",
+        "ADXL355",
+        "SN74LVC1G17"
+      ]
+    }
   },
   "sensing": {
-    "current_amplifier": {"reference": "INA181A1", "gain_v_per_v": 20.0, "common_mode_v": [-0.2, 26.0], "supply_v": [2.7, 5.5]},
-    "current_shunt": {"ohm": 0.025, "minimum_power_w": 1.0, "preferred_power_w": 2.0, "kelvin_required": true},
-    "adc": {"reference": "ADS131M02", "resolution_bits": 24, "channels": 2, "interface": "SPI", "reference_max_sample_rate_sps": 32000},
-    "vibration": {"reference": "ADXL355", "interface": "SPI", "digital_resolution_bits": 20, "reference_range_g": 8, "raw_sample_rate_hz": 1000},
-    "temperature": {"reference": "TMP117", "interface": "I2C", "resolution_bits": 16, "operating_range_c": [-55, 150]}
+    "current_amplifier": {
+      "reference": "INA181A1",
+      "gain_v_per_v": 20.0,
+      "common_mode_v": [-0.2, 26.0],
+      "supply_v": [2.7, 5.5]
+    },
+    "current_shunt": {
+      "ohm": 0.025,
+      "minimum_power_w": 1.0,
+      "preferred_power_w": 2.0,
+      "kelvin_required": true
+    },
+    "adc": {
+      "reference": "ADS131M02",
+      "resolution_bits": 24,
+      "channels": 2,
+      "interface": "SPI",
+      "max_sample_rate_sps": 64000,
+      "avdd_v": 3.3,
+      "dvdd_v": 3.3,
+      "reference_mode": "internal"
+    },
+    "vibration": {
+      "reference": "ADXL355",
+      "interface": "SPI",
+      "digital_resolution_bits": 20,
+      "range_g": 8,
+      "raw_sample_rate_hz": 1000,
+      "supply_v": 3.3
+    },
+    "temperature": {
+      "reference": "TMP117",
+      "interface": "I2C",
+      "resolution_bits": 16,
+      "lsb_c": 0.0078125,
+      "operating_range_c": [-55, 150],
+      "supply_v": 3.3
+    }
   },
   "safety": {
+    "comparator": {
+      "reference": "TLV3201",
+      "supply_v": 3.3,
+      "output": "push_pull",
+      "propagation_delay_ns_typ": 40,
+      "trip_reference_top_ohm": 47500.0,
+      "trip_reference_bottom_ohm": 52300.0,
+      "hysteresis_footprint": "DNI_until_bench_validation"
+    },
     "analog_overcurrent_trip_target_a": 3.46,
     "analog_trip_target": "fpga_external_hard_trip",
-    "estop_physical_gate_inhibit": true,
+    "estop": {
+      "contact": "normally_closed",
+      "healthy_action": "pull_UCC27511A_IN_minus_low",
+      "fault_action": "10k_pullup_drives_IN_minus_high",
+      "pullup_ohm": 10000.0,
+      "fpga_sense_buffer": "SN74LVC1G17",
+      "hardware_gate_inhibit": true
+    },
+    "gate_driver": {
+      "reference": "UCC27511A",
+      "supply_v": 5.0,
+      "command_input": "IN+",
+      "hardware_inhibit_input": "IN-",
+      "gate_turn_on_ohm": 22.0,
+      "gate_turn_off_ohm": 4.7
+    },
+    "motor_switch": {
+      "reference": "CSD18540Q5B",
+      "vds_v": 60.0,
+      "rds_on_max_mohm_at_4v5": 3.3,
+      "gate_pulldown_ohm": 100000.0
+    },
+    "flyback": {
+      "reference": "STPS5L60",
+      "vrrm_v": 60.0,
+      "forward_average_a": 5.0
+    },
     "ml_can_override_hard_trip": false,
     "monitoring_can_drive_actuator": false
   },
   "source_documents": {
+    "TPS54202": "https://www.ti.com/product/TPS54202",
+    "TPS7A20": "https://www.ti.com/product/TPS7A20",
     "INA181": "https://www.ti.com/product/INA181",
     "ADS131M02": "https://www.ti.com/product/ADS131M02",
     "ADXL355": "https://www.analog.com/en/products/adxl355.html",
     "TMP117": "https://www.ti.com/product/TMP117",
+    "TLV3201": "https://www.ti.com/product/TLV3201",
+    "UCC27511A": "https://www.ti.com/product/UCC27511A",
+    "CSD18540Q5B": "https://www.ti.com/product/CSD18540Q5B",
+    "STPS5L60": "https://www.st.com/en/diodes-and-rectifiers/stps5l60.html",
+    "SN74LVC1G17": "https://www.ti.com/product/SN74LVC1G17",
     "TangNano9K": "https://wiki.sipeed.com/hardware/en/tang/Tang-Nano-9K/Nano-9K",
     "ESP32S3DevKitC1": "https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.0.html"
   },
   "notes": [
-    "Reference selections are engineering baselines, not procurement authorization or certification evidence.",
-    "Exact packages, passive tolerances, regulator parts, MOSFET, comparator, connector series, and PCB geometry remain to be frozen after schematic/ERC and physical validation.",
-    "Tang Nano 9K external signal pins remain pending board-header freeze; no unverified FPGA pin numbers are asserted here."
+    "This revision is a schematic engineering baseline, not procurement authorization, certification evidence, or a claim of functional-safety compliance.",
+    "Buck passive values follow the TPS54202 5 V reference design starting point and must be rechecked after PCB layout and measured load transients.",
+    "The comparator hysteresis footprint is intentionally DNI until measured switching noise defines the required hysteresis.",
+    "Tang Nano 9K external signal pins remain unresolved until a board-header mapping is verified against the exact hardware revision; no guessed FPGA pin numbers are frozen."
   ]
 }
