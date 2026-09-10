@@ -6,6 +6,10 @@ All notable repository-level changes are recorded here.
 
 ### Added
 
+- Vendor-neutral FPGA sensor frontend with synthesis-time integer calibration for temperature/current and fixed-window vibration RMS extraction.
+- Portable C++ sensing reference with signed-24-bit raw-code validation, deterministic integer calibration, numeric saturation diagnostics, and vibration RMS tests.
+- Integrated `forgesense_sensor_board_core` wiring the raw-sensor frontend through freshness/plausibility supervision into the existing board safety core.
+- Self-checking VHDL sensor-frontend testbench and host C++ sensing regression coverage.
 - Fixed-memory ESP32-S3 device telemetry snapshot serializer using `forgesense.edge.telemetry.v1` and reserved `@FS1 ` console records.
 - Read-only physical-device dashboard bridge with strict schema/range validation and stale-source preservation.
 - Periodic ESP32 telemetry publisher with immediate records for important FPGA state and edge-health transitions.
