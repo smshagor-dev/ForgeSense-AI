@@ -6,7 +6,7 @@ EVENT_INC := -Ifirmware/components/forgesense_events/include
 TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -32,6 +32,9 @@ model-export:
 sensor-contract:
 	python tools/generate_sensor_contract.py hardware/profiles/sensor_contract_v1.json --cxx firmware/components/forgesense_protocol/include/forgesense_sensor_contract_generated.h --vhdl fpga/rtl/sensing/sensor_contract_pkg.vhd
 
+phy-sim:
+	python tools/simulate_sensor_phy.py
+
 firmware-host:
 	mkdir -p build
 	g++ $(CXXFLAGS) $(PROTO_INC) firmware/components/forgesense_protocol/forgesense_protocol.cpp firmware/tests/protocol_test.cpp -o build/firmware_protocol_test
@@ -48,3 +51,7 @@ firmware-host:
 	./build/sensor_contract_test
 	g++ $(CXXFLAGS) $(SENSING_INC) firmware/components/forgesense_sensing/forgesense_sensing.cpp firmware/tests/sensing_test.cpp -o build/sensing_test
 	./build/sensing_test
+	g++ $(CXXFLAGS) $(SENSING_INC) firmware/components/forgesense_sensing/forgesense_sensing.cpp firmware/components/forgesense_sensing/forgesense_calibration.cpp firmware/tests/calibration_test.cpp -o build/calibration_test
+	./build/calibration_test
+	g++ $(CXXFLAGS) $(SENSING_INC) firmware/components/forgesense_sensing/forgesense_sensing.cpp firmware/components/forgesense_sensing/forgesense_calibration.cpp firmware/components/forgesense_sensing/forgesense_phy.cpp firmware/tests/phy_test.cpp -o build/phy_test
+	./build/phy_test

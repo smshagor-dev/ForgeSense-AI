@@ -1,0 +1,38 @@
+{
+  "schema": "forgesense.sensor_phy_reference.v1",
+  "profile_version": 1,
+  "adc": {
+    "raw_bits": 24,
+    "signed": true,
+    "interface": "generic_sample_strobe",
+    "reference_note": "External ADC or digital sensor interface must normalize into signed 24-bit raw codes before FPGA calibration."
+  },
+  "temperature": {
+    "source_kind": "digital_or_adc_frontend",
+    "required": true,
+    "self_test": ["new_sample_seen", "raw_range_valid", "calibration_valid"]
+  },
+  "current": {
+    "source_kind": "shunt_or_hall_frontend",
+    "required": true,
+    "self_test": ["new_sample_seen", "raw_range_valid", "calibration_valid"]
+  },
+  "vibration": {
+    "source_kind": "accelerometer",
+    "required": true,
+    "conditioned_unit": "milli_g",
+    "raw_sample_rate_hz": 1000,
+    "rms_window_samples": 64,
+    "self_test": ["sample_activity", "range_valid", "window_progress"]
+  },
+  "calibration": {
+    "format": "forgesense.calibration.v1",
+    "crc": "CRC32/IEEE",
+    "sequence": "monotonic_u32",
+    "policy": "invalid_or_corrupt_calibration_must_not_be_used"
+  },
+  "notes": [
+    "This is a vendor-neutral pre-hardware reference profile, not a frozen component selection.",
+    "Raw electrical transfer functions, resistor values, ADC reference, sensor full-scale, anti-alias filtering, and PCB values require measured hardware evidence before being frozen."
+  ]
+}
