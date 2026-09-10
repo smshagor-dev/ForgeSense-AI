@@ -1,0 +1,34 @@
+Net,Source,Destination,Voltage domain,Direction,Safety class,Freeze status
+VIN_12V_RAW,J_PWR,F1/SMBJ15A,12V,power,protected_input,net_frozen_connector_pending
+VIN_12V_FUSED,F1,U_EFUSE_IN,12V,power,protected_input,net_frozen
+VIN_12V_PROTECTED,U_EFUSE_OUT,TPS54202/MOTOR_PLUS,12V,power,protected_input,net_frozen
++5V_LOGIC,TPS54202,Tang Nano 9K/ESP32-S3/UCC27511A/TPS7A2033,5V,power,logic_power,net_frozen
++3V3_QUIET,TPS7A2033,INA181A1/TLV3201/ADS131M02/ADXL355/TMP117/SN74LVC1G17,3.3V,power,sensing_power,net_frozen
+CS_SHUNT_P,R_SHUNT_KELVIN_P,INA181_IN+,millivolt,analog,current_measurement,net_frozen
+CS_SHUNT_N,R_SHUNT_KELVIN_N,INA181_IN-,millivolt,analog,current_measurement,net_frozen
+CS_OUT,INA181A1,ADS131M02_CH0P/TLV3201_IN+,0-3.3V,analog,safety_measurement,net_frozen
+CS_TRIP_REF,47.5k/52.3k_divider,TLV3201_IN-,1.729V_nominal,analog,safety_reference,net_frozen
+ANALOG_HARD_TRIP,TLV3201,FPGA_external_hard_trip,3.3V,digital_in,hard_safety,fpga_pin_pending
+ESTOP_INHIBIT_5V,NC_ESTOP_loop+10k_pullup,UCC27511A_IN-/SN74LVC1G17_IN,5V,digital_in,hard_safety,net_frozen_connector_pending
+FPGA_ESTOP_SENSE,SN74LVC1G17,FPGA_estop_input,3.3V,digital_in,hard_safety_observation,fpga_pin_pending
+FPGA_LOAD_ENABLE,FPGA,UCC27511A_IN+,3.3V,digital_out,hard_safety_command,fpga_pin_pending
+MOTOR_GATE,UCC27511A_OUT,CSD18540Q5B_GATE,5V_gate,digital_power,actuator_drive,net_frozen
+MOTOR_PLUS,VIN_12V_PROTECTED,J_MOTOR_PLUS,12V,power,actuator_power,connector_pending
+MOTOR_RETURN,J_MOTOR_MINUS,R_SHUNT/CSD18540Q5B,12V_switch_return,power,actuator_power,connector_pending
+FPGA_UART_TX,FPGA,ESP32_GPIO18_U1RXD,3.3V,digital_out,control_link,fpga_pin_pending
+ESP32_UART_TX,ESP32_GPIO17_U1TXD,FPGA_UART_RX,3.3V,digital_out,control_link,fpga_pin_pending
+ADC_CLK_8M192,SiT8924,ADS131M02_CLKIN,3.3V,digital_clock,sensing_clock,net_frozen
+ADC_SPI_SCLK,FPGA,ADS131M02_SCLK,3.3V,digital_out,sensor_bus,fpga_pin_pending
+ADC_SPI_MOSI,FPGA,ADS131M02_DIN,3.3V,digital_out,sensor_bus,fpga_pin_pending
+ADC_SPI_MISO,ADS131M02_DOUT,FPGA,3.3V,digital_in,sensor_bus,fpga_pin_pending
+ADC_CS_N,FPGA,ADS131M02_CS_N,3.3V,digital_out,sensor_bus,fpga_pin_pending
+ADC_DRDY,ADS131M02_DRDY,FPGA,3.3V,digital_in,sensor_bus,fpga_pin_pending
+ACC_SPI_SCLK,FPGA,ADXL355_SCLK,3.3V,digital_out,sensor_bus,fpga_pin_pending
+ACC_SPI_MOSI,FPGA,ADXL355_MOSI,3.3V,digital_out,sensor_bus,fpga_pin_pending
+ACC_SPI_MISO,ADXL355_MISO,FPGA,3.3V,digital_in,sensor_bus,fpga_pin_pending
+ACC_CS_N,FPGA,ADXL355_CS,3.3V,digital_out,sensor_bus,fpga_pin_pending
+ACC_DRDY,ADXL355_DRDY,FPGA,3.3V,digital_in,sensor_bus,fpga_pin_pending
+TEMP_I2C_SCL,FPGA/TBD_controller,TMP117_SCL,3.3V,open_drain,sensor_bus,controller_pin_pending
+TEMP_I2C_SDA,FPGA/TBD_controller,TMP117_SDA,3.3V,bidirectional_open_drain,sensor_bus,controller_pin_pending
+TEMP_ALERT,TMP117,FPGA/TBD_controller,3.3V,open_drain_in,sensor_diagnostic,controller_pin_pending
+PWR_ENTRY_FAULT_N,TPS259470L,FPGA/TBD_observer,3.3V_or_pullup,digital_in,power_diagnostic,observer_pin_pending
