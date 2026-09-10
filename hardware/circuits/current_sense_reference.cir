@@ -1,13 +1,14 @@
 * ForgeSense AI current-sense and independent-trip behavioral reference
 * Reference topology only; physical tolerance/noise/transient validation is still required.
+* RC-003: 15 mOhm shunt, INA181A1 gain 20, ~1.042 V comparator reference.
 VDD vdd 0 3.3
 I_LOAD 0 sense PWL(0 0 1m 1 2m 2 3m 3.2 4m 3.6 5m 4.0)
-R_SHUNT sense 0 0.025
+R_SHUNT sense 0 0.015
 B_INA181A1 amp 0 V=min(3.3,max(0,20*V(sense)))
 R_FILTER amp adc 1k
 C_FILTER adc 0 100n
-R_TRIP_TOP vdd tripref 47.5k
-R_TRIP_BOT tripref 0 52.3k
+R_TRIP_TOP vdd tripref 23.2k
+R_TRIP_BOT tripref 0 10.7k
 B_TLV3201 trip 0 V=if(V(amp)>V(tripref),3.3,0)
 .tran 10u 6m
 .print tran V(sense) V(amp) V(adc) V(tripref) V(trip)
