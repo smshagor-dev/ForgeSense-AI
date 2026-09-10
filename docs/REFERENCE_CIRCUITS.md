@@ -35,7 +35,9 @@ The development reference uses a 50 mΩ low-side shunt and gain of 10. At the ex
 
 A 1 kΩ / 100 nF measurement filter gives an analytical cutoff near 1.59 kHz. This filtered measurement feeds acquisition/ML. A separate comparator-style backup reference near 1.73 V corresponds to about 3.46 A and is intentionally independent of software inference.
 
-The backup comparator is not permission to weaken the FPGA hard limit. It is an additional physical indication/path available for later direct FPGA fault input.
+The comparator output is now represented in RTL as `analog_hard_trip` at `forgesense_phy_board_core`. It propagates through `external_hard_trip` into `safety_core`, joins the deterministic hard-critical path, disables the protected output, latches the FPGA fault state, and appears in FPGA status as hard-critical. It is not represented as an emergency input and is not sourced by the ESP32-S3.
+
+The backup comparator is an additional protection path, not permission to weaken normalized FPGA hard limits.
 
 ## Protected motor output
 
@@ -58,6 +60,16 @@ The emergency input must have two effects in the final circuit:
 2. physically inhibit the output-driver gate/enable path.
 
 This avoids relying on the edge processor or ML software to remove motor drive.
+
+## Independent protection paths
+
+The current architecture therefore distinguishes three separate sources of intervention:
+
+- normalized FPGA hard limits derived from validated temperature/vibration/current measurements;
+- the independent analog comparator `external_hard_trip` path;
+- the physical E-stop path.
+
+ML remains predictive/advisory and cannot mask any of the three.
 
 ## SPICE references
 
