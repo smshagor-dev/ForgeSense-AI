@@ -10,7 +10,8 @@ This directory is the engineering source of truth for system behavior, interface
 - [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) — executable code and current evidence.
 - [`TRANSPORT_AND_CONTROL.md`](TRANSPORT_AND_CONTROL.md) — byte-stream validation, freshness, watchdog, and closed-loop control path.
 - [`SENSOR_ACQUISITION.md`](SENSOR_ACQUISITION.md) — normalized sensor units, validity, sampling, and FPGA-to-edge wire contract.
-- [`FIRMWARE.md`](FIRMWARE.md) — ESP32-S3 runtime, UART service, inference and persistence responsibilities.
+- [`FIRMWARE.md`](FIRMWARE.md) — ESP32-S3 runtime, UART service, inference, persistence, and host telemetry responsibilities.
+- [`DEVICE_TELEMETRY.md`](DEVICE_TELEMETRY.md) — ESP32-S3-to-PC read-only telemetry records, freshness, and host bridge.
 - [`TELEMETRY_API.md`](TELEMETRY_API.md) — local read-only monitoring API, authority model, freshness, and dashboard contract.
 - [`EVENT_RECORDS.md`](EVENT_RECORDS.md) — fixed-size persistent event-record format and integrity checks.
 - [`VALIDATION_MATRIX.md`](VALIDATION_MATRIX.md) — deterministic scenario acceptance matrix and current results.

@@ -6,6 +6,11 @@ All notable repository-level changes are recorded here.
 
 ### Added
 
+- Fixed-memory ESP32-S3 device telemetry snapshot serializer using `forgesense.edge.telemetry.v1` and reserved `@FS1 ` console records.
+- Read-only physical-device dashboard bridge with strict schema/range validation and stale-source preservation.
+- Periodic ESP32 telemetry publisher with immediate records for important FPGA state and edge-health transitions.
+- Machine-readable pre-hardware ESP32-S3 reference profile separating the FPGA UART from the host telemetry console.
+- Cross-language C++ -> Python telemetry compatibility validation.
 - Read-only local telemetry API with authoritative FPGA state, independent source freshness, bounded in-memory diagnostic transitions, and no control routes.
 - Dependency-free local monitoring dashboard for deterministic state, sensors, edge anomaly information, and safety flags.
 - Long-poll telemetry revision endpoint and regression coverage for authority, staleness, bounded events, and HTTP write rejection.
