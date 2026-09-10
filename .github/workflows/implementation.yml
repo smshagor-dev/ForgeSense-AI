@@ -37,7 +37,7 @@ jobs:
           diff -u fpga/rtl/sensing/sensor_contract_pkg.vhd build/sensor_contract_pkg.vhd
       - name: Run sensor PHY reference simulation
         run: python tools/simulate_sensor_phy.py
-      - name: Validate hardware baseline and low-voltage circuits
+      - name: Validate hardware and selected sensor contracts
         run: make hardware-check
       - name: Run virtual anomaly demo
         env:
@@ -84,6 +84,7 @@ jobs:
           ghdl -a --std=08 fpga/rtl/io/uart_tx.vhd
           ghdl -a --std=08 fpga/rtl/io/link_tx_arbiter.vhd
           ghdl -a --std=08 fpga/rtl/io/spi_mode0_byte_engine.vhd
+          ghdl -a --std=08 fpga/rtl/io/spi_mode1_byte_engine.vhd
           ghdl -a --std=08 fpga/rtl/io/i2c_byte_engine.vhd
           ghdl -a --std=08 fpga/rtl/sensing/sensor_contract_pkg.vhd
           ghdl -a --std=08 fpga/rtl/sensing/linear_sensor_adapter.vhd
@@ -97,17 +98,26 @@ jobs:
           ghdl -a --std=08 fpga/rtl/sensing/sensor_self_test.vhd
           ghdl -a --std=08 fpga/rtl/sensing/sample_scheduler.vhd
           ghdl -a --std=08 fpga/rtl/sensing/timebase_ms.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/tmp117_controller.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/adxl355_controller.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/ads131m02_controller.vhd
           ghdl -a --std=08 fpga/rtl/top/safety_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_platform_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_board_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_sensor_board_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_phy_board_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_reference_sensor_io.vhd
       - name: Run SPI mode-0 byte-engine testbench
         run: |
           ghdl -a --std=08 fpga/tb/tb_spi_mode0_byte_engine.vhd
           ghdl -e --std=08 tb_spi_mode0_byte_engine
           ghdl -r --std=08 tb_spi_mode0_byte_engine --assert-level=error
+      - name: Run SPI mode-1 byte-engine testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_spi_mode1_byte_engine.vhd
+          ghdl -e --std=08 tb_spi_mode1_byte_engine
+          ghdl -r --std=08 tb_spi_mode1_byte_engine --assert-level=error
       - name: Run I2C open-drain byte-engine testbench
         run: |
           ghdl -a --std=08 fpga/tb/tb_i2c_byte_engine.vhd
