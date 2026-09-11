@@ -78,8 +78,8 @@ The utility records:
 - bytes transmitted;
 - successful echoes;
 - timeouts;
-- error rate;
-- min/mean/max measured host round-trip latency;
+- echo error rate;
+- min/mean/p95/max measured host round-trip latency;
 - unexpected non-heartbeat bytes.
 
 Heartbeat or echo failure returns a non-zero exit code.
@@ -99,19 +99,27 @@ python -m forgesense_commission \
   --report-out build/production_observation.json
 ```
 
-`observe` does not call the transport write path. It decodes:
+`observe` does not call the transport write path. It decodes and evaluates:
 
 - valid STATUS frame count;
 - valid sensor snapshot count;
 - stream framing/CRC errors;
+- independent STATUS and sensor sequence gaps;
+- duplicate/backwards/reordered sequence faults;
+- observed link error-event rate;
 - FPGA safety state;
 - load/warning/fault/ready state;
 - required-sensor validity;
-- selected-device identity/configuration status;
-- selected-device/PHY transport-error status;
+- aggregate selected-device identity/configuration status;
+- aggregate selected-device/PHY transport-error status;
+- TMP117 trusted/error state;
+- ADXL355 trusted/error state;
+- ADS131M02 trusted/error state;
 - latest normalized temperature, vibration RMS, and current.
 
-The selected-device diagnostic fields come from STATUS safety bits 7 and 8. They are FPGA observations only and do not change safety authority.
+A production observation passes only when STATUS and sensor traffic are both present, all required sensor-valid bits are set, all three selected devices individually report trusted configuration, no selected-device transport/configuration error is set, no complete-frame CRC/framing error is observed, and the observed STATUS/sensor sequence streams contain no gaps or replay/reordering faults.
+
+The production observation path remains read-only. It never sends a control or recovery command to the FPGA.
 
 ## Bench-record auto-population
 
@@ -124,6 +132,7 @@ When `--record-out` is requested, all of the following must be supplied with rea
 - exact 40-hex repository commit;
 - exact programmed-artifact SHA-256;
 - FPGA board revision;
+- ESP32 board revision;
 - sensor-board revision.
 
 Example:
@@ -139,10 +148,11 @@ python -m forgesense_commission \
   --repository-commit 0123456789abcdef0123456789abcdef01234567 \
   --artifact-sha256 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
   --fpga-board-revision REVISION \
+  --esp32-board-revision REVISION \
   --sensor-board-revision REVISION
 ```
 
-Serial-measured checks are updated automatically. Checks that require a DMM, oscilloscope, continuity meter, or physical inspection remain `NOT_RUN` until separately recorded.
+Serial-measured checks are updated automatically. Checks that require a DMM, oscilloscope, continuity meter, rail-current measurement, or physical inspection remain `NOT_RUN` until separately recorded. Commissioning automation must not convert an unmeasured electrical claim into PASS.
 
 Validate any retained bench record with:
 
@@ -150,14 +160,28 @@ Validate any retained bench record with:
 make bench-record-validate RECORD=path/to/record.json
 ```
 
-## Status diagnostic extension
+Bench-record schema revision `BREC-002` requires the FPGA, ESP32, and sensor-board revisions to be recorded explicitly.
 
-ForgeSense Link v1 STATUS remains an 18-byte frame with a 4-byte payload. Two previously reserved safety bits are now assigned:
+## STATUS commissioning diagnostics
 
-- bit 7 / `0x0080`: selected TMP117 + ADXL355 + ADS131M02 identity/configuration checks all succeeded;
-- bit 8 / `0x0100`: selected-device or normalized PHY transport/conditioning error observed.
+ForgeSense Link v1 STATUS remains an 18-byte frame with a 4-byte payload; no protocol-version or payload-size change is required.
 
-Older receivers that ignore unknown safety bits remain frame-compatible.
+The existing aggregate bits remain:
+
+- bit 7 / `0x0080`: all selected-device identity/configuration checks succeeded;
+- bit 8 / `0x0100`: aggregate selected-device or normalized PHY transport/conditioning error.
+
+Previously reserved bits now provide per-device commissioning detail:
+
+- bit 9 / `0x0200`: TMP117 trusted/configured;
+- bit 10 / `0x0400`: ADXL355 trusted/configured;
+- bit 11 / `0x0800`: ADS131M02 trusted/configured;
+- bit 12 / `0x1000`: TMP117 transport error;
+- bit 13 / `0x2000`: ADXL355 initialization/transport error;
+- bit 14 / `0x4000`: ADS131M02 frame/configuration error;
+- bit 15 remains reserved zero.
+
+These fields are read-only FPGA observations. They do not change actuator authority or hard-safety behavior. Older receivers that ignore high safety bits remain frame-compatible.
 
 ## Verification
 
@@ -170,13 +194,16 @@ make commissioning-check
 It covers:
 
 - fake-serial smoke heartbeat/echo behavior;
+- round-trip latency summary including p95;
 - automatic bench-record updates without inventing manual evidence;
 - mixed STATUS/sensor stream decoding;
-- selected-device diagnostics;
-- cross-language Python/C++ bit masks;
-- C++ parsing of a diagnostic STATUS golden frame;
+- per-device selected-sensor diagnostics;
+- sequence-gap and duplicate/reordered-frame rejection;
+- cross-language Python/C++ status masks;
+- C++ parsing of a per-device diagnostic STATUS golden frame;
 - VHDL diagnostic propagation source contract;
 - ESP32-S3 raw bridge GPIO/USB transport contract;
+- required FPGA/ESP32/sensor-board bench metadata;
 - read-only production observation invariant.
 
 Physical USB/UART timing, ESP-IDF target build success, and real bench measurements remain unclaimed until retained evidence exists.
