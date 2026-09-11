@@ -38,6 +38,26 @@ int main() {
         assert(decoded.payload[index] == payload[index]);
     }
 
+    std::array<std::uint8_t, 170> signed_prepare{};
+    for (std::size_t index = 0; index < signed_prepare.size(); ++index) {
+        signed_prepare[index] = static_cast<std::uint8_t>(index & 0xFFU);
+    }
+    assert(encode_maintenance_frame(
+        static_cast<std::uint8_t>(MaintenanceOpcode::PrepareRecord),
+        signed_prepare.data(),
+        signed_prepare.size(),
+        encoded,
+        encoded_size));
+    parser.reset();
+    complete = false;
+    for (std::size_t index = 0; index < encoded_size; ++index) {
+        complete = parser.feed(encoded[index], decoded);
+    }
+    assert(complete);
+    assert(decoded.payload_size == signed_prepare.size());
+    assert(decoded.payload[0] == 0U);
+    assert(decoded.payload[169] == 169U);
+
     auto corrupt = encoded;
     corrupt[encoded_size - 1U] ^= 0x80U;
     parser.reset();
@@ -48,7 +68,7 @@ int main() {
     std::array<std::uint8_t, kMaintenanceMaxFrameSize> query{};
     std::size_t query_size = 0;
     assert(encode_maintenance_frame(
-        static_cast<std::uint8_t>(MaintenanceOpcode::QueryStatus),
+        static_cast<std::uint8_t>(MaintenanceOpcode::QueryAuthorization),
         nullptr,
         0,
         query,
@@ -58,7 +78,7 @@ int main() {
         recovered = parser.feed(query[index], decoded);
     }
     assert(recovered);
-    assert(decoded.opcode == static_cast<std::uint8_t>(MaintenanceOpcode::QueryStatus));
+    assert(decoded.opcode == static_cast<std::uint8_t>(MaintenanceOpcode::QueryAuthorization));
     assert(decoded.payload_size == 0U);
 
     assert(maintenance_crc32_ieee(
