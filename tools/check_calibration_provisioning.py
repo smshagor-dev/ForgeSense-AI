@@ -59,7 +59,8 @@ def main() -> int:
         'CalibrationSelectionStatus::RollbackDetected',
         'CalibrationSelectionStatus::Ambiguous',
         'CalibrationSelectionStatus::Corrupt',
-        'candidate != 0U && candidate > installed_floor',
+        'candidate != 0U && candidate != 0xFFFFFFFFU',
+        'selected.sequence == 0xFFFFFFFFU',
     ):
         assert token in selection, token
 
@@ -71,6 +72,8 @@ def main() -> int:
         'readback != encoded',
         'write_metadata(inactive_slot, candidate.sequence)',
         'select_calibration_slot',
+        'reset_failed_open()',
+        'ready_ = true',
     ):
         assert token in nvs_store, token
 
@@ -97,8 +100,9 @@ def main() -> int:
         assert token in tests, token
 
     assert "calibration_provisioning_test PASS" in host_test
+    assert "0xFFFFFFFFU" in host_test
     print(
-        "calibration_provisioning_check PASS: evidence-bound record generation, strict sequence gate, dual-slot staged storage, readback verification, and no remote/runtime authority escalation are present"
+        "calibration_provisioning_check PASS: evidence-bound record generation, strict non-wrapping sequence gate, dual-slot staged storage, readback verification, fail-closed initialization, and no remote/runtime authority escalation are present"
     )
     return 0
 
