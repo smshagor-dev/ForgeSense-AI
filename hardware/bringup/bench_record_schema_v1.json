@@ -1,0 +1,31 @@
+{
+  "schema": "forgesense.bench_record_schema.v1",
+  "revision": "BREC-001",
+  "record_schema": "forgesense.bench_record.v1",
+  "required_fields": [
+    "record_id",
+    "timestamp_utc",
+    "operator",
+    "repository_commit",
+    "board",
+    "image",
+    "instruments",
+    "supply",
+    "checks",
+    "overall_result"
+  ],
+  "overall_result_values": ["PASS", "FAIL", "INCOMPLETE"],
+  "check_result_values": ["PASS", "FAIL", "NOT_RUN"],
+  "board_required_fields": ["fpga_board", "fpga_board_revision", "esp32_board", "sensor_board_revision"],
+  "image_required_fields": ["top", "build_tool", "artifact_sha256"],
+  "instrument_required_fields": ["type", "manufacturer_model", "asset_or_serial", "calibration_status"],
+  "supply_required_fields": ["rail", "set_voltage_v", "current_limit_a", "measured_idle_current_a"],
+  "check_required_fields": ["check_id", "result", "expected", "observed", "units", "evidence"],
+  "evidence_fields": ["file", "sha256", "description"],
+  "rules": [
+    "A PASS record must contain no FAIL checks.",
+    "Every numeric electrical claim must identify its test point or signal in the check_id/observed fields.",
+    "Waveforms, captures, photographs, and logs should be referenced by content hash when retained.",
+    "A missing physical measurement remains NOT_RUN or INCOMPLETE; it must not be inferred from RTL or schematic intent."
+  ]
+}
