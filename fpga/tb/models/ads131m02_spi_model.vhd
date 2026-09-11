@@ -11,6 +11,7 @@ entity ads131m02_spi_model is
         dout : out std_logic;
         force_bad_id : in std_logic := '0';
         force_bad_crc : in std_logic := '0';
+        force_bad_clock : in std_logic := '0';
         channel0_raw : in signed(23 downto 0) := to_signed(16#100000#, 24);
         channel1_raw : in signed(23 downto 0) := to_signed(-16#080000#, 24)
     );
@@ -27,6 +28,7 @@ architecture behavioral of ads131m02_spi_model is
         kind : response_t;
         bad_id : std_logic;
         bad_crc : std_logic;
+        bad_clock : std_logic;
         clock_value : std_logic_vector(15 downto 0);
         ch0 : signed(23 downto 0);
         ch1 : signed(23 downto 0)
@@ -40,8 +42,13 @@ architecture behavioral of ads131m02_spi_model is
                 data(1) := x"00";
                 data(2) := x"00";
             when RESP_CLOCK =>
-                data(0) := clock_value(15 downto 8);
-                data(1) := clock_value(7 downto 0);
+                if bad_clock = '1' then
+                    data(0) := x"00";
+                    data(1) := x"00";
+                else
+                    data(0) := clock_value(15 downto 8);
+                    data(1) := clock_value(7 downto 0);
+                end if;
                 data(2) := x"00";
             when RESP_SAMPLE =>
                 data(0) := x"05";
@@ -77,7 +84,7 @@ begin
         variable completed : std_logic_vector(7 downto 0);
     begin
         if falling_edge(cs_n) then
-            tx_frame := build_frame(response_kind, force_bad_id, force_bad_crc, clock_register, channel0_raw, channel1_raw);
+            tx_frame := build_frame(response_kind, force_bad_id, force_bad_crc, force_bad_clock, clock_register, channel0_raw, channel1_raw);
             rx_frame := (others => (others => '0'));
             rx_shift := (others => '0');
             byte_index := 0;
