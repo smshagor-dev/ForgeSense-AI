@@ -1,6 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.sensor_device_math_pkg.all;
 
 entity tmp117_controller is
     generic (
@@ -52,15 +53,6 @@ architecture rtl of tmp117_controller is
     signal eng_tx_byte : std_logic_vector(7 downto 0) := (others => '0');
     signal eng_ready, eng_done, eng_ack_error : std_logic;
     signal eng_rx_byte : std_logic_vector(7 downto 0);
-
-    function raw_to_deci_c(raw_value : signed(15 downto 0)) return signed is
-        variable raw_i, deci_i : integer;
-    begin
-        raw_i := to_integer(raw_value);
-        if raw_i >= 0 then deci_i := (raw_i * 5 + 32) / 64;
-        else deci_i := (raw_i * 5 - 32) / 64; end if;
-        return to_signed(deci_i, 16);
-    end function;
 
     function address_byte(read_not_write : std_logic) return std_logic_vector is
     begin
@@ -136,7 +128,7 @@ begin
                                 if completed_word = EXPECTED_DEVICE_ID then device_ok_reg <= '1';
                                 else device_ok_reg <= '0'; transport_error <= '1'; end if;
                             else
-                                temperature_deci_c <= raw_to_deci_c(signed(completed_word)); sample_valid <= '1';
+                                temperature_deci_c <= tmp117_raw_to_deci_c(signed(completed_word)); sample_valid <= '1';
                             end if;
                             state <= IDLE;
                         end if;

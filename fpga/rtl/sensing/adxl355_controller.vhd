@@ -1,6 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.sensor_device_math_pkg.all;
 
 entity adxl355_controller is
     generic (
@@ -61,16 +62,6 @@ architecture rtl of adxl355_controller is
     begin return address & '1'; end function;
     function write_instruction(address : std_logic_vector(6 downto 0)) return std_logic_vector is
     begin return address & '0'; end function;
-    function axis_to_milli_g(b2,b1,b0 : std_logic_vector(7 downto 0)) return signed is
-        variable packed : signed(23 downto 0);
-        variable raw20_i, scaled_i : integer;
-    begin
-        packed := signed(b2 & b1 & b0);
-        raw20_i := to_integer(shift_right(packed, 4));
-        if raw20_i >= 0 then scaled_i := (raw20_i * 156 + 5000) / 10000;
-        else scaled_i := (raw20_i * 156 - 5000) / 10000; end if;
-        return to_signed(scaled_i, 16);
-    end function;
 begin
     byte_engine : entity work.spi_mode0_byte_engine
         generic map (CLK_FREQ_HZ => CLK_FREQ_HZ, SPI_FREQ_HZ => SPI_FREQ_HZ)
@@ -150,9 +141,9 @@ begin
                                 when others => state <= DISPATCH;
                             end case;
                         else
-                            x_milli_g <= axis_to_milli_g(burst_data(0), burst_data(1), burst_data(2));
-                            y_milli_g <= axis_to_milli_g(burst_data(3), burst_data(4), burst_data(5));
-                            z_milli_g <= axis_to_milli_g(burst_data(6), burst_data(7), burst_data(8));
+                            x_milli_g <= adxl355_axis_to_milli_g(burst_data(0), burst_data(1), burst_data(2));
+                            y_milli_g <= adxl355_axis_to_milli_g(burst_data(3), burst_data(4), burst_data(5));
+                            z_milli_g <= adxl355_axis_to_milli_g(burst_data(6), burst_data(7), burst_data(8));
                             sample_valid <= '1'; state <= DISPATCH;
                         end if;
                     when FAULT_HOLD => cs_n_reg <= '1';
