@@ -34,7 +34,7 @@ def _frame(
     payload = (
         _signed24_le(ads0)
         + _signed24_le(ads1)
-        + struct.pack("<hhhH", tmp_deci_c, x_mg, y_mg, z_mg, flags)
+        + struct.pack("<hhhhH", tmp_deci_c, x_mg, y_mg, z_mg, flags)
     )
     return encode_frame(
         message_type=CALIBRATION_DIAGNOSTIC_MESSAGE_TYPE,
