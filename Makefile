@@ -33,7 +33,7 @@ sensor-contract:
 	python tools/generate_sensor_contract.py hardware/profiles/sensor_contract_v1.json --cxx firmware/components/forgesense_protocol/include/forgesense_sensor_contract_generated.h --vhdl fpga/rtl/sensing/sensor_contract_pkg.vhd
 
 phy-sim:
-	PYTHONPATH=$(PYTHONPATH) python tools/simulate_sensor_phy.py
+	python tools/simulate_sensor_phy.py
 
 circuit-check:
 	python tools/check_reference_circuits.py
