@@ -34,6 +34,8 @@ entity forgesense_phy_board_core is
         vibration_sample_valid : in std_logic;
         vibration_sample_milli_g : in signed(15 downto 0);
         vibration_sample_error : in std_logic;
+        device_identity_ok : in std_logic := '0';
+        device_transport_error : in std_logic := '0';
         emergency : in std_logic;
         analog_hard_trip : in std_logic := '0';
         recovery_req : in std_logic;
@@ -64,6 +66,7 @@ architecture rtl of forgesense_phy_board_core is
     signal vibration_transport_error_i : std_logic;
     signal temp_raw24_i : signed(23 downto 0);
     signal self_test_i : std_logic;
+    signal combined_transport_error_i : std_logic;
 begin
     phy_timebase : entity work.timebase_ms
         generic map (CLK_FREQ_HZ => CLK_FREQ_HZ)
@@ -114,6 +117,9 @@ begin
             temperature_alive => open, current_alive => open, vibration_alive => open
         );
 
+    combined_transport_error_i <= device_transport_error or temp_error_i or current_error_i or
+                                  vibration_range_error_i or vibration_transport_error_i;
+
     sensor_board : entity work.forgesense_sensor_board_core
         generic map (
             CLK_FREQ_HZ => CLK_FREQ_HZ, UART_BAUD_RATE => UART_BAUD_RATE,
@@ -136,6 +142,8 @@ begin
             current_raw_valid => current_raw_valid_i, current_raw => current_raw_i,
             vibration_sample_valid => vibration_conditioned_valid_i,
             vibration_conditioned_milli_g => vibration_conditioned_i,
+            device_identity_ok => device_identity_ok,
+            device_transport_error => combined_transport_error_i,
             emergency => emergency, external_hard_trip => analog_hard_trip,
             recovery_req => recovery_req,
             state_code => state_code, load_enable => load_enable,
@@ -149,6 +157,5 @@ begin
         );
 
     phy_self_test_pass <= self_test_i;
-    phy_transport_error <= temp_error_i or current_error_i or
-                           vibration_range_error_i or vibration_transport_error_i;
+    phy_transport_error <= combined_transport_error_i;
 end architecture;
