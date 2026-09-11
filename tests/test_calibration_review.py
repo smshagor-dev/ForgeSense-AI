@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
-
 import pytest
 
 from tools.capture_calibration import build_proposal
@@ -123,6 +121,7 @@ def test_three_consistent_runs_are_review_ready_without_runtime_authority() -> N
     assert result["temperature"]["repeatability_pass"] is True
     assert result["accelerometer"]["repeatability_pass"] is True
     assert result["provenance"]["measurement_uncertainty_complete"] is True
+    assert result["provenance"]["accelerometer_stddev_complete"] is True
 
 
 def test_board_revision_mismatch_blocks_review_readiness() -> None:
@@ -155,6 +154,17 @@ def test_missing_uncertainty_blocks_review_readiness() -> None:
     assert result["review_ready"] is False
     assert result["provenance"]["measurement_uncertainty_complete"] is False
     assert result["checks"]["uncertainty_limits_pass"] is False
+
+
+def test_legacy_proposal_without_axis_stddev_is_not_review_ready() -> None:
+    proposals = [proposal(0), proposal(1), proposal(2)]
+    proposals[1]["accelerometer"].pop("axis_stddev_mg")
+    result = review_proposals(proposals, policy())
+    assert result["review_ready"] is False
+    assert result["provenance"]["accelerometer_stddev_complete"] is False
+    assert result["accelerometer"]["maximum_run_axis_stddev_mg"] is None
+    assert result["accelerometer"]["engineering_uncertainty_proxy_mg_k2"] is None
+    assert result["checks"]["accelerometer_stddev_complete"] is False
 
 
 def test_authority_tamper_is_rejected() -> None:
