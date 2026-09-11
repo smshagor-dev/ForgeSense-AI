@@ -79,9 +79,32 @@ Payload length: 4 bytes. Status frames are emitted periodically and when the FPG
 | --- | ---: | --- |
 | state_code | 1 | 0 startup, 1 run, 2 warning, 3 shutdown, 4 fault-latched, 5 recovery |
 | control_flags | 1 | bit 0 load enabled, bit 1 warning active, bit 2 fault latched, bit 3 operational ready |
-| safety_flags | 2 | bit 0 hard warning, bit 1 hard critical, bit 2 communication timeout, bit 3 retained ML warning, bit 4 retained ML critical, bit 5 emergency, bit 6 required sensors valid, bit 7 selected-device identity/configuration OK, bit 8 selected-device transport error |
+| safety_flags | 2 | bit field described below |
 
-Bits 9..15 are reserved and transmit zero. Bits 7 and 8 are diagnostic observations only; they do not grant the ESP32-S3 or monitoring software actuator authority and do not relax hard safety policy. The selected-device identity bit becomes true only when TMP117, ADXL355, and ADS131M02 startup identity/configuration checks have all succeeded. The transport-error bit reports a selected-device or normalized PHY transport/conditioning error observed by the FPGA path.
+`safety_flags` allocation:
+
+| Bit | Meaning |
+| ---: | --- |
+| 0 | hard warning |
+| 1 | hard critical |
+| 2 | communication timeout |
+| 3 | retained ML warning |
+| 4 | retained ML critical |
+| 5 | emergency |
+| 6 | required sensors valid |
+| 7 | aggregate selected-device identity/configuration OK |
+| 8 | aggregate selected-device/PHY transport error |
+| 9 | TMP117 trusted/configured |
+| 10 | ADXL355 trusted/configured |
+| 11 | ADS131M02 trusted/configured |
+| 12 | TMP117 transport error |
+| 13 | ADXL355 initialization/transport error |
+| 14 | ADS131M02 frame/configuration error |
+| 15 | reserved, transmit zero |
+
+Bits 9..14 are commissioning diagnostics added without changing the status payload size or protocol version. Existing consumers that only understand bits 0..8 remain compatible because the aggregate identity and transport bits are unchanged. Bits 7..14 are diagnostic observations only; they do not grant the ESP32-S3 or monitoring software actuator authority and do not relax hard safety policy.
+
+The aggregate selected-device identity bit becomes true only when TMP117, ADXL355, and ADS131M02 startup identity/configuration checks have all succeeded. The aggregate transport-error bit reports a selected-device or normalized PHY transport/conditioning error observed by the FPGA path. Per-device flags allow commissioning software to identify which selected sensor failed trust or transport checks without introducing a new control message.
 
 Status is diagnostic evidence from the deterministic FPGA domain; receiving it never grants the ESP32-S3 actuator authority. Sensor and status message types use separate rolling sequence spaces.
 
