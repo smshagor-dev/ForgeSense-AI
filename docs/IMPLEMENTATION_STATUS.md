@@ -95,6 +95,18 @@ The onboard 27 MHz oscillator remains FPGA pin 52. Onboard S2 is FPGA pin 4 in t
 
 This preserves the rule that a compromised or malfunctioning monitoring/intelligence processor cannot relax measurement interpretation used by the deterministic safety boundary.
 
+### Calibration evidence and repeated-run review
+
+`tools/capture_calibration.py` converts hashed bench evidence into review-only `forgesense.calibration_proposal.v1` artifacts for current, temperature, and stationary accelerometer characterization. The capture path now retains declared expanded reference uncertainty (`k=2`) and per-axis accelerometer standard deviation in proposal provenance.
+
+`tools/review_calibration.py` compares repeated proposals under `hardware/calibration/calibration_review_policy_v1.json`. The default policy requires at least three runs from consistent board revisions and repository commit, then checks current gain/intercept spread, temperature offset spread, accelerometer bias/noise spread, declared reference-uncertainty limits, and proposal quality.
+
+The review emits `forgesense.calibration_review.v1`, including canonical source-proposal hashes and conservative engineering uncertainty proxies. Its authority is deliberately constrained: reviewer approval and a source-controlled change are required; automatic runtime application is forbidden; deterministic hard-safety limits cannot be relaxed by the review result.
+
+Legacy proposals without the new accelerometer standard-deviation evidence fail review readiness cleanly rather than producing a runtime exception. `make calibration-check` covers the single-run capture path, repeated-run review behavior, evidence completeness, and source-level authority invariants.
+
+These checks establish evidence-handling behavior only. No physical calibration accuracy, traceability, or production metrology claim is made until actual bench measurements are retained and reviewed.
+
 ### Component-backed low-voltage hardware baseline
 
 `hardware/profiles/hardware_baseline_v1.json` is revision `HW-BL-004`. It links the protected power-entry, sensing-support, selected-device, current-sense, motor-output, interconnect, package, and net-freeze sources used for schematic capture. Its status now records the frozen Tang Nano 9K application mapping while retaining the pre-hardware evidence boundary.
@@ -159,7 +171,7 @@ Manufacturer orderable MPN/package information is recorded separately from KiCad
 
 ### Hardware consistency checks
 
-`make hardware-check` validates the cross-file hardware baseline, analytical circuit calculations, selected sensor register/transport contracts, and frozen Tang Nano 9K pin mapping.
+`make hardware-check` validates the cross-file hardware baseline, analytical circuit calculations, selected sensor register/transport contracts, frozen Tang Nano 9K pin mapping, and calibration review-source contracts.
 
 Checks include:
 
@@ -176,15 +188,16 @@ Checks include:
 - critical-net endpoint presence;
 - frozen Tang Nano J5 pin allocation and reserved-interface exclusions;
 - LVCMOS33/LVCMOS18 voltage-standard consistency;
-- 27 MHz timing constraint and physical-top open-drain/synchronizer invariants.
+- 27 MHz timing constraint and physical-top open-drain/synchronizer invariants;
+- calibration review-only authority, uncertainty, repeatability, and evidence-completeness contracts.
 
 Behavioral SPICE files exist for the current-sense and inductive motor-output topologies. They remain source artifacts; no SPICE execution result is claimed until a compatible simulator is run and evidence is retained.
 
 ## Current validation baseline
 
-Repository validation covers Python simulation/integration, portable C++ protocol/stream/inference/event/telemetry/sensor-contract/sensing/PHY checks, hardware-profile consistency checks, analytical low-voltage circuit checks, static physical-pin consistency, and a growing set of self-checking VHDL verification sources.
+Repository validation covers Python simulation/integration, portable C++ protocol/stream/inference/event/telemetry/sensor-contract/sensing/PHY checks, hardware-profile consistency checks, analytical low-voltage circuit checks, static physical-pin consistency, calibration evidence/review checks, and a growing set of self-checking VHDL verification sources.
 
-Reference software checks include calibration encode/decode and CRC-corruption rejection, invalid-calibration rejection, PHY normalization, deterministic 3 g / 4 g two-sample RMS = 3535 mg, signed 24-bit raw-range rejection, profile/schema consistency, protected-entry equations, current-sense calculations, and safety ordering.
+Reference software checks include calibration encode/decode and CRC-corruption rejection, invalid-calibration rejection, PHY normalization, deterministic 3 g / 4 g two-sample RMS = 3535 mg, signed 24-bit raw-range rejection, profile/schema consistency, protected-entry equations, current-sense calculations, safety ordering, and repeated-run calibration rejection behavior.
 
 The deterministic seven-scenario software matrix covers normal operation, bearing degradation, overcurrent trend, cooling loss, sensor dropout, intelligence-link loss, and emergency input.
 
@@ -197,6 +210,7 @@ The following remain intentionally unclaimed until measured or tool-verified:
 - a retained successful GHDL compile/run for the selected-device bus models and Tang Nano physical top;
 - successful Gowin synthesis, place-and-route, resource-utilization report, and timing closure for the physical top;
 - physical continuity confirmation for the frozen J5 wiring on the actual board revision;
+- three or more retained physical calibration runs with defensible reference-instrument uncertainty and a passing repeated-run review;
 - selected physical sensor accuracy and calibration;
 - ADS131M02 behavior on the physical bus and measured ADC/reference/shunt/amplifier transfer accuracy;
 - ADXL355 and TMP117 behavior on physical buses;
