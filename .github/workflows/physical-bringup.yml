@@ -1,0 +1,39 @@
+name: Physical bring-up checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  bringup-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Verify Tang Nano pin contract
+        run: make tang-pin-check
+      - name: Verify physical bring-up package
+        run: make bringup-check
+
+  smoke-vhdl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install GHDL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ghdl
+      - name: Analyze safe smoke image
+        run: |
+          ghdl -a --std=08 fpga/rtl/io/uart_rx.vhd
+          ghdl -a --std=08 fpga/rtl/io/uart_tx.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_tang_nano_9k_smoke_top.vhd
+          ghdl -a --std=08 fpga/tb/tb_tang_nano_9k_smoke_top.vhd
+          ghdl -e --std=08 tb_tang_nano_9k_smoke_top
+      - name: Run safe smoke verification
+        run: ghdl -r --std=08 tb_tang_nano_9k_smoke_top --assert-level=error --stop-time=2ms
