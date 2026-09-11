@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import shutil
 import tempfile
@@ -44,27 +45,64 @@ def _load_json(path: Path, label: str) -> dict:
     return data
 
 
+def _finite(value: object, label: str) -> float:
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise CalibrationChangePackageError(f"{label} must be finite") from exc
+    if not math.isfinite(result):
+        raise CalibrationChangePackageError(f"{label} must be finite")
+    return result
+
+
 def _candidate_summary(review: dict) -> dict:
     current = review.get("current")
     temperature = review.get("temperature")
     accelerometer = review.get("accelerometer")
     if not isinstance(current, dict) or not isinstance(temperature, dict) or not isinstance(accelerometer, dict):
         raise CalibrationChangePackageError("review is missing calibration candidate sections")
+
+    bias = accelerometer.get("mean_bias_mg_candidate")
+    if not isinstance(bias, dict):
+        raise CalibrationChangePackageError("review accelerometer mean_bias_mg_candidate is missing")
+    normalized_bias = {
+        axis: _finite(bias.get(axis), f"review.accelerometer.mean_bias_mg_candidate.{axis}")
+        for axis in ("x", "y", "z")
+    }
+
     return {
         "current": {
-            "mean_slope_ma_per_count_candidate": current.get("mean_slope_ma_per_count_candidate"),
-            "mean_intercept_ma_candidate": current.get("mean_intercept_ma_candidate"),
-            "engineering_uncertainty_proxy_ma_k2": current.get("engineering_uncertainty_proxy_ma_k2"),
+            "mean_slope_ma_per_count_candidate": _finite(
+                current.get("mean_slope_ma_per_count_candidate"),
+                "review.current.mean_slope_ma_per_count_candidate",
+            ),
+            "mean_intercept_ma_candidate": _finite(
+                current.get("mean_intercept_ma_candidate"),
+                "review.current.mean_intercept_ma_candidate",
+            ),
+            "engineering_uncertainty_proxy_ma_k2": _finite(
+                current.get("engineering_uncertainty_proxy_ma_k2"),
+                "review.current.engineering_uncertainty_proxy_ma_k2",
+            ),
             "repeatability_pass": current.get("repeatability_pass") is True,
         },
         "temperature": {
-            "mean_offset_c_candidate": temperature.get("mean_offset_c_candidate"),
-            "engineering_uncertainty_proxy_c_k2": temperature.get("engineering_uncertainty_proxy_c_k2"),
+            "mean_offset_c_candidate": _finite(
+                temperature.get("mean_offset_c_candidate"),
+                "review.temperature.mean_offset_c_candidate",
+            ),
+            "engineering_uncertainty_proxy_c_k2": _finite(
+                temperature.get("engineering_uncertainty_proxy_c_k2"),
+                "review.temperature.engineering_uncertainty_proxy_c_k2",
+            ),
             "repeatability_pass": temperature.get("repeatability_pass") is True,
         },
         "accelerometer": {
-            "mean_bias_mg_candidate": accelerometer.get("mean_bias_mg_candidate"),
-            "engineering_uncertainty_proxy_mg_k2": accelerometer.get("engineering_uncertainty_proxy_mg_k2"),
+            "mean_bias_mg_candidate": normalized_bias,
+            "engineering_uncertainty_proxy_mg_k2": _finite(
+                accelerometer.get("engineering_uncertainty_proxy_mg_k2"),
+                "review.accelerometer.engineering_uncertainty_proxy_mg_k2",
+            ),
             "repeatability_pass": accelerometer.get("repeatability_pass") is True,
         },
     }
