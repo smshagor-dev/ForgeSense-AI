@@ -1,0 +1,77 @@
+name: Physical commissioning checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  commissioning-host:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: Verify commissioning contracts
+        run: make commissioning-check
+
+  status-diagnostic-vhdl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install GHDL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ghdl
+      - name: Analyze status diagnostic propagation
+        run: |
+          ghdl -a --std=08 fpga/rtl/safety/safety_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/protocol/crc16_ccitt_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_contract_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_device_math_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_phy_diagnostics_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/io/input_sync.vhd
+          ghdl -a --std=08 fpga/rtl/io/uart_rx.vhd
+          ghdl -a --std=08 fpga/rtl/io/uart_tx.vhd
+          ghdl -a --std=08 fpga/rtl/io/link_tx_arbiter.vhd
+          ghdl -a --std=08 fpga/rtl/io/spi_mode0_byte_engine.vhd
+          ghdl -a --std=08 fpga/rtl/io/spi_mode1_byte_engine.vhd
+          ghdl -a --std=08 fpga/rtl/io/i2c_byte_engine.vhd
+          ghdl -a --std=08 fpga/rtl/safety/watchdog.vhd
+          ghdl -a --std=08 fpga/rtl/safety/hard_limit_monitor.vhd
+          ghdl -a --std=08 fpga/rtl/safety/safety_fsm.vhd
+          ghdl -a --std=08 fpga/rtl/protocol/link_receiver.vhd
+          ghdl -a --std=08 fpga/rtl/protocol/intelligence_gate.vhd
+          ghdl -a --std=08 fpga/rtl/protocol/sensor_link_tx.vhd
+          ghdl -a --std=08 fpga/rtl/protocol/status_link_tx.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/linear_sensor_adapter.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/vibration_rms_window.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_frontend.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_supervisor.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/generic_adc_sample_adapter.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/digital_temperature_adapter.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/accelerometer_conditioner.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_self_test.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sample_scheduler.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/timebase_ms.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/tmp117_controller.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/adxl355_controller.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/ads131m02_controller.vhd
+          ghdl -a --std=08 fpga/rtl/top/safety_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_platform_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_board_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_sensor_board_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_phy_board_core.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_reference_sensor_io.vhd
+          ghdl -a --std=08 fpga/rtl/top/forgesense_tang_nano_9k_top.vhd
+          ghdl -e --std=08 forgesense_tang_nano_9k_top
