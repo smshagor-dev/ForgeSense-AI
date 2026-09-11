@@ -36,6 +36,7 @@ entity forgesense_phy_board_core is
         vibration_sample_error : in std_logic;
         device_identity_ok : in std_logic := '0';
         device_transport_error : in std_logic := '0';
+        device_diagnostics : in std_logic_vector(5 downto 0) := (others => '0');
         emergency : in std_logic;
         analog_hard_trip : in std_logic := '0';
         recovery_req : in std_logic;
@@ -144,6 +145,7 @@ begin
             vibration_conditioned_milli_g => vibration_conditioned_i,
             device_identity_ok => device_identity_ok,
             device_transport_error => combined_transport_error_i,
+            device_diagnostics => device_diagnostics,
             emergency => emergency, external_hard_trip => analog_hard_trip,
             recovery_req => recovery_req,
             state_code => state_code, load_enable => load_enable,
