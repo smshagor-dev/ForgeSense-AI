@@ -25,6 +25,9 @@
   "safety_baseline_files": [
     "fpga/rtl/safety/hard_limit_monitor.vhd",
     "hardware/profiles/sensor_contract_v1.json",
+    "hardware/profiles/reference_circuit_v1.json",
+    "hardware/profiles/hardware_baseline_v1.json",
+    "hardware/profiles/power_entry_v1.json",
     "docs/SAFETY_MODEL.md"
   ]
 }
