@@ -1,18 +1,46 @@
 {
   "schema": "forgesense.interconnect.v1",
-  "revision": "INT-001",
+  "revision": "INT-002",
   "logic_voltage_v": 3.3,
+  "board": {
+    "name": "Sipeed Tang Nano 9K",
+    "device": "GW1NR-LV9QN88PC6/I5",
+    "constraints": "fpga/constraints/tang_nano_9k.cst",
+    "timing_constraints": "fpga/constraints/tang_nano_9k.sdc",
+    "pin_source": "Sipeed Tang Nano 9K schematic revision 6202 / official pin map"
+  },
   "links": [
-    {"name": "FPGA_TO_ESP32_UART", "direction": "fpga_to_esp32", "esp32_gpio": 18, "esp32_function": "U1RXD", "fpga_pin": null, "fpga_pin_status": "pending_board_header_freeze", "series_resistor_ohm": 33},
-    {"name": "ESP32_TO_FPGA_UART", "direction": "esp32_to_fpga", "esp32_gpio": 17, "esp32_function": "U1TXD", "fpga_pin": null, "fpga_pin_status": "pending_board_header_freeze", "series_resistor_ohm": 33},
-    {"name": "ANALOG_HARD_TRIP", "direction": "comparator_to_fpga", "fpga_pin": null, "fpga_pin_status": "pending_board_header_freeze", "default_safe_bias": "pulldown_or_defined_nontrip_state"},
-    {"name": "ESTOP_SENSE", "direction": "estop_to_fpga", "fpga_pin": null, "fpga_pin_status": "pending_board_header_freeze", "hardware_gate_inhibit_parallel": true},
-    {"name": "LOAD_ENABLE", "direction": "fpga_to_gate_logic", "fpga_pin": null, "fpga_pin_status": "pending_board_header_freeze", "physical_estop_must_override": true}
+    {"name": "ESP32_TO_FPGA_UART", "direction": "esp32_to_fpga", "esp32_gpio": 17, "esp32_function": "U1TXD", "board_header": "J5-5", "fpga_pin": 25, "fpga_pin_status": "frozen_schematic_verified", "series_resistor_ohm": 33},
+    {"name": "FPGA_TO_ESP32_UART", "direction": "fpga_to_esp32", "esp32_gpio": 18, "esp32_function": "U1RXD", "board_header": "J5-6", "fpga_pin": 26, "fpga_pin_status": "frozen_schematic_verified", "series_resistor_ohm": 33},
+    {"name": "ANALOG_HARD_TRIP", "direction": "comparator_to_fpga", "board_header": "J5-7", "fpga_pin": 27, "fpga_pin_status": "frozen_schematic_verified", "default_safe_bias": "pulldown_nontrip_state"},
+    {"name": "ESTOP_SENSE", "direction": "estop_to_fpga", "board_header": "J5-8", "fpga_pin": 28, "fpga_pin_status": "frozen_schematic_verified", "active_level": "high_fault", "hardware_gate_inhibit_parallel": true},
+    {"name": "LOAD_ENABLE", "direction": "fpga_to_gate_logic", "board_header": "J5-9", "fpga_pin": 29, "fpga_pin_status": "frozen_schematic_verified", "physical_estop_must_override": true},
+    {"name": "RECOVERY_REQUEST", "direction": "service_to_fpga", "board_header": "J5-10", "fpga_pin": 30, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "TMP117_SCL", "direction": "bidirectional_open_drain", "board_header": "J5-11", "fpga_pin": 33, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "TMP117_SDA", "direction": "bidirectional_open_drain", "board_header": "J5-12", "fpga_pin": 34, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "ADXL355_CS_N", "direction": "fpga_to_sensor", "board_header": "J5-13", "fpga_pin": 40, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "ADXL355_SCLK", "direction": "fpga_to_sensor", "board_header": "J5-14", "fpga_pin": 35, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "ADXL355_MOSI", "direction": "fpga_to_sensor", "board_header": "J5-15", "fpga_pin": 41, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "ADXL355_MISO", "direction": "sensor_to_fpga", "board_header": "J5-16", "fpga_pin": 42, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "ADXL355_DRDY", "direction": "sensor_to_fpga", "board_header": "J5-17", "fpga_pin": 51, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "ADS131M02_CS_N", "direction": "fpga_to_sensor", "board_header": "J5-18", "fpga_pin": 53, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "ADS131M02_SCLK", "direction": "fpga_to_sensor", "board_header": "J5-19", "fpga_pin": 54, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "ADS131M02_DIN", "direction": "fpga_to_sensor", "board_header": "J5-20", "fpga_pin": 55, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "ADS131M02_DOUT", "direction": "sensor_to_fpga", "board_header": "J5-21", "fpga_pin": 56, "fpga_pin_status": "frozen_schematic_verified"},
+    {"name": "ADS131M02_DRDY_N", "direction": "sensor_to_fpga", "board_header": "J5-22", "fpga_pin": 57, "fpga_pin_status": "frozen_schematic_verified"}
   ],
   "clock": {"board": "Tang Nano 9K", "fpga_pin": 52, "frequency_hz": 27000000, "status": "verified_from_board_schematic"},
+  "reset": {"source": "onboard_S2", "fpga_pin": 4, "io_voltage_v": 1.8, "active_level": "low", "status": "verified_from_board_schematic"},
+  "reserved_or_avoided": {
+    "tf_card_fpga_pins": [36, 37, 38, 39],
+    "onboard_usb_uart_fpga_pins": [17, 18],
+    "bank3_1v8_external_fpga_pins": [79, 80, 81, 82, 83, 84, 85, 86]
+  },
   "rules": [
-    "No 1.8 V Tang Nano bank signal may be connected directly to a 3.3 V source without level compatibility analysis.",
-    "All external asynchronous safety inputs require FPGA synchronization while the physical E-stop gate-inhibit path remains independent of the clocked logic.",
+    "No 1.8 V BANK3 external signal is used for the 3.3 V ForgeSense peripheral wiring.",
+    "The populated TF-card pins 36-39 and onboard BL702 UART pins 17-18 are excluded from ForgeSense external wiring.",
+    "Pins shared with the RGB header may be used only when no RGB panel is attached.",
+    "All external asynchronous safety inputs are synchronized for FPGA observation while the physical E-stop gate-inhibit path remains independent of clocked logic.",
     "UART and sensor digital lines receive local return/GND and optional series damping footprints near the source."
   ]
 }
