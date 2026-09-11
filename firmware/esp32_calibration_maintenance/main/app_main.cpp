@@ -13,6 +13,7 @@
 #include "forgesense_calibration_provisioning.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "maintenance_authorization.hpp"
 #include "maintenance_protocol.hpp"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
@@ -20,20 +21,23 @@
 namespace {
 
 using forgesense::maintenance::CalibrationNvsStore;
+using forgesense::maintenance::MaintenanceAuthorizationVerifier;
 using forgesense::maintenance::MaintenanceFrame;
 using forgesense::maintenance::MaintenanceFrameParser;
 using forgesense::maintenance::MaintenanceOpcode;
 using forgesense::maintenance::MaintenanceStatus;
 using forgesense::sensing::CalibrationRecord;
 
-constexpr std::size_t kUsbReadBufferSize = 128;
+constexpr std::size_t kUsbReadBufferSize = 256;
 constexpr std::size_t kStatusPayloadSize = 27;
-constexpr std::size_t kPrepareRequestSize = 56;
+constexpr std::size_t kAuthorizationStatusPayloadSize = 34;
+constexpr std::size_t kPrepareFixedRequestSize = 90;
 constexpr std::size_t kPrepareResponseSize = 13;
 constexpr std::size_t kCommitRequestSize = 12;
 constexpr std::size_t kCommitResponseSize = 9;
 
 CalibrationNvsStore g_store;
+MaintenanceAuthorizationVerifier g_authorization;
 bool g_store_ready = false;
 bool g_gate_config_valid = false;
 std::array<std::uint8_t, 6> g_device_mac{};
@@ -43,6 +47,12 @@ std::uint32_t g_pending_expected_floor = 0;
 std::uint32_t g_commit_nonce = 0;
 CalibrationRecord g_pending_record{};
 std::array<std::uint8_t, forgesense::sensing::kCalibrationBlobSize> g_pending_blob{};
+
+std::uint16_t read_le16(const std::uint8_t* data) {
+    return static_cast<std::uint16_t>(
+        static_cast<std::uint16_t>(data[0]) |
+        (static_cast<std::uint16_t>(data[1]) << 8U));
+}
 
 std::uint32_t read_le32(const std::uint8_t* data) {
     return static_cast<std::uint32_t>(data[0]) |
@@ -170,8 +180,22 @@ void handle_query_status() {
     send_response(MaintenanceOpcode::StatusResponse, payload.data(), payload.size());
 }
 
+void handle_query_authorization() {
+    std::array<std::uint8_t, kAuthorizationStatusPayloadSize> payload{};
+    payload[0] = static_cast<std::uint8_t>(MaintenanceStatus::Ok);
+    payload[1] = g_authorization.ready() ? 1U : 0U;
+    if (g_authorization.ready()) {
+        const auto& fingerprint = g_authorization.public_key_sha256();
+        std::memcpy(payload.data() + 2U, fingerprint.data(), fingerprint.size());
+    }
+    send_response(MaintenanceOpcode::AuthorizationResponse, payload.data(), payload.size());
+}
+
 void handle_prepare(const MaintenanceFrame& frame) {
-    if (frame.payload_size != kPrepareRequestSize) {
+    if (frame.payload_size <= kPrepareFixedRequestSize ||
+        frame.payload_size >
+            kPrepareFixedRequestSize + forgesense::maintenance::kAuthorizationMaxSignatureSize) {
+        clear_pending();
         send_status_only(MaintenanceOpcode::PrepareResponse, MaintenanceStatus::BadRequest);
         return;
     }
@@ -185,24 +209,62 @@ void handle_prepare(const MaintenanceFrame& frame) {
         send_status_only(MaintenanceOpcode::PrepareResponse, MaintenanceStatus::StoreUnavailable);
         return;
     }
+    if (!g_authorization.ready()) {
+        clear_pending();
+        send_status_only(
+            MaintenanceOpcode::PrepareResponse,
+            MaintenanceStatus::AuthorizationUnavailable);
+        return;
+    }
 
     const std::uint32_t boot_nonce = read_le32(frame.payload.data());
     const std::uint32_t expected_floor = read_le32(frame.payload.data() + 4U);
     if (boot_nonce != g_boot_nonce) {
+        clear_pending();
         send_status_only(MaintenanceOpcode::PrepareResponse, MaintenanceStatus::SessionMismatch);
         return;
     }
     if (expected_floor != g_store.installed_floor()) {
+        clear_pending();
         send_status_only(MaintenanceOpcode::PrepareResponse, MaintenanceStatus::SequenceMismatch);
         return;
     }
 
-    const std::uint8_t* record_bytes = frame.payload.data() + 8U;
+    std::array<std::uint8_t, forgesense::maintenance::kAuthorizationArtifactRootSize>
+        artifact_root{};
+    std::memcpy(artifact_root.data(), frame.payload.data() + 8U, artifact_root.size());
+    const std::uint8_t* record_bytes = frame.payload.data() + 40U;
+    const std::uint16_t signature_size = read_le16(frame.payload.data() + 88U);
+    if (signature_size == 0U ||
+        signature_size > forgesense::maintenance::kAuthorizationMaxSignatureSize ||
+        frame.payload_size != kPrepareFixedRequestSize + signature_size) {
+        clear_pending();
+        send_status_only(MaintenanceOpcode::PrepareResponse, MaintenanceStatus::BadRequest);
+        return;
+    }
+
     CalibrationRecord decoded{};
     if (!forgesense::sensing::decode_calibration_record(
             record_bytes, forgesense::sensing::kCalibrationBlobSize, decoded) ||
         !forgesense::sensing::calibration_sequence_is_newer(decoded.sequence, expected_floor)) {
+        clear_pending();
         send_status_only(MaintenanceOpcode::PrepareResponse, MaintenanceStatus::RecordInvalid);
+        return;
+    }
+
+    const std::uint8_t* signature_der = frame.payload.data() + kPrepareFixedRequestSize;
+    if (!g_authorization.verify(
+            g_device_mac,
+            expected_floor,
+            artifact_root,
+            record_bytes,
+            forgesense::sensing::kCalibrationBlobSize,
+            signature_der,
+            signature_size)) {
+        clear_pending();
+        send_status_only(
+            MaintenanceOpcode::PrepareResponse,
+            MaintenanceStatus::AuthorizationFailed);
         return;
     }
 
@@ -235,11 +297,19 @@ void handle_commit(const MaintenanceFrame& frame) {
         send_status_only(MaintenanceOpcode::CommitResponse, MaintenanceStatus::StoreUnavailable);
         return;
     }
+    if (!g_authorization.ready()) {
+        clear_pending();
+        send_status_only(
+            MaintenanceOpcode::CommitResponse,
+            MaintenanceStatus::AuthorizationUnavailable);
+        return;
+    }
 
     const std::uint32_t boot_nonce = read_le32(frame.payload.data());
     const std::uint32_t commit_nonce = read_le32(frame.payload.data() + 4U);
     const std::uint32_t expected_pending_sequence = read_le32(frame.payload.data() + 8U);
     if (boot_nonce != g_boot_nonce) {
+        clear_pending();
         send_status_only(MaintenanceOpcode::CommitResponse, MaintenanceStatus::SessionMismatch);
         return;
     }
@@ -300,6 +370,15 @@ void handle_frame(const MaintenanceFrame& frame) {
         case MaintenanceOpcode::CommitRecord:
             handle_commit(frame);
             break;
+        case MaintenanceOpcode::QueryAuthorization:
+            if (frame.payload_size == 0U) {
+                handle_query_authorization();
+            } else {
+                send_status_only(
+                    MaintenanceOpcode::AuthorizationResponse,
+                    MaintenanceStatus::BadRequest);
+            }
+            break;
         default:
             send_status_only(MaintenanceOpcode::StatusResponse, MaintenanceStatus::BadRequest);
             break;
@@ -323,6 +402,12 @@ extern "C" void app_main(void) {
     const bool identity_ready = esp_efuse_mac_get_default(g_device_mac.data()) == ESP_OK;
     if (!identity_ready) {
         g_gate_config_valid = false;
+    }
+    const bool authorization_ready =
+        identity_ready &&
+        g_authorization.begin(CONFIG_FORGESENSE_MAINTENANCE_AUTHORITY_PUBKEY_DER_HEX);
+    if (!authorization_ready) {
+        clear_pending();
     }
     g_boot_nonce = fresh_nonce();
 
