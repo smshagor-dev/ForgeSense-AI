@@ -177,6 +177,24 @@ def test_duplicate_source_within_current_characterization_is_rejected(tmp_path: 
         assemble_capture(manifest, base_dir=tmp_path)
 
 
+def test_duplicate_accelerometer_source_is_rejected(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path)
+    source = manifest["accelerometer"]["diagnostic_files"][0]
+    manifest["accelerometer"]["diagnostic_files"] = [source, source]
+    with pytest.raises(CalibrationAssemblyError, match="accelerometer reuses diagnostic file"):
+        assemble_capture(manifest, base_dir=tmp_path)
+
+
+def test_inconsistent_reported_usable_sample_count_is_rejected(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path)
+    source = tmp_path / "current-3.json"
+    raw = json.loads(source.read_text(encoding="utf-8"))
+    raw["result"]["usable_samples"] += 1
+    source.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(CalibrationAssemblyError, match="usable-sample count is inconsistent"):
+        assemble_capture(manifest, base_dir=tmp_path)
+
+
 def test_missing_independent_reference_value_is_rejected(tmp_path: Path) -> None:
     manifest = _manifest(tmp_path)
     manifest["current"]["points"][0].pop("reference_current_a")
