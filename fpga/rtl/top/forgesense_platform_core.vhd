@@ -24,6 +24,7 @@ entity forgesense_platform_core is
         current_valid : in std_logic;
         device_identity_ok : in std_logic := '0';
         device_transport_error : in std_logic := '0';
+        device_diagnostics : in std_logic_vector(5 downto 0) := (others => '0');
         ml_rx_valid : in std_logic;
         ml_rx_byte : in std_logic_vector(7 downto 0);
         sensor_tx_ready : in std_logic;
@@ -104,7 +105,15 @@ begin
     safety_flags_i(6) <= sensors_valid_i;
     safety_flags_i(7) <= device_identity_ok;
     safety_flags_i(8) <= device_transport_error;
-    safety_flags_i(15 downto 9) <= (others => '0');
+    -- Per-device commissioning diagnostics. These are read-only observations
+    -- and do not add control authority or alter hard-safety decisions.
+    safety_flags_i(9) <= device_diagnostics(0);  -- TMP117 trusted/configured
+    safety_flags_i(10) <= device_diagnostics(1); -- ADXL355 trusted/configured
+    safety_flags_i(11) <= device_diagnostics(2); -- ADS131M02 trusted/configured
+    safety_flags_i(12) <= device_diagnostics(3); -- TMP117 transport error
+    safety_flags_i(13) <= device_diagnostics(4); -- ADXL355 init/transport error
+    safety_flags_i(14) <= device_diagnostics(5); -- ADS131M02 frame/config error
+    safety_flags_i(15) <= '0';
 
     status_vector_i <= state_code_i & std_logic_vector(control_flags_i) & std_logic_vector(safety_flags_i);
 

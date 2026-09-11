@@ -60,6 +60,7 @@ architecture rtl of forgesense_reference_sensor_io is
     signal inner_phy_error, inner_phy_ok : std_logic;
     signal device_identity_i : std_logic;
     signal device_transport_error_i : std_logic;
+    signal device_diagnostics_i : std_logic_vector(5 downto 0);
 begin
     temp_scheduler : entity work.sample_scheduler
         generic map (CLK_FREQ_HZ => CLK_FREQ_HZ, SAMPLE_RATE_HZ => SENSOR_SAMPLE_RATE_HZ)
@@ -97,6 +98,7 @@ begin
 
     device_identity_i <= tmp_ok and adxl_ok and ads_ok;
     device_transport_error_i <= tmp_error or adxl_error or ads_error;
+    device_diagnostics_i <= ads_error & adxl_error & tmp_error & ads_ok & adxl_ok & tmp_ok;
 
     platform : entity work.forgesense_phy_board_core
         generic map (
@@ -129,6 +131,7 @@ begin
             vibration_sample_error => adxl_error or not adxl_ok,
             device_identity_ok => device_identity_i,
             device_transport_error => device_transport_error_i,
+            device_diagnostics => device_diagnostics_i,
             emergency => emergency, analog_hard_trip => analog_hard_trip,
             recovery_req => recovery_req,
             state_code => state_code, load_enable => load_enable,

@@ -40,6 +40,7 @@ def _record_from_template(args: argparse.Namespace) -> dict:
         "repository_commit": args.repository_commit,
         "artifact_sha256": args.artifact_sha256,
         "fpga_board_revision": args.fpga_board_revision,
+        "esp32_board_revision": args.esp32_board_revision,
         "sensor_board_revision": args.sensor_board_revision,
     }
     missing = [name for name, value in required.items() if not value]
@@ -56,6 +57,7 @@ def _record_from_template(args: argparse.Namespace) -> dict:
     record["operator"] = args.operator
     record["repository_commit"] = args.repository_commit.lower()
     record["board"]["fpga_board_revision"] = args.fpga_board_revision
+    record["board"]["esp32_board_revision"] = args.esp32_board_revision
     record["board"]["sensor_board_revision"] = args.sensor_board_revision
     record["image"]["top"] = args.image_top
     record["image"]["artifact_sha256"] = args.artifact_sha256.lower()
@@ -70,6 +72,7 @@ def _add_record_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--repository-commit")
     parser.add_argument("--artifact-sha256")
     parser.add_argument("--fpga-board-revision")
+    parser.add_argument("--esp32-board-revision")
     parser.add_argument("--sensor-board-revision")
     parser.add_argument("--image-top", default="forgesense_tang_nano_9k_smoke_top")
 

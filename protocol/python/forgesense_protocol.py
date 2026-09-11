@@ -28,6 +28,12 @@ SAFETY_EMERGENCY = 0x0020
 SAFETY_SENSORS_VALID = 0x0040
 SAFETY_DEVICE_IDENTITY_OK = 0x0080
 SAFETY_DEVICE_TRANSPORT_ERROR = 0x0100
+SAFETY_TMP117_TRUSTED = 0x0200
+SAFETY_ADXL355_TRUSTED = 0x0400
+SAFETY_ADS131M02_TRUSTED = 0x0800
+SAFETY_TMP117_ERROR = 0x1000
+SAFETY_ADXL355_ERROR = 0x2000
+SAFETY_ADS131M02_ERROR = 0x4000
 
 _HEADER = struct.Struct("<2sBBHHI")
 _ML_PAYLOAD = struct.Struct("<HHHHHBBH")
@@ -105,6 +111,38 @@ class StatusSnapshotWire:
     @property
     def device_transport_error(self) -> bool:
         return bool(self.safety_flags & SAFETY_DEVICE_TRANSPORT_ERROR)
+
+    @property
+    def tmp117_trusted(self) -> bool:
+        return bool(self.safety_flags & SAFETY_TMP117_TRUSTED)
+
+    @property
+    def adxl355_trusted(self) -> bool:
+        return bool(self.safety_flags & SAFETY_ADXL355_TRUSTED)
+
+    @property
+    def ads131m02_trusted(self) -> bool:
+        return bool(self.safety_flags & SAFETY_ADS131M02_TRUSTED)
+
+    @property
+    def tmp117_error(self) -> bool:
+        return bool(self.safety_flags & SAFETY_TMP117_ERROR)
+
+    @property
+    def adxl355_error(self) -> bool:
+        return bool(self.safety_flags & SAFETY_ADXL355_ERROR)
+
+    @property
+    def ads131m02_error(self) -> bool:
+        return bool(self.safety_flags & SAFETY_ADS131M02_ERROR)
+
+    @property
+    def selected_devices_trusted(self) -> bool:
+        return self.tmp117_trusted and self.adxl355_trusted and self.ads131m02_trusted
+
+    @property
+    def selected_device_error(self) -> bool:
+        return self.tmp117_error or self.adxl355_error or self.ads131m02_error
 
 
 @dataclass(frozen=True)

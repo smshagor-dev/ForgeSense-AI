@@ -36,6 +36,12 @@ constexpr std::uint16_t kSafetyEmergency = 0x0020;
 constexpr std::uint16_t kSafetySensorsValid = 0x0040;
 constexpr std::uint16_t kSafetyDeviceIdentityOk = 0x0080;
 constexpr std::uint16_t kSafetyDeviceTransportError = 0x0100;
+constexpr std::uint16_t kSafetyTmp117Trusted = 0x0200;
+constexpr std::uint16_t kSafetyAdxl355Trusted = 0x0400;
+constexpr std::uint16_t kSafetyAds131m02Trusted = 0x0800;
+constexpr std::uint16_t kSafetyTmp117Error = 0x1000;
+constexpr std::uint16_t kSafetyAdxl355Error = 0x2000;
+constexpr std::uint16_t kSafetyAds131m02Error = 0x4000;
 
 enum class HealthClass : std::uint8_t {
     Normal = 0,
@@ -66,6 +72,12 @@ struct StatusSnapshot {
     bool operational_ready() const { return (control_flags & kStatusOperationalReady) != 0; }
     bool device_identity_ok() const { return (safety_flags & kSafetyDeviceIdentityOk) != 0; }
     bool device_transport_error() const { return (safety_flags & kSafetyDeviceTransportError) != 0; }
+    bool tmp117_trusted() const { return (safety_flags & kSafetyTmp117Trusted) != 0; }
+    bool adxl355_trusted() const { return (safety_flags & kSafetyAdxl355Trusted) != 0; }
+    bool ads131m02_trusted() const { return (safety_flags & kSafetyAds131m02Trusted) != 0; }
+    bool tmp117_error() const { return (safety_flags & kSafetyTmp117Error) != 0; }
+    bool adxl355_error() const { return (safety_flags & kSafetyAdxl355Error) != 0; }
+    bool ads131m02_error() const { return (safety_flags & kSafetyAds131m02Error) != 0; }
 };
 
 struct SensorSnapshot {

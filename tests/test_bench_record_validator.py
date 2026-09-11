@@ -19,6 +19,7 @@ def make_record() -> dict:
             "fpga_board": "Sipeed Tang Nano 9K",
             "fpga_board_revision": "test",
             "esp32_board": "ESP32-S3-DevKitC-1",
+            "esp32_board_revision": "test",
             "sensor_board_revision": "test",
         },
         "image": {
@@ -87,4 +88,12 @@ def test_bad_artifact_hash_is_rejected(tmp_path: Path) -> None:
     record["image"]["artifact_sha256"] = "not-a-hash"
     record_path = write_record(tmp_path, record)
     with pytest.raises(ValueError, match="artifact_sha256"):
+        validate(record_path, Path("hardware/bringup/bench_record_schema_v1.json"))
+
+
+def test_missing_esp32_revision_is_rejected(tmp_path: Path) -> None:
+    record = make_record()
+    del record["board"]["esp32_board_revision"]
+    record_path = write_record(tmp_path, record)
+    with pytest.raises(ValueError, match="esp32_board_revision"):
         validate(record_path, Path("hardware/bringup/bench_record_schema_v1.json"))
