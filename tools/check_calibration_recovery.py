@@ -57,6 +57,7 @@ def main() -> int:
 
     for token in (
         "build_recovery_bundle",
+        "validate_signed_provisioning_policy(provisioning_policy_path)",
         "candidate_sequence = installed_sequence + 1",
         "candidate_blob[12:44] == active_blob[12:44]",
         '"signed_maintenance_authorization_required": True',
@@ -67,6 +68,7 @@ def main() -> int:
 
     for token in (
         "verify_recovery_bundle",
+        "validate_signed_provisioning_policy(provisioning_policy_path)",
         "candidate != installed + 1",
         "active_record_sha256_bound",
         "approved_profile_reverified",
@@ -145,9 +147,9 @@ def main() -> int:
         assert token in tests, token
 
     print(
-        "calibration_recovery_check PASS: exact active-record readback, approved-profile restoration at the next "
-        "higher sequence, signed authorization, no automatic recovery, and source-review-only authority-key rotation "
-        "boundary are present"
+        "calibration_recovery_check PASS: strict signed policy, exact active-record readback, approved-profile "
+        "restoration at the next higher sequence, signed authorization, no automatic recovery, and source-review-only "
+        "authority-key rotation boundary are present"
     )
     return 0
 
