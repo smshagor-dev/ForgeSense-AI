@@ -14,27 +14,42 @@ The synthesizable RTL now implements:
 
 `intelligence_gate.vhd` consumes already-decoded protocol fields. Byte-stream framing remains separate so framing faults cannot silently alter the safety-state-machine contract.
 
-The physical development-board top is:
+## Physical images
+
+The production development-board top is:
 
 `rtl/top/forgesense_tang_nano_9k_top.vhd`
 
-Constraints:
+The first-bitstream smoke top is:
+
+`rtl/top/forgesense_tang_nano_9k_smoke_top.vhd`
+
+The smoke top deliberately has less authority: `LOAD_ENABLE` is hard-tied low, sensor chip-selects remain inactive, I2C pins remain high-impedance, and the only active functional path is UART heartbeat/echo. Use it before the production image during first board bring-up.
+
+Constraints shared by both physical images:
 
 - `constraints/tang_nano_9k.cst`
 - `constraints/tang_nano_9k.sdc`
 
-Static pin verification:
+Static pin and bring-up verification:
 
 ```bash
 make tang-pin-check
+make bringup-check
 ```
 
-Gowin command-line build, when a compatible licensed installation is available:
+Gowin command-line production build, when a compatible licensed installation is available:
 
 ```bash
 make gowin-build
 ```
 
-The build entry calls `gw_sh fpga/scripts/tang_nano_9k_build.tcl` and targets `GW1NR-LV9QN88PC6/I5`.
+Safe smoke build:
+
+```bash
+make smoke-build
+```
+
+The build entries target `GW1NR-LV9QN88PC6/I5`.
 
 Numeric hard limits remain provisional simulation defaults and must be replaced by measured electrical/mechanical requirements before physical output control is treated as validated.
