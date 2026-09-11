@@ -30,6 +30,8 @@ entity forgesense_sensor_board_core is
         current_raw : in signed(23 downto 0);
         vibration_sample_valid : in std_logic;
         vibration_conditioned_milli_g : in signed(15 downto 0);
+        device_identity_ok : in std_logic := '0';
+        device_transport_error : in std_logic := '0';
         emergency : in std_logic;
         external_hard_trip : in std_logic := '0';
         recovery_req : in std_logic;
@@ -112,6 +114,8 @@ begin
             current_milli_a => current_i,
             temperature_valid => temp_valid_i, vibration_valid => vibration_valid_i,
             current_valid => current_valid_i,
+            device_identity_ok => device_identity_ok,
+            device_transport_error => device_transport_error,
             emergency => emergency, external_hard_trip => external_hard_trip,
             recovery_req => recovery_req,
             state_code => state_code, load_enable => load_enable,
