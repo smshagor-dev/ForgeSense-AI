@@ -58,8 +58,9 @@ commissioning-check:
 	./build/commissioning_status_test
 
 calibration-check:
-	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_calibration_capture.py
+	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_calibration_capture.py tests/test_calibration_review.py
 	python tools/check_calibration_capture.py
+	python tools/check_calibration_review.py
 
 bench-record-validate:
 	@test -n "$(RECORD)" || (echo "Usage: make bench-record-validate RECORD=path/to/record.json"; exit 2)
@@ -79,6 +80,7 @@ hardware-check:
 	python tools/check_physical_bringup.py
 	python tools/check_commissioning_contract.py
 	python tools/check_calibration_capture.py
+	python tools/check_calibration_review.py
 
 firmware-host:
 	mkdir -p build
