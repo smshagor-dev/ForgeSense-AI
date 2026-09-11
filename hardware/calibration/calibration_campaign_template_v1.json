@@ -7,19 +7,19 @@
     "esp32_revision": "REPLACE_ME",
     "sensor_board_revision": "REPLACE_ME"
   },
-  "review_policy": "hardware/calibration/calibration_review_policy_v1.json",
+  "review_policy": "../hardware/calibration/calibration_review_policy_v1.json",
   "runs": [
     {
       "run_id": "run-01",
-      "session_manifest": "evidence/run-01/session.json"
+      "session_manifest": "run-01/session.json"
     },
     {
       "run_id": "run-02",
-      "session_manifest": "evidence/run-02/session.json"
+      "session_manifest": "run-02/session.json"
     },
     {
       "run_id": "run-03",
-      "session_manifest": "evidence/run-03/session.json"
+      "session_manifest": "run-03/session.json"
     }
   ]
 }
