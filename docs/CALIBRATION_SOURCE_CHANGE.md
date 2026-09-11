@@ -181,15 +181,18 @@ Adding accelerometer calibration requires a separately reviewed calibration-reco
 
 ## Hard-safety non-regression
 
-Before producing the source patch, the tool hashes the policy-controlled hard-safety baseline files, currently including:
+Before producing the source patch, the tool hashes the policy-controlled hard-safety baseline files:
 
 ```text
 fpga/rtl/safety/hard_limit_monitor.vhd
 hardware/profiles/sensor_contract_v1.json
+hardware/profiles/reference_circuit_v1.json
+hardware/profiles/hardware_baseline_v1.json
+hardware/profiles/power_entry_v1.json
 docs/SAFETY_MODEL.md
 ```
 
-The resulting `safety-baseline.json` records the exact SHA-256 of each file and states that hard-safety limit change approval is false.
+The resulting `safety-baseline.json` records the exact SHA-256 of each file and states that hard-safety limit change approval is false. This covers digital hard limits plus the source-controlled analog/protection assumptions used by the active hardware baseline.
 
 The generated patch is restricted to one new file under:
 
@@ -197,7 +200,7 @@ The generated patch is restricted to one new file under:
 hardware/calibration/approved/
 ```
 
-It does not modify the FPGA hard-limit monitor, sensor contract, firmware runtime, ESP32 code, dashboard, or provisioning path.
+It does not modify the FPGA hard-limit monitor, sensor contract, firmware runtime, ESP32 code, dashboard, analog protection profiles, power-entry settings, or provisioning path.
 
 `tools/verify_calibration_source_change.py` re-hashes the baseline files. Any drift after package generation fails verification.
 
@@ -256,7 +259,7 @@ forgesense.calibration_source_change_artifact_index.v1
 
 The profile records candidate `CalibrationRecord` fields, current regression points, temperature quantization error, deferred accelerometer evidence, campaign provenance, approval provenance, and the no-runtime-write authority boundary.
 
-## Verify the package
+## Structural verification
 
 Run:
 
@@ -270,7 +273,7 @@ python tools/verify_calibration_source_change.py \
   --report-out build/calibration-source-change-001-verification.json
 ```
 
-The verifier checks:
+The structural verifier checks:
 
 - artifact-index root SHA-256;
 - exact expected artifact set;
@@ -286,6 +289,27 @@ The verifier checks:
 - absence of runtime/hard-safety source changes.
 
 If the approved profile patch has already been applied, verification accepts the repository target only when its bytes are identical to `approved-profile.json`. A different pre-existing file is rejected.
+
+## Full evidence re-derivation verification
+
+For the stronger verification path, re-derive the reviewer package and integer coefficients from the original campaign evidence:
+
+```bash
+python tools/verify_calibration_source_derivation.py \
+  build/calibration-source-change-001 \
+  --bundle build/calibration-campaign-001 \
+  --change-package-dir build/calibration-change-001 \
+  --approval evidence/calibration-approval-001.json \
+  --source-root evidence \
+  --campaign-manifest evidence/campaign-001.json \
+  --repo-root . \
+  --policy hardware/calibration/calibration_source_change_policy_v1.json \
+  --report-out build/calibration-source-change-001-derivation.json
+```
+
+This verifier does not trust the generated source-change package merely because its self-hashes are internally consistent. It reconstructs the reviewer package from the original campaign evidence, revalidates the approval semantics, reloads the retained current raw points, recomputes current and temperature quantization, and compares the approved profile coefficients and regression records with the independently re-derived result.
+
+The full verification therefore binds the final profile back to the same original evidence chain used to produce the reviewer package.
 
 ## Authority boundary
 
@@ -310,6 +334,6 @@ Run:
 make calibration-source-change-check
 ```
 
-The gate covers deterministic current quantization, negative-current rejection, temperature quantization, mandatory accelerometer deferral, source-change artifact verification, patch tamper rejection, hard-safety baseline drift rejection, and post-apply identical-profile verification.
+The gate covers deterministic current quantization, negative-current rejection, temperature quantization, mandatory accelerometer deferral, source-change artifact verification, patch tamper rejection, hard-safety baseline drift rejection, post-apply identical-profile verification, and source-level presence of the full evidence re-derivation verifier.
 
 Synthetic test values verify workflow arithmetic and authority behavior only. They are not retained physical calibration evidence.
