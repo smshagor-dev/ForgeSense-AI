@@ -8,17 +8,23 @@ import sys
 
 try:
     from commissioning.forgesense_commission.provisioning import (
-        MaintenanceClient,
         MaintenanceProvisioningError,
-        apply_provisioning,
         verify_reboot_recovery,
+    )
+    from commissioning.forgesense_commission.signed_provisioning import (
+        SignedMaintenanceClient,
+        apply_signed_provisioning,
+        verify_authorization_bundle,
     )
 except ModuleNotFoundError:
     from forgesense_commission.provisioning import (  # type: ignore
-        MaintenanceClient,
         MaintenanceProvisioningError,
-        apply_provisioning,
         verify_reboot_recovery,
+    )
+    from forgesense_commission.signed_provisioning import (  # type: ignore
+        SignedMaintenanceClient,
+        apply_signed_provisioning,
+        verify_authorization_bundle,
     )
 
 try:
@@ -112,7 +118,9 @@ def _capture_device_state(args: argparse.Namespace) -> dict:
     try:
         if hasattr(serial_port, "reset_input_buffer"):
             serial_port.reset_input_buffer()
-        status = MaintenanceClient(serial_port, timeout_s=args.timeout).query_status()
+        client = SignedMaintenanceClient(serial_port, timeout_s=args.timeout)
+        status = client.query_status()
+        authorization = client.query_authorization()
     finally:
         serial_port.close()
 
@@ -125,10 +133,12 @@ def _capture_device_state(args: argparse.Namespace) -> dict:
         "installed_record_crc32": status.installed_crc32 if status.has_active else None,
         "maintenance_mode_confirmed": status.maintenance_asserted,
         "load_output_physically_inhibited_confirmed": status.load_inhibit_asserted,
-        "source": "dedicated calibration maintenance firmware readback",
+        "maintenance_authorization_ready": authorization.ready,
+        "maintenance_authority_public_key_sha256": authorization.public_key_sha256,
+        "source": "dedicated signed calibration maintenance firmware readback",
         "note": (
-            "Read-only status capture from eFuse MAC, calibration NVS state, and physical gate GPIOs. "
-            "The gates must be checked again at PREPARE and COMMIT time."
+            "Read-only status capture from eFuse MAC, calibration NVS state, physical gate GPIOs, and pinned "
+            "maintenance-authority public-key state. Physical gates and authorization are rechecked at write time."
         ),
         "maintenance_readback": status.as_dict(),
     }
@@ -136,23 +146,25 @@ def _capture_device_state(args: argparse.Namespace) -> dict:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="ForgeSense maintenance-only physical calibration provisioning utility"
+        description="ForgeSense signed maintenance-only physical calibration provisioning utility"
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
     status = sub.add_parser(
         "status",
-        help="read device identity, installed calibration state, and physical gates; performs no write",
+        help="read device identity, calibration state, physical gates, and signer fingerprint; performs no write",
     )
     _add_serial_args(status)
     status.add_argument("--report-out", type=Path, required=True)
 
     apply = sub.add_parser(
         "apply",
-        help="verify the full evidence chain, then perform one physically gated calibration record write",
+        help="verify evidence and external signature, then perform one physically gated signed calibration write",
     )
     _add_verification_args(apply)
     _add_serial_args(apply)
+    apply.add_argument("--authorization-dir", type=Path, required=True)
+    apply.add_argument("--authority-public-key", type=Path, required=True)
     apply.add_argument("--operator", required=True)
     apply.add_argument("--confirm-write", required=True)
     apply.add_argument("--report-out", type=Path, required=True)
@@ -178,27 +190,37 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         # Full source/evidence derivation and provisioning-bundle integrity must
-        # pass before APPLY or reboot-verification opens a serial device. This
-        # prevents transport access from becoming an alternate trust path around
-        # review/source controls for any operation tied to a provisioning bundle.
+        # pass before any bundle-bound serial operation opens the device.
         verification = _verify_package(args)
         if verification.get("record_rederived") is not True or verification.get("anti_rollback_gate_pass") is not True:
             raise MaintenanceProvisioningError("provisioning verification did not establish record/sequence integrity")
 
-        if args.command == "apply" and args.confirm_write != WRITE_CONFIRMATION:
-            raise MaintenanceProvisioningError(
-                f"physical write requires exact --confirm-write {WRITE_CONFIRMATION}"
+        authorization = None
+        if args.command == "apply":
+            if args.confirm_write != WRITE_CONFIRMATION:
+                raise MaintenanceProvisioningError(
+                    f"physical write requires exact --confirm-write {WRITE_CONFIRMATION}"
+                )
+            # External signature verification also completes before the serial
+            # port is opened. Device-side verification is then required again.
+            authorization = verify_authorization_bundle(
+                args.authorization_dir,
+                provisioning_dir=args.provisioning_dir,
+                public_key_path=args.authority_public_key,
             )
 
         serial_port = _serial_port(args.port, args.baud, args.timeout)
         try:
             if hasattr(serial_port, "reset_input_buffer"):
                 serial_port.reset_input_buffer()
-            client = MaintenanceClient(serial_port, timeout_s=args.timeout)
+            client = SignedMaintenanceClient(serial_port, timeout_s=args.timeout)
             if args.command == "apply":
-                report = apply_provisioning(
+                if authorization is None:
+                    raise MaintenanceProvisioningError("verified signed authorization is missing")
+                report = apply_signed_provisioning(
                     client,
                     args.provisioning_dir,
+                    authorization=authorization,
                     operator=args.operator,
                 )
             else:
@@ -213,6 +235,7 @@ def main(argv: list[str] | None = None) -> int:
             "source_derivation_reverified": verification.get("source_derivation_reverified") is True,
             "anti_rollback_gate_pass": verification.get("anti_rollback_gate_pass") is True,
             "hard_safety_non_regression_pass": verification.get("hard_safety_non_regression_pass") is True,
+            "external_signature_verified_before_transport": authorization is not None,
         }
         _save_json(args.report_out, report)
         print(json.dumps(report, indent=2, allow_nan=False))
