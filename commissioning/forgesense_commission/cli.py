@@ -5,6 +5,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 import sys
 
 from .core import (
@@ -33,27 +34,43 @@ def _save_json(path: Path, data: dict) -> None:
 
 
 def _record_from_template(args: argparse.Namespace) -> dict:
+    required = {
+        "record_id": args.record_id,
+        "operator": args.operator,
+        "repository_commit": args.repository_commit,
+        "artifact_sha256": args.artifact_sha256,
+        "fpga_board_revision": args.fpga_board_revision,
+        "sensor_board_revision": args.sensor_board_revision,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise SystemExit("--record-out requires real metadata: " + ", ".join(missing))
+    if re.fullmatch(r"[0-9a-fA-F]{40}", args.repository_commit) is None:
+        raise SystemExit("--repository-commit must be a 40-hex commit SHA")
+    if re.fullmatch(r"[0-9a-fA-F]{64}", args.artifact_sha256) is None:
+        raise SystemExit("--artifact-sha256 must be a 64-hex SHA-256")
+
     record = deepcopy(_load_json(Path(args.record_template)))
     record["record_id"] = args.record_id
     record["timestamp_utc"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     record["operator"] = args.operator
-    record["repository_commit"] = args.repository_commit
+    record["repository_commit"] = args.repository_commit.lower()
     record["board"]["fpga_board_revision"] = args.fpga_board_revision
     record["board"]["sensor_board_revision"] = args.sensor_board_revision
     record["image"]["top"] = args.image_top
-    record["image"]["artifact_sha256"] = args.artifact_sha256
+    record["image"]["artifact_sha256"] = args.artifact_sha256.lower()
     return record
 
 
 def _add_record_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--record-template", default="hardware/bringup/bench_record_template_v1.json")
     parser.add_argument("--record-out")
-    parser.add_argument("--record-id", default="COMMISSION-UNSET")
-    parser.add_argument("--operator", default="UNSET")
-    parser.add_argument("--repository-commit", default="0" * 40)
-    parser.add_argument("--artifact-sha256", default="0" * 64)
-    parser.add_argument("--fpga-board-revision", default="UNSET")
-    parser.add_argument("--sensor-board-revision", default="UNSET")
+    parser.add_argument("--record-id")
+    parser.add_argument("--operator")
+    parser.add_argument("--repository-commit")
+    parser.add_argument("--artifact-sha256")
+    parser.add_argument("--fpga-board-revision")
+    parser.add_argument("--sensor-board-revision")
     parser.add_argument("--image-top", default="forgesense_tang_nano_9k_smoke_top")
 
 
@@ -106,20 +123,19 @@ def main(argv: list[str] | None = None) -> int:
                 echo_timeout_s=args.echo_timeout,
             )
             report = {"mode": "smoke", "result": metrics.as_dict()}
-            record = apply_smoke_to_record(_record_from_template(args), metrics)
             exit_code = 0 if metrics.heartbeat_pass and metrics.echo_pass else 2
+            record = apply_smoke_to_record(_record_from_template(args), metrics) if args.record_out else None
         else:
             observer = observe_production_stream(serial_port, duration_s=args.duration)
             report = {"mode": "observe", "result": observer.as_dict()}
-            record = apply_observation_to_record(_record_from_template(args), observer)
             status = observer.as_dict()["status"]
             exit_code = 0 if status and observer.status_frames > 0 and observer.sensor_frames > 0 else 2
+            record = apply_observation_to_record(_record_from_template(args), observer) if args.record_out else None
 
-        rendered = json.dumps(report, indent=2)
-        print(rendered)
+        print(json.dumps(report, indent=2))
         if args.report_out:
             _save_json(Path(args.report_out), report)
-        if args.record_out:
+        if args.record_out and record is not None:
             _save_json(Path(args.record_out), record)
         return exit_code
     finally:
