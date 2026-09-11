@@ -1,7 +1,7 @@
 {
   "schema": "forgesense.hardware_baseline.v1",
   "revision": "HW-BL-004",
-  "status": "selected_sensor_driver_reference_pre_hardware",
+  "status": "selected_sensor_driver_reference_with_frozen_tang_nano_9k_pinmap_pre_hardware",
   "input": {
     "nominal_v": 12.0,
     "logic_v": 3.3,
@@ -10,7 +10,7 @@
     "protected_entry_profile": "power_entry_v1.json"
   },
   "compute": {
-    "fpga": {"board": "Sipeed Tang Nano 9K", "device": "GW1NR-9", "clock_hz": 27000000},
+    "fpga": {"board": "Sipeed Tang Nano 9K", "device": "GW1NR-LV9QN88PC6/I5", "clock_hz": 27000000, "interconnect_profile": "interconnect_v1.json"},
     "edge": {"board": "ESP32-S3-DevKitC-1", "fpga_uart_tx_gpio": 17, "fpga_uart_rx_gpio": 18, "baud": 115200}
   },
   "power": {
@@ -40,6 +40,8 @@
     "monitoring_can_drive_actuator": false
   },
   "source_documents": {
+    "TangNano9K": "https://wiki.sipeed.com/hardware/en/tang/Tang-Nano-9K/Nano-9K.html",
+    "TangNano9KSchematic": "https://dl.sipeed.com/fileList/TANG/Nano%209K/2_Schematic/Tang_Nano_9k_3672_Schematic.pdf",
     "TPS25947": "https://www.ti.com/product/TPS25947",
     "TPS54202": "https://www.ti.com/product/TPS54202",
     "TPS7A20": "https://www.ti.com/product/TPS7A20",
@@ -55,6 +57,7 @@
     "The 15 mOhm current shunt supersedes the earlier 25 mOhm reference because the ADS131M02 gain-1 differential full scale is +/-1.2 V.",
     "At 3.2 A the revised current signal is 0.96 V, intentionally using 80 percent of the nominal ADC full scale.",
     "The comparator reference was revised with the current path so the independent trip remains near 3.47 A.",
-    "Tang Nano 9K external application pins remain unresolved until the exact board-header mapping is verified."
+    "Tang Nano 9K application pins are now frozen in interconnect profile INT-002 against the official schematic/pin map; physical electrical validation remains pending.",
+    "ForgeSense external signals avoid the populated TF-card pins, onboard BL702 UART pins, and 1.8 V BANK3 external pins."
   ]
 }
