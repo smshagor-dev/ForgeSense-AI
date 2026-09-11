@@ -26,12 +26,29 @@ Each retained capture identifies:
 - sensor-board revision;
 - instruments and calibration status;
 - ambient conditions where available;
+- declared reference measurement uncertainty;
 - retained evidence file hashes;
 - current reference points;
 - temperature reference points;
 - stationary accelerometer samples.
 
 Evidence file SHA-256 values are mandatory so the proposal can be traced back to the raw capture used to derive it.
+
+## Measurement uncertainty
+
+Physical review requires declared expanded reference uncertainty (`k=2`) for current, temperature, and accelerometer reference/orientation evidence:
+
+```json
+"measurement_uncertainty": {
+  "reference_current_ma_k2": 0.0,
+  "reference_temperature_c_k2": 0.0,
+  "reference_accelerometer_mg_k2": 0.0
+}
+```
+
+The zero values above show only the required field shape. Replace them with values supported by the actual instrument specification, calibration certificate, reference source, or a documented conservative uncertainty estimate.
+
+When this block is present, all three values are required and must be finite and non-negative. The values are copied into proposal provenance for the repeated-run review gate.
 
 ## Generate a proposal
 
@@ -97,9 +114,15 @@ Y = 0 mg
 Z = +1000 mg
 ```
 
-It computes mean measured XYZ values, bias relative to that orientation, and correction candidates. The capture requires multiple samples. This is a static bias characterization, not vibration-bandwidth or scale-factor calibration.
+It computes mean measured XYZ values, per-axis population standard deviation, bias relative to that orientation, and correction candidates. The capture requires multiple samples. This is a static bias and short-term stability characterization, not vibration-bandwidth or scale-factor calibration.
 
 Mounting orientation must be known before interpreting the expected gravity vector.
+
+## Repeated-run review
+
+A single good fit is not sufficient evidence for a source-controlled coefficient change. Generate independent proposals from at least three repeated bench runs and evaluate them with the review policy described in [`CALIBRATION_REVIEW.md`](CALIBRATION_REVIEW.md).
+
+The repeated-run gate checks coefficient spread, offset spread, accelerometer bias/noise spread, board/commit consistency, and declared reference uncertainty. A passing result remains review-only and does not apply coefficients automatically.
 
 ## Review boundary
 
@@ -125,4 +148,4 @@ Run:
 make calibration-check
 ```
 
-The source-level gate verifies the proposal-only authority rules and synthetic fit tests. Synthetic tests validate arithmetic and rejection behavior; they are not substitutes for physical measurements.
+The gate verifies single-run fit behavior, repeated-run review behavior, declared-uncertainty handling, and review-only authority constraints. Synthetic tests validate arithmetic and rejection behavior; they are not substitutes for physical measurements.
