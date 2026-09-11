@@ -26,6 +26,8 @@ jobs:
         run: make maintenance-provisioning-check
       - name: Verify signed maintenance authorization contract
         run: make signed-maintenance-authorization-check
+      - name: Verify monotonic calibration recovery contract
+        run: make calibration-recovery-check
 
   status-diagnostic-vhdl:
     runs-on: ubuntu-latest
