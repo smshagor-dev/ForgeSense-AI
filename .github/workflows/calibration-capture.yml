@@ -26,3 +26,5 @@ jobs:
         run: make calibration-assembler-check
       - name: Verify repeated-run calibration campaign contract
         run: make calibration-campaign-check
+      - name: Verify campaign bundle integrity and reviewer package contract
+        run: make calibration-bundle-verification-check

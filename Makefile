@@ -6,7 +6,7 @@ EVENT_INC := -Ifirmware/components/forgesense_events/include
 TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check calibration-diagnostic-check calibration-assembler-check calibration-campaign-check bench-record-validate gowin-build smoke-build calibration-build firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check calibration-diagnostic-check calibration-assembler-check calibration-campaign-check calibration-bundle-verification-check bench-record-validate gowin-build smoke-build calibration-build firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -74,6 +74,10 @@ calibration-campaign-check:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_calibration_campaign.py
 	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_campaign.py
 
+calibration-bundle-verification-check:
+	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_calibration_bundle_verification.py
+	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_bundle_verification.py
+
 bench-record-validate:
 	@test -n "$(RECORD)" || (echo "Usage: make bench-record-validate RECORD=path/to/record.json"; exit 2)
 	python tools/validate_bench_record.py "$(RECORD)"
@@ -99,6 +103,7 @@ hardware-check:
 	python tools/check_calibration_diagnostics.py
 	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_assembler.py
 	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_campaign.py
+	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_bundle_verification.py
 
 firmware-host:
 	mkdir -p build
