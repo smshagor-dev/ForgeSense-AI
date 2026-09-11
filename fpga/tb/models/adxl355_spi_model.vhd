@@ -9,6 +9,7 @@ entity adxl355_spi_model is
         mosi : in std_logic;
         miso : out std_logic;
         force_bad_id : in std_logic := '0';
+        force_bad_config : in std_logic := '0';
         x_raw20 : in signed(19 downto 0) := to_signed(10000, 20);
         y_raw20 : in signed(19 downto 0) := to_signed(-10000, 20);
         z_raw20 : in signed(19 downto 0) := to_signed(20000, 20)
@@ -24,6 +25,7 @@ architecture behavioral of adxl355_spi_model is
     function register_value(
         address : natural;
         bad_id : std_logic;
+        bad_config : std_logic;
         filter_value : std_logic_vector(7 downto 0);
         range_value : std_logic_vector(7 downto 0);
         power_value : std_logic_vector(7 downto 0);
@@ -49,7 +51,7 @@ architecture behavioral of adxl355_spi_model is
             when 16#0E# => return packed_z(23 downto 16);
             when 16#0F# => return packed_z(15 downto 8);
             when 16#10# => return packed_z(7 downto 0);
-            when 16#28# => return filter_value;
+            when 16#28# => if bad_config = '1' then return x"FF"; else return filter_value; end if;
             when 16#2C# => return range_value;
             when 16#2D# => return power_value;
             when others => return x"00";
@@ -86,7 +88,7 @@ begin
                     address := to_integer(unsigned(completed(7 downto 1)));
                     is_read := completed(0) = '1';
                     if is_read then
-                        tx_byte := register_value(address, force_bad_id, filter_reg, range_reg, power_reg, x_raw20, y_raw20, z_raw20);
+                        tx_byte := register_value(address, force_bad_id, force_bad_config, filter_reg, range_reg, power_reg, x_raw20, y_raw20, z_raw20);
                         miso_reg <= tx_byte(7);
                     else
                         miso_reg <= '0';
@@ -94,7 +96,7 @@ begin
                 else
                     if is_read then
                         address := (address + 1) mod 128;
-                        tx_byte := register_value(address, force_bad_id, filter_reg, range_reg, power_reg, x_raw20, y_raw20, z_raw20);
+                        tx_byte := register_value(address, force_bad_id, force_bad_config, filter_reg, range_reg, power_reg, x_raw20, y_raw20, z_raw20);
                         miso_reg <= tx_byte(7);
                     else
                         case address is
