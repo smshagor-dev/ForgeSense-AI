@@ -9,9 +9,13 @@ from forgesense_commission import (
     run_smoke_commissioning,
 )
 from forgesense_protocol import (
+    SAFETY_ADS131M02_TRUSTED,
+    SAFETY_ADXL355_ERROR,
+    SAFETY_ADXL355_TRUSTED,
     SAFETY_DEVICE_IDENTITY_OK,
     SAFETY_DEVICE_TRANSPORT_ERROR,
     SAFETY_SENSORS_VALID,
+    SAFETY_TMP117_TRUSTED,
     STATUS_OPERATIONAL_READY,
     SensorSnapshotWire,
     StatusSnapshotWire,
@@ -71,7 +75,22 @@ BASE_RECORD = {
 }
 
 
-def test_smoke_commissioning_detects_heartbeat_and_echo() -> None:
+def trusted_status(*, extra_flags: int = 0) -> StatusSnapshotWire:
+    return StatusSnapshotWire(
+        state_code=1,
+        control_flags=STATUS_OPERATIONAL_READY,
+        safety_flags=(
+            SAFETY_SENSORS_VALID
+            | SAFETY_DEVICE_IDENTITY_OK
+            | SAFETY_TMP117_TRUSTED
+            | SAFETY_ADXL355_TRUSTED
+            | SAFETY_ADS131M02_TRUSTED
+            | extra_flags
+        ),
+    )
+
+
+def test_smoke_commissioning_detects_heartbeat_echo_and_latency() -> None:
     transport = FakeSmokeTransport()
     metrics = run_smoke_commissioning(
         transport,
@@ -84,6 +103,7 @@ def test_smoke_commissioning_detects_heartbeat_and_echo() -> None:
     assert metrics.echo_pass
     assert metrics.echo_ok == 3
     assert metrics.echo_error_rate == 0.0
+    assert metrics.latency_summary_ms()["p95"] is not None
     assert transport.writes == [0xA6, 0x3C, 0x81]
 
 
@@ -103,19 +123,14 @@ def test_smoke_record_only_marks_serial_evidence() -> None:
     assert record["overall_result"] == "INCOMPLETE"
 
 
-def test_production_observer_reports_device_diagnostics() -> None:
-    status = StatusSnapshotWire(
-        state_code=1,
-        control_flags=STATUS_OPERATIONAL_READY,
-        safety_flags=SAFETY_SENSORS_VALID | SAFETY_DEVICE_IDENTITY_OK,
-    )
+def test_production_observer_reports_per_device_diagnostics() -> None:
     sensor = SensorSnapshotWire(
         temperature_deci_c=253,
         vibration_milli_g=410,
         current_milli_a=1200,
     )
     stream = (
-        encode_status_snapshot(status, sequence=7, timestamp_ms=1000)
+        encode_status_snapshot(trusted_status(), sequence=7, timestamp_ms=1000)
         + encode_sensor_snapshot(sensor, sequence=9, timestamp_ms=1010)
     )
 
@@ -131,20 +146,18 @@ def test_production_observer_reports_device_diagnostics() -> None:
     assert summary["status"]["state"] == "RUN"
     assert summary["status"]["device_identity_ok"] is True
     assert summary["status"]["device_transport_error"] is False
+    assert summary["status"]["selected_devices"]["tmp117"] == {"trusted": True, "error": False}
+    assert summary["status"]["selected_devices"]["adxl355"] == {"trusted": True, "error": False}
+    assert summary["status"]["selected_devices"]["ads131m02"] == {"trusted": True, "error": False}
     assert summary["sensor"]["temperature_c"] == 25.3
     assert summary["sensor"]["current_a"] == 1.2
+    assert summary["frames"]["link_error_rate"] == 0.0
 
 
 def test_production_observation_updates_record_without_inventing_manual_checks() -> None:
-    status = StatusSnapshotWire(
-        state_code=1,
-        control_flags=STATUS_OPERATIONAL_READY,
-        safety_flags=SAFETY_SENSORS_VALID | SAFETY_DEVICE_IDENTITY_OK,
-    )
-    sensor = SensorSnapshotWire(250, 300, 900)
     observer = CommissioningObserver()
-    observer.feed(encode_status_snapshot(status, sequence=1, timestamp_ms=10))
-    observer.feed(encode_sensor_snapshot(sensor, sequence=1, timestamp_ms=20))
+    observer.feed(encode_status_snapshot(trusted_status(), sequence=1, timestamp_ms=10))
+    observer.feed(encode_sensor_snapshot(SensorSnapshotWire(250, 300, 900), sequence=1, timestamp_ms=20))
 
     record = apply_observation_to_record(deepcopy(BASE_RECORD), observer)
     by_id = {item["check_id"]: item for item in record["checks"]}
@@ -156,22 +169,35 @@ def test_production_observation_updates_record_without_inventing_manual_checks()
     assert record["overall_result"] == "INCOMPLETE"
 
 
-def test_production_transport_error_fails_commissioning() -> None:
-    status = StatusSnapshotWire(
-        state_code=1,
-        control_flags=STATUS_OPERATIONAL_READY,
-        safety_flags=(
-            SAFETY_SENSORS_VALID
-            | SAFETY_DEVICE_IDENTITY_OK
-            | SAFETY_DEVICE_TRANSPORT_ERROR
-        ),
-    )
+def test_specific_device_error_fails_commissioning() -> None:
+    status = trusted_status(extra_flags=SAFETY_ADXL355_ERROR | SAFETY_DEVICE_TRANSPORT_ERROR)
     observer = CommissioningObserver()
     observer.feed(encode_status_snapshot(status, sequence=2, timestamp_ms=30))
     observer.feed(encode_sensor_snapshot(SensorSnapshotWire(250, 300, 900), sequence=2, timestamp_ms=40))
 
     assert observer.commissioning_pass is False
+    assert observer.selected_devices["adxl355"] == {"trusted": True, "error": True}
     record = apply_observation_to_record(deepcopy(BASE_RECORD), observer)
     by_id = {item["check_id"]: item for item in record["checks"]}
     assert by_id["COMMISSION-DEVICE-IDENTITY"]["result"] == "FAIL"
     assert record["overall_result"] == "FAIL"
+
+
+def test_sequence_gap_and_duplicate_fail_link_integrity() -> None:
+    observer = CommissioningObserver()
+    observer.feed(encode_status_snapshot(trusted_status(), sequence=10, timestamp_ms=10))
+    observer.feed(encode_status_snapshot(trusted_status(), sequence=12, timestamp_ms=20))
+    observer.feed(encode_status_snapshot(trusted_status(), sequence=12, timestamp_ms=30))
+    observer.feed(encode_sensor_snapshot(SensorSnapshotWire(250, 300, 900), sequence=5, timestamp_ms=40))
+    observer.feed(encode_sensor_snapshot(SensorSnapshotWire(250, 300, 900), sequence=7, timestamp_ms=50))
+
+    assert observer.status_sequence_gaps == 1
+    assert observer.status_sequence_faults == 1
+    assert observer.sensor_sequence_gaps == 1
+    assert observer.sequence_integrity_pass is False
+    assert observer.link_error_rate > 0.0
+    assert observer.commissioning_pass is False
+
+    record = apply_observation_to_record(deepcopy(BASE_RECORD), observer)
+    by_id = {item["check_id"]: item for item in record["checks"]}
+    assert by_id["COMMISSION-LINK-INTEGRITY"]["result"] == "FAIL"
