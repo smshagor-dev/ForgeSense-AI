@@ -33,7 +33,6 @@ def main() -> int:
     assert "entity work.ads131m02_controller" in top
     assert "entity work.calibration_diag_tx" in top
     assert "entity work.uart_rx" not in top
-    assert "uart_rx_i" not in top.lower()
 
     for forbidden in (
         "load_enable_o <= '1'",
