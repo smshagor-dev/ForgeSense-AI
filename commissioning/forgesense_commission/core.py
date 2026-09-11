@@ -103,7 +103,6 @@ def run_smoke_commissioning(
         raise ValueError("echo_bytes must not be empty")
 
     result = SmokeMetrics(required_heartbeats=required_heartbeats)
-
     heartbeat_deadline = time.monotonic() + heartbeat_timeout_s
     while result.heartbeat_count < required_heartbeats and time.monotonic() < heartbeat_deadline:
         value = _read_until(transport, heartbeat_deadline)
@@ -131,15 +130,13 @@ def run_smoke_commissioning(
                 result.heartbeat_count += 1
                 continue
             if value == expected:
-                elapsed_ms = (time.monotonic_ns() - started) / 1_000_000.0
-                result.latencies_ms.append(elapsed_ms)
+                result.latencies_ms.append((time.monotonic_ns() - started) / 1_000_000.0)
                 result.echo_ok += 1
                 matched = True
                 break
             result.unexpected_bytes.append(value)
         if not matched:
             result.echo_timeouts += 1
-
     return result
 
 
@@ -179,10 +176,24 @@ class CommissioningObserver:
             return None
         return bool(self.latest_status.safety_flags & SAFETY_DEVICE_TRANSPORT_ERROR)
 
+    @property
+    def commissioning_pass(self) -> bool:
+        if self.latest_status is None or self.latest_sensor is None:
+            return False
+        return (
+            self.status_frames > 0
+            and self.sensor_frames > 0
+            and self.latest_sensor.all_valid
+            and self.device_identity_ok is True
+            and self.device_transport_error is False
+            and self.decoder.stats.crc_or_frame_errors == 0
+        )
+
     def as_dict(self) -> dict:
         status = self.latest_status
         sensor = self.latest_sensor
         return {
+            "commissioning_pass": self.commissioning_pass,
             "frames": {
                 "status": self.status_frames,
                 "sensor": self.sensor_frames,
@@ -297,21 +308,23 @@ def apply_observation_to_record(record: dict, observer: CommissioningObserver) -
     summary = observer.as_dict()
     status = summary["status"]
     sensor = summary["sensor"]
+    frame_errors = observer.decoder.stats.crc_or_frame_errors
     _upsert_check(
         record,
         check_id="COMMISSION-STATUS-STREAM",
         expected="At least one valid FPGA STATUS frame is received",
-        observed=f"status_frames={observer.status_frames}, frame_errors={observer.decoder.stats.crc_or_frame_errors}",
+        observed=f"status_frames={observer.status_frames}, frame_errors={frame_errors}",
         units="frames",
         passed=observer.status_frames > 0,
     )
+    sensor_pass = bool(sensor and sensor["all_valid"] and observer.sensor_frames > 0)
     _upsert_check(
         record,
         check_id="COMMISSION-SENSOR-STREAM",
-        expected="At least one valid FPGA sensor snapshot is received",
+        expected="At least one latest FPGA sensor snapshot is received with all required sensor-valid bits set",
         observed=f"sensor_frames={observer.sensor_frames}, latest={sensor}",
         units="frames",
-        passed=observer.sensor_frames > 0,
+        passed=sensor_pass,
     )
     identity_pass = bool(status and status["device_identity_ok"] and not status["device_transport_error"])
     _upsert_check(
@@ -321,6 +334,14 @@ def apply_observation_to_record(record: dict, observer: CommissioningObserver) -
         observed=f"status={status}",
         units="status",
         passed=identity_pass,
+    )
+    _upsert_check(
+        record,
+        check_id="COMMISSION-LINK-INTEGRITY",
+        expected="No complete-frame CRC/framing error is observed during the commissioning window",
+        observed=f"crc_or_frame_errors={frame_errors}, discarded_prefix_bytes={observer.decoder.stats.discarded_bytes}",
+        units="frames",
+        passed=frame_errors == 0,
     )
     _refresh_overall(record)
     return record
