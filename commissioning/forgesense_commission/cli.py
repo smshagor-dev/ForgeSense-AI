@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import sys
 
+from .calibration import capture_calibration_diagnostics
 from .core import (
     apply_observation_to_record,
     apply_smoke_to_record,
@@ -97,6 +98,14 @@ def build_parser() -> argparse.ArgumentParser:
     observe.add_argument("--report-out")
     _add_record_args(observe)
     observe.set_defaults(image_top="forgesense_tang_nano_9k_top")
+
+    calibration = sub.add_parser(
+        "calibration",
+        help="capture read-only calibration diagnostic frames from the dedicated FPGA calibration image",
+    )
+    calibration.add_argument("--duration", type=float, default=5.0)
+    calibration.add_argument("--max-samples", type=int, default=4096)
+    calibration.add_argument("--report-out", required=True)
     return parser
 
 
@@ -117,6 +126,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if hasattr(serial_port, "reset_input_buffer"):
             serial_port.reset_input_buffer()
+
+        record = None
         if args.command == "smoke":
             metrics = run_smoke_commissioning(
                 serial_port,
@@ -128,16 +139,24 @@ def main(argv: list[str] | None = None) -> int:
             report = {"mode": "smoke", "result": metrics.as_dict()}
             exit_code = 0 if metrics.heartbeat_pass and metrics.echo_pass else 2
             record = apply_smoke_to_record(_record_from_template(args), metrics) if args.record_out else None
-        else:
+        elif args.command == "observe":
             observer = observe_production_stream(serial_port, duration_s=args.duration)
             report = {"mode": "observe", "result": observer.as_dict()}
             exit_code = 0 if observer.commissioning_pass else 2
             record = apply_observation_to_record(_record_from_template(args), observer) if args.record_out else None
+        else:
+            observer = capture_calibration_diagnostics(
+                serial_port,
+                duration_s=args.duration,
+                max_samples=args.max_samples,
+            )
+            report = {"mode": "calibration", "result": observer.as_dict()}
+            exit_code = 0 if observer.capture_pass else 2
 
         print(json.dumps(report, indent=2))
         if args.report_out:
             _save_json(Path(args.report_out), report)
-        if args.record_out and record is not None:
+        if getattr(args, "record_out", None) and record is not None:
             _save_json(Path(args.record_out), record)
         return exit_code
     finally:
