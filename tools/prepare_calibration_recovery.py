@@ -19,6 +19,10 @@ try:
         _sha256_bytes,
         build_provisioning_bundle,
     )
+    from tools.validate_signed_provisioning_policy import (
+        SignedProvisioningPolicyError,
+        validate_signed_provisioning_policy,
+    )
 except ModuleNotFoundError:
     from prepare_calibration_provisioning import (  # type: ignore
         ARTIFACT_INDEX_SCHEMA,
@@ -29,6 +33,10 @@ except ModuleNotFoundError:
         _load_json,
         _sha256_bytes,
         build_provisioning_bundle,
+    )
+    from validate_signed_provisioning_policy import (  # type: ignore
+        SignedProvisioningPolicyError,
+        validate_signed_provisioning_policy,
     )
 
 RECOVERY_INTENT_SCHEMA = "forgesense.calibration_recovery_intent.v1"
@@ -99,6 +107,11 @@ def build_recovery_bundle(
     provisioning_policy_path: Path,
     reason: str,
 ) -> dict[str, bytes]:
+    try:
+        validate_signed_provisioning_policy(provisioning_policy_path)
+    except SignedProvisioningPolicyError as exc:
+        raise CalibrationProvisioningError(f"signed provisioning policy validation failed: {exc}") from exc
+
     reason = reason.strip()
     if len(reason) < 12:
         raise CalibrationProvisioningError("recovery reason must contain at least 12 non-whitespace characters")
