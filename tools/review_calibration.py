@@ -109,6 +109,21 @@ def _uncertainty_values(proposals: list[dict], key: str) -> tuple[list[float], b
     return values, complete and len(values) == len(proposals)
 
 
+def _axis_stddev_values(proposals: list[dict]) -> tuple[dict[str, list[float]], bool]:
+    values: dict[str, list[float]] = {axis: [] for axis in AXES}
+    complete = True
+    for index, proposal in enumerate(proposals):
+        stddev = proposal["accelerometer"].get("axis_stddev_mg", {})
+        for axis in AXES:
+            if axis not in stddev:
+                complete = False
+                continue
+            values[axis].append(
+                _nonnegative(stddev[axis], f"proposal[{index}].accelerometer.axis_stddev_mg.{axis}")
+            )
+    return values, complete and all(len(values[axis]) == len(proposals) for axis in AXES)
+
+
 def _engineering_k2_proxy(residual_sigma: float, reference_k2: float, repeatability_half_span: float = 0.0) -> float:
     reference_sigma = reference_k2 / 2.0
     combined_sigma = math.sqrt(
@@ -168,15 +183,18 @@ def review_proposals(proposals: list[dict], policy: dict) -> dict:
         axis: [_finite(p["accelerometer"]["bias_mg"][axis], f"accelerometer.bias_mg.{axis}") for p in proposals]
         for axis in AXES
     }
-    accel_stddev = {
-        axis: [_nonnegative(p["accelerometer"].get("axis_stddev_mg", {}).get(axis, math.inf), f"accelerometer.axis_stddev_mg.{axis}") for p in proposals]
-        for axis in AXES
-    }
+    accel_stddev, accel_stddev_complete = _axis_stddev_values(proposals)
     axis_bias_span = {axis: max(values) - min(values) for axis, values in accel_bias.items()}
     max_abs_bias = max(abs(value) for values in accel_bias.values() for value in values)
-    max_axis_stddev = max(value for values in accel_stddev.values() for value in values)
+    max_axis_stddev = (
+        max(value for values in accel_stddev.values() for value in values)
+        if accel_stddev_complete
+        else None
+    )
     accelerometer_repeatability_pass = (
-        max(axis_bias_span.values()) <= float(policy["accelerometer"]["maximum_axis_bias_span_mg"])
+        accel_stddev_complete
+        and max_axis_stddev is not None
+        and max(axis_bias_span.values()) <= float(policy["accelerometer"]["maximum_axis_bias_span_mg"])
         and max_axis_stddev <= float(policy["accelerometer"]["maximum_run_axis_stddev_mg"])
         and max_abs_bias <= float(policy["accelerometer"]["maximum_abs_bias_mg"])
     )
@@ -231,6 +249,7 @@ def review_proposals(proposals: list[dict], policy: dict) -> dict:
             "repository_commit_consistent": commit_consistent,
             "repository_commits": sorted(set(commits)),
             "measurement_uncertainty_complete": uncertainty_complete,
+            "accelerometer_stddev_complete": accel_stddev_complete,
         },
         "current": {
             "mean_slope_ma_per_count_candidate": slope_mean,
@@ -266,7 +285,7 @@ def review_proposals(proposals: list[dict], policy: dict) -> dict:
             "maximum_reference_uncertainty_mg_k2": accel_reference_k2,
             "engineering_uncertainty_proxy_mg_k2": (
                 _engineering_k2_proxy(max_axis_stddev, accel_reference_k2, max(axis_bias_span.values()) / 2.0)
-                if accel_reference_k2 is not None
+                if max_axis_stddev is not None and accel_reference_k2 is not None
                 else None
             ),
             "repeatability_pass": accelerometer_repeatability_pass,
@@ -275,6 +294,7 @@ def review_proposals(proposals: list[dict], policy: dict) -> dict:
             "proposal_quality_pass": proposal_quality_pass,
             "board_gate_pass": board_gate,
             "commit_gate_pass": commit_gate,
+            "accelerometer_stddev_complete": accel_stddev_complete,
             "uncertainty_limits_pass": uncertainty_limits_pass,
         },
         "review_ready": review_ready,
