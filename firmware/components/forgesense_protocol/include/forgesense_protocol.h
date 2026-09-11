@@ -34,6 +34,8 @@ constexpr std::uint16_t kSafetyMlWarning = 0x0008;
 constexpr std::uint16_t kSafetyMlCritical = 0x0010;
 constexpr std::uint16_t kSafetyEmergency = 0x0020;
 constexpr std::uint16_t kSafetySensorsValid = 0x0040;
+constexpr std::uint16_t kSafetyDeviceIdentityOk = 0x0080;
+constexpr std::uint16_t kSafetyDeviceTransportError = 0x0100;
 
 enum class HealthClass : std::uint8_t {
     Normal = 0,
@@ -62,6 +64,8 @@ struct StatusSnapshot {
     bool warning_active() const { return (control_flags & kStatusWarningActive) != 0; }
     bool fault_latched() const { return (control_flags & kStatusFaultLatched) != 0; }
     bool operational_ready() const { return (control_flags & kStatusOperationalReady) != 0; }
+    bool device_identity_ok() const { return (safety_flags & kSafetyDeviceIdentityOk) != 0; }
+    bool device_transport_error() const { return (safety_flags & kSafetyDeviceTransportError) != 0; }
 };
 
 struct SensorSnapshot {
