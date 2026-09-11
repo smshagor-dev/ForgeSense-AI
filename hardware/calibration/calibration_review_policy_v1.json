@@ -1,0 +1,32 @@
+{
+  "schema": "forgesense.calibration_review_policy.v1",
+  "policy_id": "CAL-REVIEW-001",
+  "minimum_runs": 3,
+  "require_same_board_revisions": true,
+  "require_same_repository_commit": true,
+  "current": {
+    "maximum_slope_span_ppm": 10000.0,
+    "maximum_intercept_span_ma": 25.0,
+    "maximum_run_rmse_ma": 50.0
+  },
+  "temperature": {
+    "maximum_offset_span_c": 0.30,
+    "maximum_run_residual_rmse_c": 0.20
+  },
+  "accelerometer": {
+    "maximum_axis_bias_span_mg": 50.0,
+    "maximum_run_axis_stddev_mg": 25.0,
+    "maximum_abs_bias_mg": 250.0
+  },
+  "uncertainty": {
+    "require_declared": true,
+    "maximum_reference_current_ma_k2": 25.0,
+    "maximum_reference_temperature_c_k2": 0.20,
+    "maximum_reference_accelerometer_mg_k2": 25.0
+  },
+  "notes": [
+    "These limits are conservative engineering starting points for bench-review consistency, not certified metrology limits.",
+    "A passing review does not update runtime coefficients and cannot relax deterministic hard-safety thresholds.",
+    "Any source-controlled calibration change requires separate engineering review and verification evidence."
+  ]
+}
