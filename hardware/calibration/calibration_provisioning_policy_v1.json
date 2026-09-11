@@ -23,11 +23,14 @@
   "preconditions": {
     "maintenance_mode_confirmation_required": true,
     "load_output_physically_inhibited_confirmation_required": true,
-    "write_time_recheck_required": true
+    "write_time_recheck_required": true,
+    "signed_maintenance_authorization_required_at_write_time": true
   },
   "authority": {
     "remote_provisioning_command_present": false,
     "automatic_provisioning": false,
+    "cryptographic_authorization_required_for_write": true,
+    "private_signing_key_on_device": false,
     "may_control_actuators": false,
     "may_relax_hard_safety_limits": false,
     "hardware_backed_monotonic_counter_claimed": false

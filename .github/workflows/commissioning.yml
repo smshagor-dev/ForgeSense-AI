@@ -24,6 +24,8 @@ jobs:
         run: make commissioning-check
       - name: Verify maintenance-only calibration provisioning contract
         run: make maintenance-provisioning-check
+      - name: Verify signed maintenance authorization contract
+        run: make signed-maintenance-authorization-check
 
   status-diagnostic-vhdl:
     runs-on: ubuntu-latest

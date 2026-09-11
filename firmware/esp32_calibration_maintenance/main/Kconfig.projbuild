@@ -28,4 +28,15 @@ config FORGESENSE_LOAD_INHIBIT_ACTIVE_LEVEL
     range 0 1
     default 1
 
+config FORGESENSE_MAINTENANCE_AUTHORITY_PUBKEY_DER_HEX
+    string "Pinned maintenance authority public key (DER SubjectPublicKeyInfo, hex)"
+    default ""
+    help
+        Hex encoding of the exact DER SubjectPublicKeyInfo for the approved
+        256-bit EC maintenance authority public key. The firmware verifies
+        ECDSA/SHA-256 authorization signatures with mbedTLS. Leave empty to
+        disable all calibration writes. This setting contains a public key only;
+        private signing keys must never be embedded in firmware or committed to
+        the repository.
+
 endmenu
