@@ -19,6 +19,11 @@
     "ambient_temperature_c": 25.0,
     "notes": "Record actual bench conditions"
   },
+  "measurement_uncertainty": {
+    "reference_current_ma_k2": "REPLACE_ME",
+    "reference_temperature_c_k2": "REPLACE_ME",
+    "reference_accelerometer_mg_k2": "REPLACE_ME"
+  },
   "evidence": [
     {
       "file": "REPLACE_ME",
