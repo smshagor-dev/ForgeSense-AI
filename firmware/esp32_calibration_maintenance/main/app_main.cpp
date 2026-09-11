@@ -58,6 +58,14 @@ void write_le32(std::uint8_t* out, std::uint32_t value) {
     out[3] = static_cast<std::uint8_t>((value >> 24U) & 0xFFU);
 }
 
+void clear_pending() {
+    g_pending_valid = false;
+    g_pending_expected_floor = 0;
+    g_commit_nonce = 0;
+    g_pending_record = {};
+    g_pending_blob.fill(0);
+}
+
 std::uint32_t fresh_nonce() {
     std::uint32_t value = 0;
     while (value == 0U || value == 0xFFFFFFFFU) {
@@ -168,10 +176,12 @@ void handle_prepare(const MaintenanceFrame& frame) {
         return;
     }
     if (!physical_gates_asserted()) {
+        clear_pending();
         send_status_only(MaintenanceOpcode::PrepareResponse, MaintenanceStatus::PhysicalGateOpen);
         return;
     }
     if (!g_store_ready) {
+        clear_pending();
         send_status_only(MaintenanceOpcode::PrepareResponse, MaintenanceStatus::StoreUnavailable);
         return;
     }
@@ -216,10 +226,12 @@ void handle_commit(const MaintenanceFrame& frame) {
         return;
     }
     if (!physical_gates_asserted()) {
+        clear_pending();
         send_status_only(MaintenanceOpcode::CommitResponse, MaintenanceStatus::PhysicalGateOpen);
         return;
     }
     if (!g_store_ready) {
+        clear_pending();
         send_status_only(MaintenanceOpcode::CommitResponse, MaintenanceStatus::StoreUnavailable);
         return;
     }
@@ -239,15 +251,13 @@ void handle_commit(const MaintenanceFrame& frame) {
     if (g_store.installed_floor() != g_pending_expected_floor ||
         !forgesense::sensing::calibration_sequence_is_newer(
             g_pending_record.sequence, g_store.installed_floor())) {
-        g_pending_valid = false;
-        g_commit_nonce = 0;
+        clear_pending();
         send_status_only(MaintenanceOpcode::CommitResponse, MaintenanceStatus::SequenceMismatch);
         return;
     }
 
     if (!g_store.stage_and_commit(g_pending_record)) {
-        g_pending_valid = false;
-        g_commit_nonce = 0;
+        clear_pending();
         g_store_ready = false;
         send_status_only(MaintenanceOpcode::CommitResponse, MaintenanceStatus::CommitFailed);
         return;
@@ -258,8 +268,7 @@ void handle_commit(const MaintenanceFrame& frame) {
     if (!g_store.load_active(active) ||
         !forgesense::sensing::encode_calibration_record(active, active_blob) ||
         active_blob != g_pending_blob) {
-        g_pending_valid = false;
-        g_commit_nonce = 0;
+        clear_pending();
         g_store_ready = false;
         send_status_only(MaintenanceOpcode::CommitResponse, MaintenanceStatus::CommitFailed);
         return;
@@ -267,8 +276,7 @@ void handle_commit(const MaintenanceFrame& frame) {
 
     const std::uint32_t installed_sequence = active.sequence;
     const std::uint32_t installed_crc = read_le32(active_blob.data() + 44U);
-    g_pending_valid = false;
-    g_commit_nonce = 0;
+    clear_pending();
 
     std::array<std::uint8_t, kCommitResponseSize> payload{};
     payload[0] = static_cast<std::uint8_t>(MaintenanceStatus::Ok);
@@ -312,11 +320,14 @@ extern "C" void app_main(void) {
         maintenance_gpio >= 0 && inhibit_gpio >= 0 && maintenance_gpio != inhibit_gpio &&
         configure_input_gpio(maintenance_gpio) && configure_input_gpio(inhibit_gpio);
 
-    (void)esp_efuse_mac_get_default(g_device_mac.data());
+    const bool identity_ready = esp_efuse_mac_get_default(g_device_mac.data()) == ESP_OK;
+    if (!identity_ready) {
+        g_gate_config_valid = false;
+    }
     g_boot_nonce = fresh_nonce();
 
     const esp_err_t nvs_result = nvs_flash_init();
-    if (nvs_result == ESP_OK) {
+    if (identity_ready && nvs_result == ESP_OK) {
         g_store_ready = g_store.begin();
     } else {
         // Deliberately do not erase NVS on initialization errors. Calibration
