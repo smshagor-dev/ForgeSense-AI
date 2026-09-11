@@ -73,21 +73,25 @@ The ESP32-S3 does not infer from a snapshot unless all features required by the 
 
 ## Status snapshot payload
 
-Payload length: 4 bytes. Status frames are emitted periodically and when the FPGA-visible safety state changes.
+Payload length: 4 bytes. Status frames are emitted periodically and when the FPGA-visible safety or selected-device diagnostic state changes.
 
 | Field | Size | Meaning |
 | --- | ---: | --- |
 | state_code | 1 | 0 startup, 1 run, 2 warning, 3 shutdown, 4 fault-latched, 5 recovery |
 | control_flags | 1 | bit 0 load enabled, bit 1 warning active, bit 2 fault latched, bit 3 operational ready |
-| safety_flags | 2 | bit 0 hard warning, bit 1 hard critical, bit 2 communication timeout, bit 3 retained ML warning, bit 4 retained ML critical, bit 5 emergency, bit 6 required sensors valid |
+| safety_flags | 2 | bit 0 hard warning, bit 1 hard critical, bit 2 communication timeout, bit 3 retained ML warning, bit 4 retained ML critical, bit 5 emergency, bit 6 required sensors valid, bit 7 selected-device identity/configuration OK, bit 8 selected-device transport error |
 
-Bits not assigned above are reserved and transmit zero. Status is diagnostic evidence from the deterministic FPGA domain; receiving it never grants the ESP32-S3 actuator authority. Sensor and status message types use separate rolling sequence spaces.
+Bits 9..15 are reserved and transmit zero. Bits 7 and 8 are diagnostic observations only; they do not grant the ESP32-S3 or monitoring software actuator authority and do not relax hard safety policy. The selected-device identity bit becomes true only when TMP117, ADXL355, and ADS131M02 startup identity/configuration checks have all succeeded. The transport-error bit reports a selected-device or normalized PHY transport/conditioning error observed by the FPGA path.
+
+Status is diagnostic evidence from the deterministic FPGA domain; receiving it never grants the ESP32-S3 actuator authority. Sensor and status message types use separate rolling sequence spaces.
 
 Golden status frame for sequence 0, timestamp `0x01020304`, warning state, load/warning/ready control flags, and hard-warning/ML-warning/sensors-valid safety flags:
 
 ```text
 a55a01300000040004030201020b4900d118
 ```
+
+The golden frame intentionally leaves selected-device diagnostic bits clear so the original status-vector compatibility example remains unchanged.
 
 ## Sequence freshness
 
