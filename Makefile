@@ -5,8 +5,9 @@ INFER_INC := -Ifirmware/components/forgesense_inference/include
 EVENT_INC := -Ifirmware/components/forgesense_events/include
 TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
+MAINT_INC := -Ifirmware/esp32_calibration_maintenance/main
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check calibration-diagnostic-check calibration-assembler-check calibration-campaign-check calibration-bundle-verification-check calibration-source-change-check calibration-provisioning-check bench-record-validate gowin-build smoke-build calibration-build firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check calibration-diagnostic-check calibration-assembler-check calibration-campaign-check calibration-bundle-verification-check calibration-source-change-check calibration-provisioning-check maintenance-provisioning-check bench-record-validate gowin-build smoke-build calibration-build firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -89,6 +90,13 @@ calibration-provisioning-check:
 	g++ $(CXXFLAGS) $(SENSING_INC) firmware/components/forgesense_sensing/forgesense_calibration.cpp firmware/components/forgesense_sensing/forgesense_calibration_provisioning.cpp firmware/tests/calibration_provisioning_test.cpp -o build/calibration_provisioning_test
 	./build/calibration_provisioning_test
 
+maintenance-provisioning-check:
+	mkdir -p build
+	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_maintenance_provisioning.py
+	PYTHONPATH=$(PYTHONPATH) python tools/check_maintenance_provisioning.py
+	g++ $(CXXFLAGS) $(MAINT_INC) firmware/esp32_calibration_maintenance/main/maintenance_protocol.cpp firmware/tests/maintenance_protocol_test.cpp -o build/maintenance_protocol_test
+	./build/maintenance_protocol_test
+
 bench-record-validate:
 	@test -n "$(RECORD)" || (echo "Usage: make bench-record-validate RECORD=path/to/record.json"; exit 2)
 	python tools/validate_bench_record.py "$(RECORD)"
@@ -117,6 +125,7 @@ hardware-check:
 	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_bundle_verification.py
 	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_source_change.py
 	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_provisioning.py
+	PYTHONPATH=$(PYTHONPATH) python tools/check_maintenance_provisioning.py
 
 firmware-host:
 	mkdir -p build
@@ -138,5 +147,7 @@ firmware-host:
 	./build/calibration_test
 	g++ $(CXXFLAGS) $(SENSING_INC) firmware/components/forgesense_sensing/forgesense_calibration.cpp firmware/components/forgesense_sensing/forgesense_calibration_provisioning.cpp firmware/tests/calibration_provisioning_test.cpp -o build/calibration_provisioning_test
 	./build/calibration_provisioning_test
+	g++ $(CXXFLAGS) $(MAINT_INC) firmware/esp32_calibration_maintenance/main/maintenance_protocol.cpp firmware/tests/maintenance_protocol_test.cpp -o build/maintenance_protocol_test
+	./build/maintenance_protocol_test
 	g++ $(CXXFLAGS) $(SENSING_INC) firmware/components/forgesense_sensing/forgesense_sensing.cpp firmware/components/forgesense_sensing/forgesense_calibration.cpp firmware/components/forgesense_sensing/forgesense_phy.cpp firmware/tests/phy_test.cpp -o build/phy_test
 	./build/phy_test

@@ -1,0 +1,31 @@
+menu "ForgeSense calibration maintenance"
+
+config FORGESENSE_MAINTENANCE_ENABLE_GPIO
+    int "Physical maintenance-enable GPIO"
+    range -1 48
+    default -1
+    help
+        GPIO carrying the physical maintenance-enable signal. Leave at -1 to
+        disable provisioning completely. Assign this only after board wiring is
+        frozen and reviewed.
+
+config FORGESENSE_MAINTENANCE_ENABLE_ACTIVE_LEVEL
+    int "Maintenance-enable asserted logic level"
+    range 0 1
+    default 0
+
+config FORGESENSE_LOAD_INHIBIT_SENSE_GPIO
+    int "Physical load-inhibit sense GPIO"
+    range -1 48
+    default -1
+    help
+        Independent GPIO proving the protected load output is physically
+        inhibited during calibration maintenance. Leave at -1 to disable
+        provisioning completely.
+
+config FORGESENSE_LOAD_INHIBIT_ACTIVE_LEVEL
+    int "Load-inhibit asserted logic level"
+    range 0 1
+    default 1
+
+endmenu
