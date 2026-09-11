@@ -58,6 +58,8 @@ architecture rtl of forgesense_reference_sensor_io is
     signal ads_status : std_logic_vector(15 downto 0);
     signal ads_ch0, ads_ch1 : signed(23 downto 0);
     signal inner_phy_error, inner_phy_ok : std_logic;
+    signal device_identity_i : std_logic;
+    signal device_transport_error_i : std_logic;
 begin
     temp_scheduler : entity work.sample_scheduler
         generic map (CLK_FREQ_HZ => CLK_FREQ_HZ, SAMPLE_RATE_HZ => SENSOR_SAMPLE_RATE_HZ)
@@ -93,6 +95,9 @@ begin
             channel0_raw => ads_ch0, channel1_raw => ads_ch1
         );
 
+    device_identity_i <= tmp_ok and adxl_ok and ads_ok;
+    device_transport_error_i <= tmp_error or adxl_error or ads_error;
+
     platform : entity work.forgesense_phy_board_core
         generic map (
             CLK_FREQ_HZ => CLK_FREQ_HZ,
@@ -122,6 +127,8 @@ begin
             vibration_sample_valid => adxl_valid,
             vibration_sample_milli_g => adxl_z,
             vibration_sample_error => adxl_error or not adxl_ok,
+            device_identity_ok => device_identity_i,
+            device_transport_error => device_transport_error_i,
             emergency => emergency, analog_hard_trip => analog_hard_trip,
             recovery_req => recovery_req,
             state_code => state_code, load_enable => load_enable,
@@ -131,6 +138,6 @@ begin
             phy_self_test_pass => inner_phy_ok, phy_transport_error => inner_phy_error
         );
 
-    device_identity_ok <= tmp_ok and adxl_ok and ads_ok;
-    device_transport_error <= tmp_error or adxl_error or ads_error or inner_phy_error;
+    device_identity_ok <= device_identity_i;
+    device_transport_error <= device_transport_error_i or inner_phy_error;
 end architecture;
