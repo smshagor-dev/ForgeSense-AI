@@ -146,10 +146,18 @@ def apply_recovery_aware_signed_provisioning(
         authorization=authorization,
         operator=operator,
     )
+
+    active_after = client.query_active_record()
+    expected_sha = str(report["provisioning"]["record_sha256"])
+    expected_sequence = int(report["provisioning"]["candidate_sequence"])
+    expected_crc = int(report["provisioning"]["candidate_crc32_ieee"])
+    if not active_after.present or active_after.sha256 != expected_sha:
+        raise MaintenanceProvisioningError("post-write exact active record differs from committed calibration record")
+    if active_after.sequence != expected_sequence or active_after.crc32_ieee != expected_crc:
+        raise MaintenanceProvisioningError("post-write exact active record sequence/CRC differs from committed record")
+    report["observations"]["post_write_exact_active_record"] = active_after.as_dict()
+
     if intent is not None and active_before is not None:
-        active_after = client.query_active_record()
-        if not active_after.present or active_after.sha256 != report["provisioning"]["record_sha256"]:
-            raise MaintenanceProvisioningError("post-recovery active record differs from committed recovery record")
         if active_after.sequence != active_before.sequence + 1:
             raise MaintenanceProvisioningError("post-recovery active record did not preserve exact next-sequence semantics")
         report["recovery"] = {
@@ -168,26 +176,28 @@ def verify_recovery_aware_reboot(
     evidence: dict[str, Any],
 ) -> dict[str, Any]:
     verified = verify_reboot_recovery(client, evidence)
-    recovery = evidence.get("recovery")
-    if recovery is None:
-        return verified
-    if not isinstance(recovery, dict) or recovery.get("intent_schema") != RECOVERY_INTENT_SCHEMA:
-        raise MaintenanceProvisioningError("prior recovery evidence is incomplete or unsupported")
-
     provisioning = evidence.get("provisioning")
     if not isinstance(provisioning, dict):
-        raise MaintenanceProvisioningError("prior recovery provisioning evidence is missing")
+        raise MaintenanceProvisioningError("prior provisioning evidence is missing")
     expected_sha = str(provisioning.get("record_sha256", ""))
     expected_sequence = int(provisioning.get("candidate_sequence", -1))
+    expected_crc = int(provisioning.get("candidate_crc32_ieee", -1))
     active = client.query_active_record()
     if not active.present or active.sha256 != expected_sha:
-        raise MaintenanceProvisioningError("reboot recovery exact active-record SHA-256 differs from committed evidence")
-    if active.sequence != expected_sequence:
-        raise MaintenanceProvisioningError("reboot recovery exact active-record sequence differs from committed evidence")
+        raise MaintenanceProvisioningError("reboot exact active-record SHA-256 differs from committed evidence")
+    if active.sequence != expected_sequence or active.crc32_ieee != expected_crc:
+        raise MaintenanceProvisioningError("reboot exact active-record sequence/CRC differs from committed evidence")
 
     reboot = verified.get("reboot_verification")
     if not isinstance(reboot, dict):
         raise MaintenanceProvisioningError("reboot recovery evidence section is missing")
     reboot["exact_active_record"] = active.as_dict()
+    reboot["active_record_sha256"] = active.sha256
     reboot["exact_record_sha256_match"] = True
+
+    recovery = evidence.get("recovery")
+    if recovery is not None:
+        if not isinstance(recovery, dict) or recovery.get("intent_schema") != RECOVERY_INTENT_SCHEMA:
+            raise MaintenanceProvisioningError("prior recovery evidence is incomplete or unsupported")
+        reboot["recovery_exact_record_reverified"] = True
     return verified
