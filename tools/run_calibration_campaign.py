@@ -72,6 +72,13 @@ def _resolve(base_dir: Path, value: object, label: str) -> Path:
     return path if path.is_absolute() else base_dir / path
 
 
+def _display_path(path: Path, base_dir: Path) -> str:
+    try:
+        return str(path.relative_to(base_dir))
+    except ValueError:
+        return str(path)
+
+
 def _validate_campaign(manifest: dict) -> None:
     if manifest.get("schema") != CAMPAIGN_SCHEMA:
         raise CalibrationCampaignError("unsupported calibration campaign schema")
@@ -160,7 +167,7 @@ def build_campaign_bundle(manifest: dict, *, base_dir: Path) -> tuple[dict[str, 
         },
         {
             "role": "review_policy",
-            "path": str(policy_path),
+            "path": _display_path(policy_path, base_dir),
             "sha256": _file_sha256(policy_path),
             "hash_mode": "raw_file_bytes",
         },
@@ -194,11 +201,12 @@ def build_campaign_bundle(manifest: dict, *, base_dir: Path) -> tuple[dict[str, 
         generated[capture_name] = capture_bytes
         generated[proposal_name] = proposal_bytes
 
+        session_display = _display_path(session_path, base_dir)
         source_entries.append(
             {
                 "role": "session_manifest",
                 "run_id": run_id,
-                "path": str(session_path),
+                "path": session_display,
                 "sha256": _file_sha256(session_path),
                 "hash_mode": "raw_file_bytes",
             }
@@ -206,7 +214,7 @@ def build_campaign_bundle(manifest: dict, *, base_dir: Path) -> tuple[dict[str, 
         run_results.append(
             {
                 "run_id": run_id,
-                "source_session_manifest": str(session_path),
+                "source_session_manifest": session_display,
                 "capture_artifact": capture_name,
                 "proposal_artifact": proposal_name,
                 "capture_sha256": _bytes_sha256(capture_bytes),
@@ -285,10 +293,10 @@ def build_campaign_bundle(manifest: dict, *, base_dir: Path) -> tuple[dict[str, 
 
 
 def publish_campaign_bundle(manifest: dict, *, base_dir: Path, out_dir: Path) -> bool:
-    bundle, review_ready = build_campaign_bundle(manifest, base_dir=base_dir)
     out_dir = out_dir.resolve()
     if out_dir.exists():
         raise CalibrationCampaignError(f"output directory already exists: {out_dir}")
+    bundle, review_ready = build_campaign_bundle(manifest, base_dir=base_dir)
     out_dir.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{out_dir.name}.staging-", dir=out_dir.parent))
     try:
@@ -311,8 +319,8 @@ def main() -> int:
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
 
-    campaign = _load_json(args.campaign, "campaign manifest")
     try:
+        campaign = _load_json(args.campaign, "campaign manifest")
         review_ready = publish_campaign_bundle(
             campaign,
             base_dir=args.campaign.parent,
