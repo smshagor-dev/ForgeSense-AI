@@ -10,6 +10,7 @@ from forgesense_commission import (
 )
 from forgesense_protocol import (
     SAFETY_DEVICE_IDENTITY_OK,
+    SAFETY_DEVICE_TRANSPORT_ERROR,
     SAFETY_SENSORS_VALID,
     STATUS_OPERATIONAL_READY,
     SensorSnapshotWire,
@@ -125,6 +126,8 @@ def test_production_observer_reports_device_diagnostics() -> None:
 
     assert observer.status_frames == 1
     assert observer.sensor_frames == 1
+    assert observer.commissioning_pass
+    assert summary["commissioning_pass"] is True
     assert summary["status"]["state"] == "RUN"
     assert summary["status"]["device_identity_ok"] is True
     assert summary["status"]["device_transport_error"] is False
@@ -148,5 +151,27 @@ def test_production_observation_updates_record_without_inventing_manual_checks()
     assert by_id["COMMISSION-STATUS-STREAM"]["result"] == "PASS"
     assert by_id["COMMISSION-SENSOR-STREAM"]["result"] == "PASS"
     assert by_id["COMMISSION-DEVICE-IDENTITY"]["result"] == "PASS"
+    assert by_id["COMMISSION-LINK-INTEGRITY"]["result"] == "PASS"
     assert by_id["BRINGUP-LOAD-OFF"]["result"] == "NOT_RUN"
     assert record["overall_result"] == "INCOMPLETE"
+
+
+def test_production_transport_error_fails_commissioning() -> None:
+    status = StatusSnapshotWire(
+        state_code=1,
+        control_flags=STATUS_OPERATIONAL_READY,
+        safety_flags=(
+            SAFETY_SENSORS_VALID
+            | SAFETY_DEVICE_IDENTITY_OK
+            | SAFETY_DEVICE_TRANSPORT_ERROR
+        ),
+    )
+    observer = CommissioningObserver()
+    observer.feed(encode_status_snapshot(status, sequence=2, timestamp_ms=30))
+    observer.feed(encode_sensor_snapshot(SensorSnapshotWire(250, 300, 900), sequence=2, timestamp_ms=40))
+
+    assert observer.commissioning_pass is False
+    record = apply_observation_to_record(deepcopy(BASE_RECORD), observer)
+    by_id = {item["check_id"]: item for item in record["checks"]}
+    assert by_id["COMMISSION-DEVICE-IDENTITY"]["result"] == "FAIL"
+    assert record["overall_result"] == "FAIL"
