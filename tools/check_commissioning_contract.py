@@ -48,8 +48,9 @@ def main() -> int:
     observe_source = core[observe_start:observe_end]
     assert ".write(" not in observe_source, "production observation must remain read-only"
     assert "transport.write" in core, "smoke echo test must exercise TX"
-    assert "observe_production_stream" in cli
-    assert "run_smoke_commissioning" in cli
+    assert "def commissioning_pass" in core
+    assert "self.decoder.stats.crc_or_frame_errors == 0" in core
+    assert "exit_code = 0 if observer.commissioning_pass else 2" in cli
     assert "--record-out requires real metadata" in cli
 
     assert "kFpgaTxGpio = 17" in bridge
@@ -78,10 +79,11 @@ def main() -> int:
         "test_smoke_record_only_marks_serial_evidence",
         "test_production_observer_reports_device_diagnostics",
         "test_production_observation_updates_record_without_inventing_manual_checks",
+        "test_production_transport_error_fails_commissioning",
     ):
         assert token in tests
 
-    print("commissioning_contract_check PASS: ESP32 raw bridge, read-only production observation, diagnostic STATUS bits, smoke evidence, and cross-language masks aligned")
+    print("commissioning_contract_check PASS: ESP32 raw bridge, strict read-only production verdict, diagnostic STATUS bits, smoke evidence, and cross-language masks aligned")
     return 0
 
 
