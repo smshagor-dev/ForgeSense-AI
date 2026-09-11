@@ -63,7 +63,8 @@ begin
     adxl_sensor : entity work.adxl355_spi_model
         port map (
             cs_n => adxl_cs_n, sclk => adxl_sclk, mosi => adxl_mosi, miso => adxl_miso,
-            force_bad_id => '0', x_raw20 => to_signed(10000, 20),
+            force_bad_id => '0', force_bad_config => '0',
+            x_raw20 => to_signed(10000, 20),
             y_raw20 => to_signed(-10000, 20), z_raw20 => to_signed(20000, 20)
         );
 
