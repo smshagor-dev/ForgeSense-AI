@@ -137,6 +137,8 @@ def build_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, noop: bool
         json.dumps({"campaign_id": "CAL-OLD-001", "approval_id": "APR-OLD-001"}) + "\n",
         encoding="utf-8",
     )
+    monkeypatch.setattr(prep, "validate_signed_provisioning_policy", lambda *args, **kwargs: {})
+    monkeypatch.setattr(verify, "validate_signed_provisioning_policy", lambda *args, **kwargs: {})
     monkeypatch.setattr(
         prep,
         "build_provisioning_bundle",
