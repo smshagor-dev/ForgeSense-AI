@@ -120,7 +120,7 @@ firmware-host:
 	./build/firmware_inference_test
 	g++ $(CXXFLAGS) $(PROTO_INC) $(EVENT_INC) firmware/components/forgesense_events/forgesense_events.cpp firmware/tests/events_test.cpp -o build/firmware_events_test
 	./build/firmware_events_test
-	g++ $(CXXFLAGS) $(PROTO_INC) $(TELEM_INC) firmware/components/forgesense_protocol/forgesense_protocol.cpp firmware/components/forgesense_telemetry/forgesense_telemetry.cpp firmware/tests/telemetry_test.cpp -o build/firmware_telemetry_test
+	g++ $(CXXFLAGS) $(PROTO_INC) $(TELEM_INC) firmware/components/forgesense_telemetry/forgesense_telemetry.cpp firmware/tests/telemetry_test.cpp -o build/firmware_telemetry_test
 	./build/firmware_telemetry_test
 	g++ $(CXXFLAGS) $(PROTO_INC) firmware/tests/sensor_contract_test.cpp -o build/sensor_contract_test
 	./build/sensor_contract_test
