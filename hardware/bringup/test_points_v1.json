@@ -1,0 +1,30 @@
+{
+  "schema": "forgesense.bringup_test_points.v1",
+  "revision": "BTP-001",
+  "scope": "low_voltage_reference_bringup",
+  "points": [
+    {"id":"TP_GND","signal":"LOGIC_GND","access":"required","expected":"0 V reference","instrument":"DMM/oscilloscope ground"},
+    {"id":"TP_12V_IN","signal":"VIN_12V_INPUT","access":"required_on_custom_board","expected":"nominal 12 V only during power-stage bring-up","instrument":"DMM/oscilloscope"},
+    {"id":"TP_12V_PROTECTED","signal":"VIN_12V_PROTECTED","access":"required_on_custom_board","expected":"approximately input voltage after eFuse startup","instrument":"DMM/oscilloscope"},
+    {"id":"TP_5V","signal":"+5V_LOGIC","access":"required_on_custom_board","expected":"5.0 V nominal","instrument":"DMM/oscilloscope"},
+    {"id":"TP_3V3","signal":"+3V3_QUIET","access":"required_on_custom_board","expected":"3.3 V nominal","instrument":"DMM/oscilloscope"},
+    {"id":"TP_CS_OUT","signal":"CS_OUT","access":"required_on_custom_board","expected":"approximately 0 V at zero current; 0.960 V at 3.2 A reference","instrument":"DMM/oscilloscope"},
+    {"id":"TP_TRIP_REF","signal":"ANALOG_TRIP_REF","access":"required_on_custom_board","expected":"approximately 1.042 V reference","instrument":"DMM"},
+    {"id":"TP_HARD_TRIP","signal":"ANALOG_HARD_TRIP","access":"Tang J5-7 / FPGA27","expected":"defined non-trip level until comparator threshold","instrument":"oscilloscope/logic analyzer"},
+    {"id":"TP_ESTOP","signal":"ESTOP_SENSE","access":"Tang J5-8 / FPGA28","expected":"active-high fault observation","instrument":"DMM/logic analyzer"},
+    {"id":"TP_LOAD_EN","signal":"LOAD_ENABLE","access":"Tang J5-9 / FPGA29","expected":"0 in smoke image and during reset/fault","instrument":"DMM/logic analyzer"},
+    {"id":"TP_UART_RX","signal":"ESP32_TO_FPGA_UART","access":"Tang J5-5 / FPGA25","expected":"3.3 V UART 115200 8N1","instrument":"logic analyzer/oscilloscope"},
+    {"id":"TP_UART_TX","signal":"FPGA_TO_ESP32_UART","access":"Tang J5-6 / FPGA26","expected":"3.3 V UART 115200 8N1; smoke heartbeat 0x55","instrument":"logic analyzer/oscilloscope"},
+    {"id":"TP_I2C_SCL","signal":"TMP117_SCL","access":"Tang J5-11 / FPGA33","expected":"open-drain; external pull-up","instrument":"oscilloscope/logic analyzer"},
+    {"id":"TP_I2C_SDA","signal":"TMP117_SDA","access":"Tang J5-12 / FPGA34","expected":"open-drain; external pull-up","instrument":"oscilloscope/logic analyzer"},
+    {"id":"TP_ADXL_SCLK","signal":"ADXL355_SCLK","access":"Tang J5-14 / FPGA35","expected":"mode-0 SPI clock during acquisition","instrument":"logic analyzer/oscilloscope"},
+    {"id":"TP_ADS_SCLK","signal":"ADS131M02_SCLK","access":"Tang J5-19 / FPGA54","expected":"CPOL0 CPHA1 SPI clock during acquisition","instrument":"logic analyzer/oscilloscope"},
+    {"id":"TP_GATE","signal":"MOSFET_GATE","access":"required_on_custom_board","expected":"low whenever E-stop/hard fault/reset prevents drive","instrument":"oscilloscope"},
+    {"id":"TP_MOTOR_DRAIN","signal":"MOTOR_SWITCH_DRAIN","access":"required_on_custom_board","expected":"bench-dependent switching waveform","instrument":"differential probe or appropriately referenced oscilloscope"}
+  ],
+  "rules": [
+    "Never use the smoke image to energize the motor stage; LOAD_ENABLE is hard-tied low.",
+    "Do not attach an oscilloscope ground clip to a node unless the bench grounding arrangement is understood.",
+    "Initial bring-up remains low voltage and current-limited; no mains switching is part of this procedure."
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "schema": "forgesense.bench_record.v1",
+  "record_id": "REPLACE_ME",
+  "timestamp_utc": "YYYY-MM-DDTHH:MM:SSZ",
+  "operator": "REPLACE_ME",
+  "repository_commit": "REPLACE_WITH_40_HEX_SHA",
+  "board": {
+    "fpga_board": "Sipeed Tang Nano 9K",
+    "fpga_board_revision": "REPLACE_ME",
+    "esp32_board": "ESP32-S3-DevKitC-1",
+    "sensor_board_revision": "REPLACE_ME"
+  },
+  "image": {
+    "top": "forgesense_tang_nano_9k_smoke_top",
+    "build_tool": "Gowin",
+    "artifact_sha256": "REPLACE_WITH_64_HEX_SHA256"
+  },
+  "instruments": [
+    {
+      "type": "DMM",
+      "manufacturer_model": "REPLACE_ME",
+      "asset_or_serial": "REPLACE_ME",
+      "calibration_status": "REPLACE_ME"
+    }
+  ],
+  "supply": [
+    {
+      "rail": "logic_only",
+      "set_voltage_v": 0.0,
+      "current_limit_a": 0.0,
+      "measured_idle_current_a": 0.0
+    }
+  ],
+  "checks": [
+    {
+      "check_id": "BRINGUP-LOAD-OFF",
+      "result": "NOT_RUN",
+      "expected": "LOAD_ENABLE remains low with smoke image",
+      "observed": "",
+      "units": "logic",
+      "evidence": []
+    },
+    {
+      "check_id": "BRINGUP-UART-ECHO",
+      "result": "NOT_RUN",
+      "expected": "0xA6 transmitted from ESP32 is echoed by FPGA at 115200 8N1",
+      "observed": "",
+      "units": "bytes",
+      "evidence": []
+    },
+    {
+      "check_id": "BRINGUP-UART-HEARTBEAT",
+      "result": "NOT_RUN",
+      "expected": "0x55 heartbeat approximately once per second while idle",
+      "observed": "",
+      "units": "bytes",
+      "evidence": []
+    }
+  ],
+  "overall_result": "INCOMPLETE",
+  "notes": ""
+}

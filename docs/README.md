@@ -16,6 +16,7 @@ This directory is the engineering source of truth for system behavior, interface
 - [`SENSOR_DEVICE_DRIVERS.md`](SENSOR_DEVICE_DRIVERS.md) — TMP117, ADXL355, and ADS131M02 register-level FPGA acquisition and verification boundary.
 - [`SENSOR_BEHAVIORAL_VERIFICATION.md`](SENSOR_BEHAVIORAL_VERIFICATION.md) — bus-level selected-sensor models, fault injection, combined acquisition verification, and evidence limits.
 - [`TANG_NANO_9K_INTEGRATION.md`](TANG_NANO_9K_INTEGRATION.md) — frozen Tang Nano 9K J5 pin map, physical top, CST/SDC constraints, and Gowin build entry point.
+- [`PHYSICAL_BRINGUP.md`](PHYSICAL_BRINGUP.md) — safe first-bitstream, wiring, test points, staged bench checks, and evidence-recording procedure.
 - [`REFERENCE_CIRCUITS.md`](REFERENCE_CIRCUITS.md) — component-backed 12 V current sensing, analog hard trip, protected motor output, E-stop, and SPICE references.
 - [`HARDWARE_BASELINE_V1.md`](HARDWARE_BASELINE_V1.md) — `HW-BL-004` protected power entry, selected reference parts, precision sensor support, physical pin mapping, schematic contracts, and evidence boundary.
 - [`HARDWARE_DESIGN.md`](HARDWARE_DESIGN.md) — electronics, protection, power, sensing, and PCB design rules.
@@ -30,6 +31,6 @@ This directory is the engineering source of truth for system behavior, interface
 - [`AI_ML.md`](AI_ML.md) — dataset, model, evaluation, and deployment requirements.
 - [`IP_AND_PUBLICATION.md`](IP_AND_PUBLICATION.md) — prior-art, disclosure, and publication discipline.
 
-Hardware implementation artifacts live under `hardware/`. The active electrical sources include `profiles/power_entry_v1.json`, `profiles/sensor_support_v1.json`, `profiles/sensor_devices_v1.json`, `profiles/interconnect_v1.json`, the preliminary BOM, the machine-readable schematic contract, the package/MPN manifest, and the net-endpoint freeze table. `make hardware-check` verifies their cross-file consistency and analytical constraints.
+Hardware implementation artifacts live under `hardware/`. The active electrical sources include `profiles/power_entry_v1.json`, `profiles/sensor_support_v1.json`, `profiles/sensor_devices_v1.json`, `profiles/interconnect_v1.json`, the preliminary BOM, the machine-readable schematic contract, the package/MPN manifest, the net-endpoint freeze table, and the `hardware/bringup/` harness/test/evidence contracts. `make hardware-check` verifies their cross-file consistency and analytical constraints; `make bringup-check` verifies the physical bring-up package.
 
 The root [`ROADMAP.md`](../ROADMAP.md) tracks future engineering work. The root `README.md` is the project overview; this documentation set should remain precise and evidence-driven.

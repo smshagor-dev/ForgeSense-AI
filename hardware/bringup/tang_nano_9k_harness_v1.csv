@@ -1,0 +1,21 @@
+HarnessID,From,To,Signal,Voltage_V,Direction,Series_or_termination,Bringup_use
+H01,ESP32-S3 GPIO17 U1TXD,Tang J5-5 / FPGA25,ESP32_TO_FPGA_UART,3.3,ESP32->FPGA,33 ohm series footprint,UART echo smoke
+H02,Tang J5-6 / FPGA26,ESP32-S3 GPIO18 U1RXD,FPGA_TO_ESP32_UART,3.3,FPGA->ESP32,33 ohm series footprint,UART heartbeat and echo
+H03,Comparator hard-trip output,Tang J5-7 / FPGA27,ANALOG_HARD_TRIP,3.3,Comparator->FPGA,defined non-trip pulldown,Hard-trip observation
+H04,E-stop sense buffer,Tang J5-8 / FPGA28,ESTOP_SENSE,3.3,Safety board->FPGA,active-high fault observation,E-stop observation only
+H05,Tang J5-9 / FPGA29,Gate-driver command input,LOAD_ENABLE,3.3,FPGA->gate logic,physical E-stop override remains independent,Must remain low in smoke image
+H06,Service momentary input,Tang J5-10 / FPGA30,RECOVERY_REQUEST,3.3,Service->FPGA,pulldown default,Controlled recovery request
+H07,Tang J5-11 / FPGA33,TMP117 SCL,TMP117_SCL,3.3,Bidirectional open-drain,4.99 kohm external pull-up,Temperature bus
+H08,Tang J5-12 / FPGA34,TMP117 SDA,TMP117_SDA,3.3,Bidirectional open-drain,4.99 kohm external pull-up,Temperature bus
+H09,Tang J5-13 / FPGA40,ADXL355 CS_N,ADXL355_CS_N,3.3,FPGA->sensor,active low,Vibration bus
+H10,Tang J5-14 / FPGA35,ADXL355 SCLK,ADXL355_SCLK,3.3,FPGA->sensor,2 MHz starting rate,Vibration bus
+H11,Tang J5-15 / FPGA41,ADXL355 MOSI,ADXL355_MOSI,3.3,FPGA->sensor,mode 0,Vibration bus
+H12,ADXL355 MISO,Tang J5-16 / FPGA42,ADXL355_MISO,3.3,Sensor->FPGA,mode 0,Vibration bus
+H13,ADXL355 DRDY,Tang J5-17 / FPGA51,ADXL355_DRDY,3.3,Sensor->FPGA,edge/status observation,Vibration data-ready
+H14,Tang J5-18 / FPGA53,ADS131M02 CS_N,ADS131M02_CS_N,3.3,FPGA->ADC,active low,Current ADC bus
+H15,Tang J5-19 / FPGA54,ADS131M02 SCLK,ADS131M02_SCLK,3.3,FPGA->ADC,2 MHz starting rate CPOL0 CPHA1,Current ADC bus
+H16,Tang J5-20 / FPGA55,ADS131M02 DIN,ADS131M02_DIN,3.3,FPGA->ADC,24-bit words,Current ADC bus
+H17,ADS131M02 DOUT,Tang J5-21 / FPGA56,ADS131M02_DOUT,3.3,ADC->FPGA,24-bit words,Current ADC bus
+H18,ADS131M02 DRDY_N,Tang J5-22 / FPGA57,ADS131M02_DRDY_N,3.3,ADC->FPGA,active low,Current ADC data-ready
+H19,Tang GND,ESP32-S3 GND,LOGIC_GND,0,Bidirectional reference,short low-impedance return,Required before UART wiring
+H20,Tang GND,Sensor/safety board GND,LOGIC_GND,0,Bidirectional reference,common logic reference,Required before sensor wiring
