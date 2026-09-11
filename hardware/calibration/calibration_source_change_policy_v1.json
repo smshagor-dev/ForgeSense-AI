@@ -1,0 +1,30 @@
+{
+  "schema": "forgesense.calibration_source_change_policy.v1",
+  "policy_id": "CAL-SOURCE-001",
+  "current": {
+    "maximum_gain_denominator": 1000000,
+    "maximum_abs_quantization_error_ma": 2.0,
+    "require_nonnegative_at_reference_points": true,
+    "minimum_output_ma": 0,
+    "maximum_output_ma": 32767
+  },
+  "temperature": {
+    "maximum_abs_quantization_error_c": 0.051,
+    "minimum_output_deci_c": -32768,
+    "maximum_output_deci_c": 32767
+  },
+  "accelerometer": {
+    "runtime_mapping_supported": false,
+    "required_disposition": "deferred"
+  },
+  "source_patch": {
+    "approved_profile_directory": "hardware/calibration/approved",
+    "runtime_files_may_be_modified": false,
+    "existing_target_may_be_overwritten": false
+  },
+  "safety_baseline_files": [
+    "fpga/rtl/safety/hard_limit_monitor.vhd",
+    "hardware/profiles/sensor_contract_v1.json",
+    "docs/SAFETY_MODEL.md"
+  ]
+}
