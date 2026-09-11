@@ -15,6 +15,7 @@ try:
         _collect_current_raw_points,
         _quantize_current,
         _quantize_temperature,
+        _validate_approval,
         _validate_policy,
     )
     from tools.verify_calibration_source_change import (
@@ -28,6 +29,7 @@ except ModuleNotFoundError:  # Direct execution from repository root.
         _collect_current_raw_points,
         _quantize_current,
         _quantize_temperature,
+        _validate_approval,
         _validate_policy,
     )
     from verify_calibration_source_change import CalibrationSourceChangeVerificationError, verify_source_change
@@ -97,10 +99,13 @@ def verify_source_derivation(
         raise CalibrationSourceDerivationError("retained signing payload differs from campaign-derived request")
 
     policy = _load_json(policy_path, "calibration source-change policy")
+    approval = _load_json(approval_path, "calibration approval")
+    package_sha = _sha256_bytes((change_package_dir / "change-package.json").read_bytes())
     try:
         _validate_policy(policy)
+        _validate_approval(approval, retained_package, package_sha)
     except CalibrationSourceChangeError as exc:
-        raise CalibrationSourceDerivationError(f"source-change policy validation failed: {exc}") from exc
+        raise CalibrationSourceDerivationError(f"approval or source-change policy validation failed: {exc}") from exc
 
     candidates = retained_package.get("candidates")
     if not isinstance(candidates, dict):
@@ -136,18 +141,23 @@ def verify_source_derivation(
     accelerometer = profile.get("accelerometer")
     if not isinstance(expected_bias, dict) or not isinstance(accelerometer, dict):
         raise CalibrationSourceDerivationError("accelerometer traceability data is missing")
+    try:
+        expected_bias_mapping = {axis: float(expected_bias[axis]) for axis in ("x", "y", "z")}
+    except (KeyError, TypeError, ValueError) as exc:
+        raise CalibrationSourceDerivationError("reviewer package accelerometer bias is incomplete") from exc
     recorded_bias = accelerometer.get("reviewed_bias_mg_candidate")
-    if recorded_bias != {axis: float(expected_bias[axis]) for axis in ("x", "y", "z")}:
+    if recorded_bias != expected_bias_mapping:
         raise CalibrationSourceDerivationError("deferred accelerometer bias differs from reviewer package")
     if accelerometer.get("status") != "deferred" or accelerometer.get("runtime_mapping_supported") is not False:
         raise CalibrationSourceDerivationError("accelerometer correction must remain deferred")
 
     source_change = _load_json(change_dir / "source-change.json", "source-change summary")
-    package_sha = _sha256_bytes((change_package_dir / "change-package.json").read_bytes())
     if source_change.get("change_package_sha256") != package_sha:
         raise CalibrationSourceDerivationError("source-change summary is not bound to retained change-package bytes")
     if source_change.get("evidence_root_sha256") != retained_package.get("evidence_root_sha256"):
         raise CalibrationSourceDerivationError("source-change evidence root differs from reviewer package")
+    if source_change.get("approval_id") != approval.get("approval_id"):
+        raise CalibrationSourceDerivationError("source-change approval_id differs from validated approval")
 
     return {
         "schema": VERIFICATION_SCHEMA,
@@ -156,6 +166,7 @@ def verify_source_derivation(
         "approval_id": source_change["approval_id"],
         "structural_verification_pass": structural.get("artifact_integrity_pass") is True,
         "reviewer_package_rederived": True,
+        "approval_semantics_revalidated": True,
         "current_coefficients_rederived": True,
         "temperature_coefficients_rederived": True,
         "quantization_regression_rederived": True,
