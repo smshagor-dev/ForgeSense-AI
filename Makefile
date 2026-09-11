@@ -6,7 +6,7 @@ EVENT_INC := -Ifirmware/components/forgesense_events/include
 TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check bench-record-validate gowin-build smoke-build firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check calibration-diagnostic-check bench-record-validate gowin-build smoke-build calibration-build firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -62,6 +62,10 @@ calibration-check:
 	python tools/check_calibration_capture.py
 	python tools/check_calibration_review.py
 
+calibration-diagnostic-check:
+	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_calibration_diagnostics.py
+	python tools/check_calibration_diagnostics.py
+
 bench-record-validate:
 	@test -n "$(RECORD)" || (echo "Usage: make bench-record-validate RECORD=path/to/record.json"; exit 2)
 	python tools/validate_bench_record.py "$(RECORD)"
@@ -72,6 +76,9 @@ gowin-build: tang-pin-check
 smoke-build: tang-pin-check bringup-check
 	gw_sh fpga/scripts/tang_nano_9k_smoke_build.tcl
 
+calibration-build: tang-pin-check calibration-diagnostic-check
+	gw_sh fpga/scripts/tang_nano_9k_calibration_build.tcl
+
 hardware-check:
 	python tools/check_hardware_baseline.py
 	python tools/check_reference_circuits.py
@@ -81,6 +88,7 @@ hardware-check:
 	python tools/check_commissioning_contract.py
 	python tools/check_calibration_capture.py
 	python tools/check_calibration_review.py
+	python tools/check_calibration_diagnostics.py
 
 firmware-host:
 	mkdir -p build

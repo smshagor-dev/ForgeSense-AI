@@ -6,6 +6,7 @@ All notable repository-level changes are recorded here.
 
 ### Added
 
+- Dedicated load-disabled Tang Nano 9K calibration image with read-only diagnostic message `0x32`, ADS131M02 raw channels, TMP117 temperature, ADXL355 XYZ samples, device/sample trust flags, transparent ESP32-S3 bridge capture, host evidence retention, VHDL framing regression, and explicit no-actuator/no-runtime-calibration authority.
 - Repeatability- and uncertainty-aware calibration review with a three-run default gate, board/commit consistency checks, coefficient/bias spread limits, source-proposal hashes, conservative engineering uncertainty proxies, and strict review-only authority.
 - Calibration capture now carries declared reference uncertainty provenance and per-axis stationary accelerometer standard deviation for repeated-run review.
 - Component-backed `HW-BL-003` hardware baseline with TPS259470L protected 12 V entry, SMBJ15A TVS, explicit UVLO/OVLO, eFuse current limiting, slew control, and layered 3.46 A / 4.04 A / 5 A protection ordering.
