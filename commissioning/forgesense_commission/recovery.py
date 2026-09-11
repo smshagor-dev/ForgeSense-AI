@@ -11,6 +11,7 @@ from .provisioning import (
     STATUS_NAMES,
     STATUS_OK,
     load_provisioning_bundle,
+    verify_reboot_recovery,
 )
 from .signed_provisioning import (
     SignedMaintenanceClient,
@@ -105,7 +106,11 @@ def validate_recovery_runtime_binding(
     candidate = int(package_sequence.get("candidate", -1))
     if installed != active.sequence or candidate != installed + 1:
         raise MaintenanceProvisioningError("recovery must restore coefficients using exactly the next sequence")
-    if sequence.get("decrement_permitted") is not False or sequence.get("candidate_is_new_higher_sequence") is not True:
+    if (
+        sequence.get("decrement_permitted") is not False
+        or sequence.get("candidate_is_new_higher_sequence") is not True
+        or sequence.get("increment_exactly_one") is not True
+    ):
         raise MaintenanceProvisioningError("recovery intent sequence semantics are invalid")
 
     expected_authority = {
@@ -145,12 +150,44 @@ def apply_recovery_aware_signed_provisioning(
         active_after = client.query_active_record()
         if not active_after.present or active_after.sha256 != report["provisioning"]["record_sha256"]:
             raise MaintenanceProvisioningError("post-recovery active record differs from committed recovery record")
+        if active_after.sequence != active_before.sequence + 1:
+            raise MaintenanceProvisioningError("post-recovery active record did not preserve exact next-sequence semantics")
         report["recovery"] = {
             "intent_schema": RECOVERY_INTENT_SCHEMA,
             "mode": "restore_approved_profile_with_new_sequence",
             "from_active_record": active_before.as_dict(),
             "to_active_record": active_after.as_dict(),
-            "monotonic_sequence_preserved": active_after.sequence == active_before.sequence + 1,
+            "monotonic_sequence_preserved": True,
             "sequence_decrement_performed": False,
         }
     return report
+
+
+def verify_recovery_aware_reboot(
+    client: RecoveryMaintenanceClient,
+    evidence: dict[str, Any],
+) -> dict[str, Any]:
+    verified = verify_reboot_recovery(client, evidence)
+    recovery = evidence.get("recovery")
+    if recovery is None:
+        return verified
+    if not isinstance(recovery, dict) or recovery.get("intent_schema") != RECOVERY_INTENT_SCHEMA:
+        raise MaintenanceProvisioningError("prior recovery evidence is incomplete or unsupported")
+
+    provisioning = evidence.get("provisioning")
+    if not isinstance(provisioning, dict):
+        raise MaintenanceProvisioningError("prior recovery provisioning evidence is missing")
+    expected_sha = str(provisioning.get("record_sha256", ""))
+    expected_sequence = int(provisioning.get("candidate_sequence", -1))
+    active = client.query_active_record()
+    if not active.present or active.sha256 != expected_sha:
+        raise MaintenanceProvisioningError("reboot recovery exact active-record SHA-256 differs from committed evidence")
+    if active.sequence != expected_sequence:
+        raise MaintenanceProvisioningError("reboot recovery exact active-record sequence differs from committed evidence")
+
+    reboot = verified.get("reboot_verification")
+    if not isinstance(reboot, dict):
+        raise MaintenanceProvisioningError("reboot recovery evidence section is missing")
+    reboot["exact_active_record"] = active.as_dict()
+    reboot["exact_record_sha256_match"] = True
+    return verified
