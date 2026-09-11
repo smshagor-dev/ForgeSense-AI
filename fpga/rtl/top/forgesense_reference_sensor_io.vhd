@@ -1,6 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.sensor_device_math_pkg.all;
 
 entity forgesense_reference_sensor_io is
     generic (
@@ -104,8 +105,8 @@ begin
             TEMP_GAIN_DENOMINATOR => 1,
             TEMP_OUTPUT_OFFSET => 0,
             CURRENT_RAW_ZERO => 0,
-            CURRENT_GAIN_NUMERATOR => 1000,
-            CURRENT_GAIN_DENOMINATOR => 2097152,
+            CURRENT_GAIN_NUMERATOR => ADS131M02_CURRENT_MA_NUMERATOR,
+            CURRENT_GAIN_DENOMINATOR => ADS131M02_CURRENT_MA_DENOMINATOR,
             CURRENT_OUTPUT_OFFSET => 0,
             VIBRATION_WINDOW_SAMPLES => VIBRATION_WINDOW_SAMPLES,
             VIBRATION_ABS_LIMIT_MILLI_G => 16000
