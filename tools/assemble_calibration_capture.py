@@ -92,9 +92,22 @@ def _diagnostic_result(raw: dict, path: Path) -> dict:
     samples = result.get("samples")
     if not isinstance(samples, list) or not samples:
         raise CalibrationAssemblyError(f"{path}: diagnostic capture contains no samples")
-    usable = [sample for sample in samples if isinstance(sample, dict) and sample.get("usable_for_calibration") is True]
+    usable = [
+        sample
+        for sample in samples
+        if isinstance(sample, dict)
+        and sample.get("sample_set_complete") is True
+        and sample.get("devices_trusted") is True
+        and sample.get("usable_for_calibration") is True
+    ]
     if not usable:
         raise CalibrationAssemblyError(f"{path}: diagnostic capture contains no trusted usable samples")
+    try:
+        reported_usable = int(result.get("usable_samples", -1))
+    except (TypeError, ValueError) as exc:
+        raise CalibrationAssemblyError(f"{path}: diagnostic usable_samples is invalid") from exc
+    if reported_usable != len(usable):
+        raise CalibrationAssemblyError(f"{path}: diagnostic usable-sample count is inconsistent")
     return {"result": result, "usable": usable}
 
 
@@ -181,6 +194,15 @@ def _validate_manifest(manifest: dict) -> None:
             if source in seen:
                 raise CalibrationAssemblyError(f"{section} reuses diagnostic file {source!r} within the same characterization")
             seen.add(source)
+
+    accel_seen: set[str] = set()
+    for index, value in enumerate(accel_files):
+        source = str(value or "").strip()
+        if not source:
+            raise CalibrationAssemblyError(f"accelerometer.diagnostic_files[{index}] is required")
+        if source in accel_seen:
+            raise CalibrationAssemblyError(f"accelerometer reuses diagnostic file {source!r}")
+        accel_seen.add(source)
 
     for index, entry in enumerate(current_points):
         _nonnegative(entry.get("reference_current_a"), f"current.points[{index}].reference_current_a")
