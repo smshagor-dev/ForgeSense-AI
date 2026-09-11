@@ -23,13 +23,16 @@ def main() -> int:
         "initialize_ledger",
         "verify_ledger",
         "preflight_live_state",
+        "_require_preflight_binding",
         "append_write_evidence",
         "append_reboot_evidence",
         'target.open("xb")',
         "os.fsync",
+        "metadata_path.is_symlink()",
         'event_type = "recovery_commit"',
         'event_type == "reboot_verified"',
         "unexpected maintenance-authority rotation",
+        "physical evidence audit-ledger head does not match current ledger head",
     ):
         assert token in ledger, token
 
@@ -54,11 +57,16 @@ def main() -> int:
         "append_reboot_evidence(",
         '"audit_ledger_required": True',
         '"audit_ledger_preflight_verified": True',
+        '"audit_ledger_head_before_operation"',
+        '"audit_ledger_entry_count_before_operation"',
     ):
         assert token in physical, token
     structural_position = physical.index("pre_serial_ledger = verify_ledger(")
     serial_position = physical.index("serial_port = _serial_port", structural_position)
     assert structural_position < serial_position
+    live_preflight_position = physical.index("live_ledger = _preflight_audit_ledger(args, client)")
+    apply_position = physical.index("apply_recovery_aware_signed_provisioning(", live_preflight_position)
+    assert live_preflight_position < apply_position
     save_position = physical.index("_save_json(args.report_out, report)")
     append_position = physical.index("append_write_evidence(", save_position)
     assert save_position < append_position
@@ -97,6 +105,7 @@ def main() -> int:
         "test_write_reboot_recovery_chain_is_contiguous",
         "test_entry_tamper_is_detected",
         "test_duplicate_or_replayed_write_evidence_is_rejected",
+        "test_legacy_evidence_without_preflight_binding_is_rejected",
         "test_live_record_drift_and_signer_drift_fail_closed",
         "test_recovery_event_requires_exact_next_sequence",
         "test_genesis_metadata_tamper_is_detected",
@@ -105,8 +114,8 @@ def main() -> int:
 
     print(
         "calibration_audit_ledger_check PASS: append-structured SHA-256 history, fresh-device genesis, live exact-record "
-        "and signer continuity, write/recovery/reboot evidence chaining, fail-closed tamper detection, and production "
-        "authority separation are present"
+        "and signer continuity, preflight-bound write/recovery/reboot evidence chaining, fail-closed tamper detection, "
+        "and production authority separation are present"
     )
     return 0
 
