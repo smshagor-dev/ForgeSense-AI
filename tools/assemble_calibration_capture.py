@@ -8,7 +8,10 @@ from pathlib import Path
 import re
 from statistics import mean, pstdev
 
-from tools.capture_calibration import build_proposal
+try:
+    from tools.capture_calibration import build_proposal
+except ModuleNotFoundError:  # Direct execution: python tools/assemble_calibration_capture.py
+    from capture_calibration import build_proposal
 
 HEX40 = re.compile(r"^[0-9a-fA-F]{40}$")
 DIAGNOSTIC_SCHEMA = "forgesense.calibration_diagnostic_capture.v1"
@@ -21,7 +24,10 @@ class CalibrationAssemblyError(ValueError):
 
 
 def _finite(value: object, label: str) -> float:
-    result = float(value)
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise CalibrationAssemblyError(f"{label} must be finite") from exc
     if not math.isfinite(result):
         raise CalibrationAssemblyError(f"{label} must be finite")
     return result
@@ -36,9 +42,12 @@ def _nonnegative(value: object, label: str) -> float:
 
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
+    try:
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except FileNotFoundError as exc:
+        raise CalibrationAssemblyError(f"diagnostic file not found: {path}") from exc
     return digest.hexdigest()
 
 
@@ -83,7 +92,7 @@ def _diagnostic_result(raw: dict, path: Path) -> dict:
     samples = result.get("samples")
     if not isinstance(samples, list) or not samples:
         raise CalibrationAssemblyError(f"{path}: diagnostic capture contains no samples")
-    usable = [sample for sample in samples if sample.get("usable_for_calibration") is True]
+    usable = [sample for sample in samples if isinstance(sample, dict) and sample.get("usable_for_calibration") is True]
     if not usable:
         raise CalibrationAssemblyError(f"{path}: diagnostic capture contains no trusted usable samples")
     return {"result": result, "usable": usable}
@@ -145,14 +154,20 @@ def _validate_manifest(manifest: dict) -> None:
             raise CalibrationAssemblyError(f"measurement_uncertainty.{key} is required")
         _nonnegative(uncertainty[key], f"measurement_uncertainty.{key}")
 
-    current_points = manifest.get("current", {}).get("points", [])
-    temperature_points = manifest.get("temperature", {}).get("points", [])
-    accel_files = manifest.get("accelerometer", {}).get("diagnostic_files", [])
-    if len(current_points) < 5:
+    current = manifest.get("current")
+    temperature = manifest.get("temperature")
+    accelerometer = manifest.get("accelerometer")
+    if not isinstance(current, dict) or not isinstance(temperature, dict) or not isinstance(accelerometer, dict):
+        raise CalibrationAssemblyError("current, temperature and accelerometer sections are required")
+
+    current_points = current.get("points", [])
+    temperature_points = temperature.get("points", [])
+    accel_files = accelerometer.get("diagnostic_files", [])
+    if not isinstance(current_points, list) or len(current_points) < 5:
         raise CalibrationAssemblyError("session requires at least five independent current reference points")
-    if len(temperature_points) < 3:
+    if not isinstance(temperature_points, list) or len(temperature_points) < 3:
         raise CalibrationAssemblyError("session requires at least three independent temperature reference points")
-    if not accel_files:
+    if not isinstance(accel_files, list) or not accel_files:
         raise CalibrationAssemblyError("session requires at least one stationary accelerometer diagnostic file")
 
     for section, entries in (("current", current_points), ("temperature", temperature_points)):
@@ -189,21 +204,22 @@ def assemble_capture(manifest: dict, *, base_dir: Path) -> dict:
     _validate_manifest(manifest)
     cache: dict[Path, dict] = {}
     evidence: dict[Path, dict] = {}
+    base_resolved = base_dir.resolve()
 
     def diagnostic(value: object, description: str) -> tuple[Path, dict]:
         path = _resolve(base_dir, value, "diagnostic_file").resolve()
         if path not in cache:
             cache[path] = _load_diagnostic(path)
         if path not in evidence:
-            evidence[path] = _evidence_entry(path, base_dir.resolve(), description)
+            evidence[path] = _evidence_entry(path, base_resolved, description)
         return path, cache[path]
 
     current_points: list[dict] = []
     for index, entry in enumerate(manifest["current"]["points"]):
-        path, capture = diagnostic(entry["diagnostic_file"], "Read-only FPGA diagnostic evidence used for current characterization")
+        path, source = diagnostic(entry["diagnostic_file"], "Read-only FPGA diagnostic evidence used for current characterization")
         raw_values = [
             _sample_number(sample, "ads_ch0_raw", f"{path}:sample[{sample_index}]")
-            for sample_index, sample in enumerate(capture["usable"])
+            for sample_index, sample in enumerate(source["usable"])
         ]
         current_points.append(
             {
@@ -217,10 +233,10 @@ def assemble_capture(manifest: dict, *, base_dir: Path) -> dict:
 
     temperature_points: list[dict] = []
     for index, entry in enumerate(manifest["temperature"]["points"]):
-        path, capture = diagnostic(entry["diagnostic_file"], "Read-only FPGA diagnostic evidence used for temperature characterization")
+        path, source = diagnostic(entry["diagnostic_file"], "Read-only FPGA diagnostic evidence used for temperature characterization")
         values = [
             _sample_number(sample, "tmp117_temperature_c", f"{path}:sample[{sample_index}]")
-            for sample_index, sample in enumerate(capture["usable"])
+            for sample_index, sample in enumerate(source["usable"])
         ]
         temperature_points.append(
             {
@@ -235,9 +251,9 @@ def assemble_capture(manifest: dict, *, base_dir: Path) -> dict:
     accel_samples: list[dict] = []
     accel_sources: list[dict] = []
     for source_index, value in enumerate(manifest["accelerometer"]["diagnostic_files"]):
-        path, capture = diagnostic(value, "Read-only FPGA diagnostic evidence used for stationary accelerometer characterization")
+        path, source = diagnostic(value, "Read-only FPGA diagnostic evidence used for stationary accelerometer characterization")
         start = len(accel_samples)
-        for sample_index, sample in enumerate(capture["usable"]):
+        for sample_index, sample in enumerate(source["usable"]):
             accel_samples.append(
                 {
                     "x": _sample_axis(sample, "x", f"{path}:sample[{sample_index}]"),
@@ -249,7 +265,7 @@ def assemble_capture(manifest: dict, *, base_dir: Path) -> dict:
             {
                 "diagnostic_file": evidence[path]["file"],
                 "sample_start": start,
-                "sample_count": len(capture["usable"]),
+                "sample_count": len(source["usable"]),
                 "source_index": source_index,
             }
         )
@@ -258,10 +274,18 @@ def assemble_capture(manifest: dict, *, base_dir: Path) -> dict:
         raise CalibrationAssemblyError("stationary accelerometer evidence must provide at least 20 trusted samples")
 
     quality = manifest.get("quality_limits", {})
+    if not isinstance(quality, dict):
+        raise CalibrationAssemblyError("quality_limits must be an object when provided")
     current_quality = quality.get("current", {})
     temp_quality = quality.get("temperature", {})
     accel_quality = quality.get("accelerometer", {})
+    for label, section in (("current", current_quality), ("temperature", temp_quality), ("accelerometer", accel_quality)):
+        if not isinstance(section, dict):
+            raise CalibrationAssemblyError(f"quality_limits.{label} must be an object")
+
     expected = manifest["accelerometer"].get("expected_stationary_mg", {"x": 0.0, "y": 0.0, "z": 1000.0})
+    if not isinstance(expected, dict):
+        raise CalibrationAssemblyError("accelerometer.expected_stationary_mg must be an object")
     for axis in ("x", "y", "z"):
         _finite(expected.get(axis), f"accelerometer.expected_stationary_mg.{axis}")
 
@@ -281,18 +305,18 @@ def assemble_capture(manifest: dict, *, base_dir: Path) -> dict:
         },
         "evidence": list(evidence.values()),
         "current": {
-            "minimum_raw_span": float(current_quality.get("minimum_raw_span", 100000.0)),
-            "minimum_r2": float(current_quality.get("minimum_r2", 0.999)),
-            "maximum_rmse_ma": float(current_quality.get("maximum_rmse_ma", 50.0)),
+            "minimum_raw_span": _nonnegative(current_quality.get("minimum_raw_span", 100000.0), "quality_limits.current.minimum_raw_span"),
+            "minimum_r2": _nonnegative(current_quality.get("minimum_r2", 0.999), "quality_limits.current.minimum_r2"),
+            "maximum_rmse_ma": _nonnegative(current_quality.get("maximum_rmse_ma", 50.0), "quality_limits.current.maximum_rmse_ma"),
             "points": current_points,
         },
         "temperature": {
-            "maximum_offset_rmse_c": float(temp_quality.get("maximum_offset_rmse_c", 0.20)),
+            "maximum_offset_rmse_c": _nonnegative(temp_quality.get("maximum_offset_rmse_c", 0.20), "quality_limits.temperature.maximum_offset_rmse_c"),
             "points": temperature_points,
         },
         "accelerometer": {
-            "expected_stationary_mg": {axis: float(expected[axis]) for axis in ("x", "y", "z")},
-            "maximum_abs_bias_mg": float(accel_quality.get("maximum_abs_bias_mg", 250.0)),
+            "expected_stationary_mg": {axis: _finite(expected[axis], f"accelerometer.expected_stationary_mg.{axis}") for axis in ("x", "y", "z")},
+            "maximum_abs_bias_mg": _nonnegative(accel_quality.get("maximum_abs_bias_mg", 250.0), "quality_limits.accelerometer.maximum_abs_bias_mg"),
             "stationary_samples_mg": accel_samples,
             "source_diagnostics": accel_sources,
         },
@@ -319,10 +343,20 @@ def main() -> int:
     parser.add_argument("--proposal-out", type=Path, help="optional review-only calibration proposal generated from the assembled capture")
     args = parser.parse_args()
 
-    manifest = json.loads(args.session.read_text(encoding="utf-8"))
+    try:
+        manifest = json.loads(args.session.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise SystemExit(f"session manifest not found: {args.session}") from exc
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"session manifest is not valid JSON: {args.session}") from exc
     if not isinstance(manifest, dict):
         raise SystemExit("session manifest must contain a JSON object")
-    capture = assemble_capture(manifest, base_dir=args.session.parent)
+
+    try:
+        capture = assemble_capture(manifest, base_dir=args.session.parent)
+    except CalibrationAssemblyError as exc:
+        raise SystemExit(f"calibration assembly failed: {exc}") from exc
+
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(capture, indent=2) + "\n", encoding="utf-8")
     print(f"calibration capture written: {args.out}")
