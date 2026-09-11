@@ -7,7 +7,7 @@ TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 MAINT_INC := -Ifirmware/esp32_calibration_maintenance/main
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check calibration-diagnostic-check calibration-assembler-check calibration-campaign-check calibration-bundle-verification-check calibration-source-change-check calibration-provisioning-check maintenance-provisioning-check signed-maintenance-authorization-check bench-record-validate gowin-build smoke-build calibration-build firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check calibration-diagnostic-check calibration-assembler-check calibration-campaign-check calibration-bundle-verification-check calibration-source-change-check calibration-provisioning-check maintenance-provisioning-check signed-maintenance-authorization-check calibration-recovery-check bench-record-validate gowin-build smoke-build calibration-build firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -99,7 +99,13 @@ maintenance-provisioning-check:
 
 signed-maintenance-authorization-check:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_signed_maintenance_authorization.py
+	PYTHONPATH=$(PYTHONPATH) python tools/validate_signed_provisioning_policy.py
 	PYTHONPATH=$(PYTHONPATH) python tools/check_signed_maintenance_authorization.py
+
+calibration-recovery-check:
+	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_calibration_recovery.py
+	PYTHONPATH=$(PYTHONPATH) python tools/validate_signed_provisioning_policy.py
+	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_recovery.py
 
 bench-record-validate:
 	@test -n "$(RECORD)" || (echo "Usage: make bench-record-validate RECORD=path/to/record.json"; exit 2)
@@ -131,6 +137,7 @@ hardware-check:
 	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_provisioning.py
 	PYTHONPATH=$(PYTHONPATH) python tools/check_maintenance_provisioning.py
 	PYTHONPATH=$(PYTHONPATH) python tools/check_signed_maintenance_authorization.py
+	PYTHONPATH=$(PYTHONPATH) python tools/check_calibration_recovery.py
 
 firmware-host:
 	mkdir -p build
