@@ -21,6 +21,7 @@ def main() -> int:
         '"reference_current_a"',
         '"reference_temperature_c"',
         '"sha256"',
+        '"usable_samples"',
         'build_proposal(capture)',
     ):
         assert token in tool, token
@@ -54,6 +55,8 @@ def main() -> int:
         "test_failed_or_sequence_broken_diagnostic_is_rejected",
         "test_tampered_diagnostic_authority_is_rejected",
         "test_duplicate_source_within_current_characterization_is_rejected",
+        "test_duplicate_accelerometer_source_is_rejected",
+        "test_inconsistent_reported_usable_sample_count_is_rejected",
         "test_missing_independent_reference_value_is_rejected",
     ):
         assert token in tests, token
@@ -65,7 +68,7 @@ def main() -> int:
     assert "at least three" in docs.lower()
     assert "20" in docs
 
-    print("calibration_assembler_check PASS: independent-reference assembly, evidence hashing and review-only authority are present")
+    print("calibration_assembler_check PASS: independent-reference assembly, evidence hashing, duplicate rejection, summary consistency and review-only authority are present")
     return 0
 
 
