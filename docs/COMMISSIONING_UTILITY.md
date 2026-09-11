@@ -39,13 +39,13 @@ A successful ESP-IDF target build/flash remains physical/tool evidence and must 
 
 ## Host installation
 
-The core commissioning library and tests use only the Python standard library plus the existing ForgeSense protocol modules. Physical serial access uses the optional `pyserial` dependency:
+The core commissioning library and tests use only the Python standard library plus the existing ForgeSense protocol modules. Physical serial access needs `pyserial`:
 
 ```bash
-python -m pip install -e '.[commissioning]'
+python -m pip install 'pyserial>=3.5,<4'
 ```
 
-For repository-source execution without installing the package:
+Run directly from the repository source tree:
 
 ```bash
 PYTHONPATH=protocol/python:commissioning python -m forgesense_commission --help
