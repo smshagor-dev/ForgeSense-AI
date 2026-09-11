@@ -6,7 +6,7 @@ EVENT_INC := -Ifirmware/components/forgesense_events/include
 TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check bench-record-validate gowin-build smoke-build firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check bench-record-validate gowin-build smoke-build firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -57,6 +57,10 @@ commissioning-check:
 	g++ $(CXXFLAGS) $(PROTO_INC) firmware/components/forgesense_protocol/forgesense_protocol.cpp firmware/tests/commissioning_status_test.cpp -o build/commissioning_status_test
 	./build/commissioning_status_test
 
+calibration-check:
+	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_calibration_capture.py
+	python tools/check_calibration_capture.py
+
 bench-record-validate:
 	@test -n "$(RECORD)" || (echo "Usage: make bench-record-validate RECORD=path/to/record.json"; exit 2)
 	python tools/validate_bench_record.py "$(RECORD)"
@@ -74,6 +78,7 @@ hardware-check:
 	python tools/check_tang_nano_9k_pinmap.py
 	python tools/check_physical_bringup.py
 	python tools/check_commissioning_contract.py
+	python tools/check_calibration_capture.py
 
 firmware-host:
 	mkdir -p build
