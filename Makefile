@@ -51,8 +51,11 @@ bringup-check:
 	python tools/check_physical_bringup.py
 
 commissioning-check:
+	mkdir -p build
 	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_commissioning.py
 	python tools/check_commissioning_contract.py
+	g++ $(CXXFLAGS) $(PROTO_INC) firmware/components/forgesense_protocol/forgesense_protocol.cpp firmware/tests/commissioning_status_test.cpp -o build/commissioning_status_test
+	./build/commissioning_status_test
 
 bench-record-validate:
 	@test -n "$(RECORD)" || (echo "Usage: make bench-record-validate RECORD=path/to/record.json"; exit 2)
