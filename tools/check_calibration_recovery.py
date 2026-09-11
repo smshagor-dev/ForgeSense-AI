@@ -51,6 +51,9 @@ def main() -> int:
         "validate_recovery_runtime_binding",
         "candidate != installed + 1",
         "active record SHA-256 changed",
+        "increment_exactly_one",
+        "verify_recovery_aware_reboot",
+        "exact_record_sha256_match",
         '"sequence_decrement_performed": False',
     ):
         assert token in recovery_host, token
@@ -82,6 +85,7 @@ def main() -> int:
         "_verify_recovery_if_present(args)",
         "RecoveryMaintenanceClient",
         "apply_recovery_aware_signed_provisioning",
+        "verify_recovery_aware_reboot",
         "active_record_sha256",
         "active_record_hex",
     ):
@@ -143,13 +147,14 @@ def main() -> int:
         "test_active_record_query_returns_exact_blob_hash_sequence_and_crc",
         "test_runtime_recovery_binding_rejects_changed_active_record",
         "test_recovery_verifier_rejects_tampered_active_record_binding",
+        "test_recovery_reboot_verification_requires_exact_record_sha",
     ):
         assert token in tests, token
 
     print(
         "calibration_recovery_check PASS: strict signed policy, exact active-record readback, approved-profile "
-        "restoration at the next higher sequence, signed authorization, no automatic recovery, and source-review-only "
-        "authority-key rotation boundary are present"
+        "restoration at the next higher sequence, exact SHA recheck after reboot, signed authorization, no automatic "
+        "recovery, and source-review-only authority-key rotation boundary are present"
     )
     return 0
 
