@@ -6,7 +6,7 @@ EVENT_INC := -Ifirmware/components/forgesense_events/include
 TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check gowin-build firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -44,10 +44,17 @@ sensor-device-check:
 sensor-behavior-check:
 	python tools/check_sensor_behavioral_verification.py
 
+tang-pin-check:
+	python tools/check_tang_nano_9k_pinmap.py
+
+gowin-build: tang-pin-check
+	gw_sh fpga/scripts/tang_nano_9k_build.tcl
+
 hardware-check:
 	python tools/check_hardware_baseline.py
 	python tools/check_reference_circuits.py
 	python tools/check_sensor_device_drivers.py
+	python tools/check_tang_nano_9k_pinmap.py
 
 firmware-host:
 	mkdir -p build
