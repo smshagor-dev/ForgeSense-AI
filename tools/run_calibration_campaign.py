@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import math
 from pathlib import Path
 import re
 import shutil
@@ -154,25 +153,37 @@ def build_campaign_bundle(manifest: dict, *, base_dir: Path) -> tuple[dict[str, 
     run_results: list[dict] = []
     source_entries: list[dict] = [
         {
+            "role": "campaign_manifest",
+            "path": "<campaign-manifest-content>",
+            "sha256": _canonical_sha256(manifest),
+            "hash_mode": "canonical_json",
+        },
+        {
             "role": "review_policy",
             "path": str(policy_path),
             "sha256": _file_sha256(policy_path),
             "hash_mode": "raw_file_bytes",
-        }
+        },
     ]
+    resolved_sessions: set[Path] = set()
 
     for index, run in enumerate(manifest["runs"]):
         run_id = str(run["run_id"])
         session_path = _resolve(base_dir, run["session_manifest"], f"runs[{index}].session_manifest").resolve()
+        if session_path in resolved_sessions:
+            raise CalibrationCampaignError(
+                f"resolved session manifest {session_path} is reused by more than one campaign run"
+            )
+        resolved_sessions.add(session_path)
         session = _load_json(session_path, f"session manifest for {run_id}")
         _validate_session_scope(manifest, session, session_path)
 
         try:
             capture = assemble_capture(session, base_dir=session_path.parent)
-        except CalibrationAssemblyError as exc:
+            proposal = build_proposal(capture)
+        except (CalibrationAssemblyError, TypeError, ValueError) as exc:
             raise CalibrationCampaignError(f"run {run_id}: calibration assembly failed: {exc}") from exc
 
-        proposal = build_proposal(capture)
         proposal["source_capture_sha256"] = _canonical_sha256(capture)
         proposals.append(proposal)
 
