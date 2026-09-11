@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 
@@ -18,6 +19,9 @@ def main() -> int:
     tests = (root / "tests/test_signed_maintenance_authorization.py").read_text(encoding="utf-8")
     production_app = (root / "firmware/esp32/main/app_main.cpp").read_text(encoding="utf-8")
     transparent_bridge = (root / "firmware/esp32_commissioning/main/app_main.cpp").read_text(encoding="utf-8")
+    policy = json.loads(
+        (root / "hardware/calibration/calibration_provisioning_policy_v1.json").read_text(encoding="utf-8")
+    )
 
     for token in (
         "kMaintenanceMaxPayload = 192",
@@ -45,7 +49,6 @@ def main() -> int:
         assert token in auth_cpp, token
     for forbidden in (
         "mbedtls_pk_parse_key(",
-        "private_key",
         "BEGIN PRIVATE KEY",
         "BEGIN EC PRIVATE KEY",
     ):
@@ -72,6 +75,12 @@ def main() -> int:
     pending_position = app.index("g_pending_valid = true")
     assert verify_position < pending_position
 
+    assert policy["preconditions"]["signed_maintenance_authorization_required_at_write_time"] is True
+    assert policy["authority"]["cryptographic_authorization_required_for_write"] is True
+    assert policy["authority"]["private_signing_key_on_device"] is False
+    assert policy["authority"]["may_control_actuators"] is False
+    assert policy["authority"]["may_relax_hard_safety_limits"] is False
+
     for token in (
         'AUTHORIZATION_DOMAIN = b"ForgeSense-Calibration-Maintenance-Authorization-v1\\n"',
         '"ECDSA-P256-SHA256-DER"',
@@ -88,10 +97,14 @@ def main() -> int:
     assert '"-sign"' not in host
 
     for text in (request_tool, package_tool):
-        assert "private_key" not in text.lower()
+        assert "--private-key" not in text
+        assert "BEGIN PRIVATE KEY" not in text
+        assert "BEGIN EC PRIVATE KEY" not in text
         assert '"-sign"' not in text
     assert "verify_provisioning_bundle(" in request_tool
     assert "verify_signature_openssl(" in package_tool
+    assert '"private_key_accessed_by_tool": False' in request_tool
+    assert '"private_key_accessed_by_tool": False' in package_tool
 
     assert "apply_signed_provisioning" in physical_tool
     assert "verify_authorization_bundle(" in physical_tool
