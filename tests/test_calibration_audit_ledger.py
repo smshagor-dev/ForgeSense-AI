@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import hashlib
 import json
 from pathlib import Path
 
@@ -88,7 +87,18 @@ def physical_write_report(
     return report
 
 
-def reboot_report(write_report: dict) -> dict:
+def bind_preflight(report: dict, ledger: Path) -> dict:
+    state = verify_ledger(ledger, policy_path=POLICY)
+    report["host_verification"] = {
+        "audit_ledger_required": True,
+        "audit_ledger_preflight_verified": True,
+        "audit_ledger_head_before_operation": state.head_sha256,
+        "audit_ledger_entry_count_before_operation": state.entry_count,
+    }
+    return report
+
+
+def reboot_report(write_report: dict, ledger: Path) -> dict:
     report = copy.deepcopy(write_report)
     report["reboot_recovery_verified"] = True
     report["reboot_verification"] = {
@@ -99,7 +109,7 @@ def reboot_report(write_report: dict) -> dict:
         "sequence_match": True,
         "crc_match": True,
     }
-    return report
+    return bind_preflight(report, ledger)
 
 
 def init_ledger(tmp_path: Path) -> tuple[Path, Path]:
@@ -140,7 +150,10 @@ def test_write_reboot_recovery_chain_is_contiguous(tmp_path: Path) -> None:
     ledger, _ = init_ledger(tmp_path)
 
     write1_path = tmp_path / "write-1.json"
-    write1 = physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA)
+    write1 = bind_preflight(
+        physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA),
+        ledger,
+    )
     write_json(write1_path, write1)
     state1 = append_write_evidence(ledger, evidence_path=write1_path, policy_path=POLICY)
     assert state1.sequence == 1
@@ -148,18 +161,21 @@ def test_write_reboot_recovery_chain_is_contiguous(tmp_path: Path) -> None:
     assert state1.entry_count == 2
 
     reboot1_path = tmp_path / "reboot-1.json"
-    write_json(reboot1_path, reboot_report(write1))
+    write_json(reboot1_path, reboot_report(write1, ledger))
     rebooted = append_reboot_evidence(ledger, evidence_path=reboot1_path, policy_path=POLICY)
     assert rebooted.sequence == 1
     assert rebooted.record_sha256 == RECORD1_SHA
     assert rebooted.entry_count == 3
 
     recovery_path = tmp_path / "recovery.json"
-    recovery = physical_write_report(
-        from_sequence=1,
-        to_sequence=2,
-        record_sha=RECORD2_SHA,
-        recovery=True,
+    recovery = bind_preflight(
+        physical_write_report(
+            from_sequence=1,
+            to_sequence=2,
+            record_sha=RECORD2_SHA,
+            recovery=True,
+        ),
+        ledger,
     )
     write_json(recovery_path, recovery)
     recovered = append_write_evidence(ledger, evidence_path=recovery_path, policy_path=POLICY)
@@ -174,7 +190,11 @@ def test_write_reboot_recovery_chain_is_contiguous(tmp_path: Path) -> None:
 def test_entry_tamper_is_detected(tmp_path: Path) -> None:
     ledger, _ = init_ledger(tmp_path)
     evidence = tmp_path / "write.json"
-    write_json(evidence, physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA))
+    report = bind_preflight(
+        physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA),
+        ledger,
+    )
+    write_json(evidence, report)
     append_write_evidence(ledger, evidence_path=evidence, policy_path=POLICY)
 
     entry_path = ledger / "00000001.json"
@@ -188,16 +208,32 @@ def test_entry_tamper_is_detected(tmp_path: Path) -> None:
 def test_duplicate_or_replayed_write_evidence_is_rejected(tmp_path: Path) -> None:
     ledger, _ = init_ledger(tmp_path)
     evidence = tmp_path / "write.json"
-    write_json(evidence, physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA))
+    report = bind_preflight(
+        physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA),
+        ledger,
+    )
+    write_json(evidence, report)
     append_write_evidence(ledger, evidence_path=evidence, policy_path=POLICY)
-    with pytest.raises(CalibrationAuditLedgerError, match="does not continue"):
+    with pytest.raises(CalibrationAuditLedgerError, match="head does not match"):
+        append_write_evidence(ledger, evidence_path=evidence, policy_path=POLICY)
+
+
+def test_legacy_evidence_without_preflight_binding_is_rejected(tmp_path: Path) -> None:
+    ledger, _ = init_ledger(tmp_path)
+    evidence = tmp_path / "legacy-write.json"
+    write_json(evidence, physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA))
+    with pytest.raises(CalibrationAuditLedgerError, match="host preflight binding"):
         append_write_evidence(ledger, evidence_path=evidence, policy_path=POLICY)
 
 
 def test_live_record_drift_and_signer_drift_fail_closed(tmp_path: Path) -> None:
     ledger, _ = init_ledger(tmp_path)
     evidence = tmp_path / "write.json"
-    write_json(evidence, physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA))
+    report = bind_preflight(
+        physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA),
+        ledger,
+    )
+    write_json(evidence, report)
     append_write_evidence(ledger, evidence_path=evidence, policy_path=POLICY)
 
     with pytest.raises(CalibrationAuditLedgerError, match="CalibrationRecord SHA-256 differs"):
@@ -224,19 +260,24 @@ def test_live_record_drift_and_signer_drift_fail_closed(tmp_path: Path) -> None:
 def test_recovery_event_requires_exact_next_sequence(tmp_path: Path) -> None:
     ledger, _ = init_ledger(tmp_path)
     first = tmp_path / "first.json"
-    write_json(first, physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA))
+    first_report = bind_preflight(
+        physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA),
+        ledger,
+    )
+    write_json(first, first_report)
     append_write_evidence(ledger, evidence_path=first, policy_path=POLICY)
 
     bad = tmp_path / "bad-recovery.json"
-    write_json(
-        bad,
+    bad_report = bind_preflight(
         physical_write_report(
             from_sequence=1,
             to_sequence=3,
             record_sha=RECORD2_SHA,
             recovery=True,
         ),
+        ledger,
     )
+    write_json(bad, bad_report)
     with pytest.raises(CalibrationAuditLedgerError, match="exactly the next"):
         append_write_evidence(ledger, evidence_path=bad, policy_path=POLICY)
 
