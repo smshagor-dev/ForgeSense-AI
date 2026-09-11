@@ -1,6 +1,6 @@
 # Implementation Status
 
-This document records what currently exists and what has executable evidence. It is intentionally more conservative than product-facing material.
+This document records what currently exists and what has executable or source-level evidence. It is intentionally more conservative than product-facing material.
 
 ## Executable now
 
@@ -42,13 +42,34 @@ The complete ESP-IDF target build still requires validation on the selected phys
 
 ### FPGA sensing and board integration
 
-The VHDL tree contains deterministic safety/control, protocol RX/TX, UART, sample/timebase logic, generated sensor contract constants, and sensor freshness supervision.
+The VHDL tree contains deterministic safety/control, protocol RX/TX, UART, sample/timebase logic, generated sensor contract constants, sensor freshness supervision, physical-interface adapters, and selected-device acquisition controllers.
 
-The frontend includes signed raw-code calibration, fixed-window integer vibration RMS, normalized update strobes, numeric-saturation diagnostics, and `forgesense_sensor_board_core` connecting the frontend through `sensor_supervisor` into the board core.
+The normalized frontend includes signed raw-code calibration, fixed-window integer vibration RMS, normalized update strobes, numeric-saturation diagnostics, and `forgesense_sensor_board_core` connecting the frontend through `sensor_supervisor` into the board core.
 
 The physical-interface reference adds `generic_adc_sample_adapter`, `digital_temperature_adapter`, `accelerometer_conditioner`, `sensor_self_test`, and `forgesense_phy_board_core`. The wrapper exposes both transport-level self-test and normalized `sensors_valid`; deterministic safety continues to rely on normalized freshness/plausibility rather than transport activity alone.
 
-The component selection and electrical support networks are now defined, but device-specific ADS131M02/ADXL355/TMP117 register transactions and final FPGA application pin assignments are not yet implemented/frozen. The existing vendor-neutral sample interfaces remain the executable boundary until those device drivers are completed and tested.
+Selected register-level acquisition now exists for:
+
+- TMP117 over I2C with Device ID verification, repeated-start temperature reads, ACK/NACK handling, and signed temperature conversion;
+- ADXL355 over SPI mode 0 with identity checks, FILTER/RANGE/POWER_CTL programming and readback, DRDY-driven X/Y/Z burst acquisition, and fixed-point milli-g conversion;
+- ADS131M02 over CPOL=0/CPHA=1 SPI with delayed RREG response handling, CLOCK programming/readback, 24-bit four-word conversion frames, and mandatory output CRC validation.
+
+`forgesense_reference_sensor_io.vhd` composes the three selected devices with the existing normalized sensing and deterministic safety path.
+
+### Selected sensor behavioral verification
+
+Bus-level device models now exist under `fpga/tb/models/` for TMP117, ADXL355, and ADS131M02. They connect to the same I2C/SPI pins as the controller RTL and provide deterministic normal data plus fault injection.
+
+Coverage includes:
+
+- TMP117 valid identity/temperature, forced NACK, and wrong identity;
+- ADXL355 valid configuration/sample burst, wrong identity, and corrupted configuration readback;
+- ADS131M02 valid startup/sample frames, wrong identity, corrupted CLOCK readback, and corrupted output CRC;
+- a combined selected-sensor acquisition-cluster test in which all three devices reach trusted configuration state and publish deterministic measurements.
+
+`tools/check_sensor_behavioral_verification.py` enforces the expected model/test inventory and critical assertions. `.github/workflows/sensor-behavioral.yml` is configured to analyze and run the four self-checking GHDL suites when a hosted runner is allocated.
+
+These models are verification sources, not physical-device evidence.
 
 ### Calibration authority
 
@@ -58,7 +79,7 @@ This preserves the rule that a compromised or malfunctioning monitoring/intellig
 
 ### Component-backed low-voltage hardware baseline
 
-`hardware/profiles/hardware_baseline_v1.json` is now revision `HW-BL-003`. It links the protected power-entry, sensing-support, current-sense, motor-output, interconnect, package, and net-freeze sources used for schematic capture.
+`hardware/profiles/hardware_baseline_v1.json` is revision `HW-BL-004`. It links the protected power-entry, sensing-support, selected-device, current-sense, motor-output, interconnect, package, and net-freeze sources used for schematic capture.
 
 The 12 V input reference is:
 
@@ -70,34 +91,45 @@ connector
   -> VIN_12V_PROTECTED
 ```
 
-The TPS259470L reference network produces approximately 9.03 V UVLO, 18.07 V OVLO, 4.04 A current limit, about 10.1 ms overcurrent blanking, and approximately 19.8 ms rise to 12 V. The intended current-intervention order is approximately 3.46 A analog motor hard trip, 4.04 A power-entry eFuse limit, then 5 A passive fuse.
+The TPS259470L reference network produces approximately 9.03 V UVLO, 18.07 V OVLO, 4.04 A current limit, about 10.1 ms overcurrent blanking, and approximately 19.8 ms rise to 12 V.
+
+The intended protection ordering is:
+
+```text
+~3.47 A independent analog motor hard trip
+< ~4.04 A power-entry eFuse reference limit
+< 5 A passive fuse
+```
 
 The logic tree uses TPS54202DDCR for 5 V and TPS7A2033PDBVR for the quiet 3.3 V sensing rail.
 
-The current measurement reference uses a 25 mOhm Kelvin shunt and INA181A1IDBVR at 20 V/V. At 3.2 A it produces 80 mV across the shunt, 1.60 V at `CS_OUT`, and approximately 0.256 W shunt dissipation. TLV3201AIDBVR compares `CS_OUT` against an approximately 1.729 V divider reference, corresponding to an ideal 3.46 A backup trip. Hysteresis remains DNI until measured switching-noise evidence exists.
+The current measurement reference uses a 15 mOhm Kelvin shunt and INA181A1IDBVR at 20 V/V. At 3.2 A it produces 48 mV across the shunt and 0.960 V at `CS_OUT`, which is 80% of the selected ADS131M02 gain-1 positive differential full-scale reference. Shunt dissipation at that reference point is approximately 0.154 W.
+
+TLV3201AIDBVR compares `CS_OUT` against an approximately 1.042 V divider reference, corresponding to an ideal analog backup trip near 3.47 A. Hysteresis remains DNI until measured switching-noise evidence exists.
 
 UCC27511ADBVR drives CSD18540Q5B from 5 V. A normally-closed E-stop loop drives the driver's inverting input as a fail-high physical inhibit, while SN74LVC1G17DBVR exposes the state to the FPGA. STPS5L60U is the current flyback reference.
 
 ### Precision sensor support
 
-`hardware/profiles/sensor_support_v1.json` defines the selected support networks without claiming physical performance:
+`hardware/profiles/sensor_support_v1.json` and `hardware/profiles/sensor_devices_v1.json` define the selected support and register-level contracts without claiming physical performance:
 
-- ADS131M02IPWR: 3.3 V AVDD/DVDD, 1 uF local rail decoupling, 220 nF CAP decoupling, internal reference, 8.192 MHz SiT8924 master clock, SPI and DRDY nets;
-- ADXL355BEZ: 3.3 V supply/I/O, internal 1.8 V regulators, local bypass and discharge resistors, mode-0 SPI, 2 MHz starting clock, 1 kHz ForgeSense acquisition target, dedicated/gated SCLK requirement;
-- TMP117AIDRVR: 3.3 V, 0.1 uF bypass, ADD0 to GND, 4.99 kOhm reference pull-ups for SCL/SDA/ALERT.
+- ADS131M02IPWR: 3.3 V AVDD/DVDD, local decoupling, internal reference, 8.192 MHz master clock, CPOL=0/CPHA=1 FPGA transport, 24-bit words, selected 1 kSPS configuration, output CRC required;
+- ADXL355BEZ: 3.3 V supply/I/O, local bypass/discharge network, SPI mode 0, 2 MHz starting clock, selected 1 kHz output-data rate, +/-8 g range, identity and configuration readback checks;
+- TMP117AIDRVR: 3.3 V, 0.1 uF bypass, ADD0 to GND, 4.99 kOhm reference pull-ups, Device ID `0x0117`, repeated-start two-byte temperature read.
 
 TMP117 ALERT remains diagnostic and does not replace the normalized FPGA temperature hard limit.
 
 ### Schematic-capture sources
 
-The pre-layout electrical source set now includes:
+The pre-layout electrical source set includes:
 
 - `hardware/profiles/power_entry_v1.json`;
 - `hardware/profiles/sensor_support_v1.json`;
+- `hardware/profiles/sensor_devices_v1.json`;
 - `hardware/profiles/hardware_baseline_v1.json`;
 - `hardware/profiles/reference_circuit_v1.json`;
 - `hardware/profiles/interconnect_v1.json`;
-- `hardware/kicad/schematic_contract_v1.json` (`SCH-CON-002`);
+- `hardware/kicad/schematic_contract_v1.json`;
 - `hardware/kicad/POWER_AND_SAFETY_SHEET_V1.md`;
 - `hardware/kicad/component_packages_v1.csv`;
 - `hardware/kicad/net_endpoints_v1.csv`;
@@ -107,19 +139,19 @@ Manufacturer orderable MPN/package information is recorded separately from KiCad
 
 ### Hardware consistency checks
 
-`make hardware-check` executes the cross-file hardware baseline checker and analytical circuit checker.
+`make hardware-check` validates the cross-file hardware baseline, analytical circuit calculations, and selected sensor register/transport contracts.
 
-The hardware checker validates, among other things:
+Checks include:
 
 - eFuse UVLO/OVLO/current-limit/slew arithmetic;
 - TVS/eFuse voltage coordination assumptions;
 - analog-trip < eFuse < fuse ordering;
-- current transfer and shunt thermal ratio;
+- revised 15 mOhm current transfer and ADC headroom;
 - motor-driver/MOSFET/flyback reference constraints;
 - E-stop fail-high hardware-inhibit policy;
-- ADS131M02 clock/decoupling contract;
-- ADXL355 SPI/discharge contract;
-- TMP117 pull-up/bypass contract;
+- ADS131M02 clock, framing, CRC, and selected register contract;
+- ADXL355 selected identities/register configuration;
+- TMP117 address/identity/temperature-register contract;
 - BOM and package-manifest coverage;
 - critical-net endpoint presence;
 - continued absence of guessed FPGA application pins.
@@ -128,19 +160,22 @@ Behavioral SPICE files exist for the current-sense and inductive motor-output to
 
 ## Current validation baseline
 
-Repository validation covers Python simulation/integration, portable C++ protocol/stream/inference/event/telemetry/sensor-contract/sensing/PHY checks, self-checking VHDL testbenches, hardware-profile consistency checks, and analytical low-voltage circuit checks.
+Repository validation covers Python simulation/integration, portable C++ protocol/stream/inference/event/telemetry/sensor-contract/sensing/PHY checks, hardware-profile consistency checks, analytical low-voltage circuit checks, and a growing set of self-checking VHDL verification sources.
 
-Reference checks include calibration encode/decode and CRC-corruption rejection, invalid-calibration rejection, PHY normalization, deterministic 3 g / 4 g two-sample RMS = 3535 mg, signed 24-bit raw-range rejection, profile/schema consistency, protected-entry equations, current-sense calculations, and safety ordering.
+Reference software checks include calibration encode/decode and CRC-corruption rejection, invalid-calibration rejection, PHY normalization, deterministic 3 g / 4 g two-sample RMS = 3535 mg, signed 24-bit raw-range rejection, profile/schema consistency, protected-entry equations, current-sense calculations, and safety ordering.
 
 The deterministic seven-scenario software matrix covers normal operation, bearing degradation, overcurrent trend, cooling loss, sensor dropout, intelligence-link loss, and emergency input.
+
+The selected sensor behavioral suite is wired for GHDL execution. Local GHDL execution is not claimed in the current development environment, and recent hosted runs have historically stopped before job-step allocation. A passing hosted or retained local GHDL run is therefore still required before reporting compiler/simulation success for the new bus-level models.
 
 ## Evidence still missing
 
 The following remain intentionally unclaimed until measured or tool-verified:
 
+- a retained successful GHDL compile/run for the new selected-device bus models;
 - selected physical sensor accuracy and calibration;
-- ADS131M02 register-driver operation and measured ADC/reference/shunt/amplifier transfer accuracy;
-- ADXL355 and TMP117 device-driver behavior on physical buses;
+- ADS131M02 behavior on the physical bus and measured ADC/reference/shunt/amplifier transfer accuracy;
+- ADXL355 and TMP117 behavior on physical buses;
 - actual shunt temperature rise and current-sense drift;
 - comparator trip tolerance and chatter under motor switching noise;
 - eFuse current-limit behavior, UVLO/OVLO tolerances, and real inrush waveform;
