@@ -40,6 +40,8 @@ def main() -> int:
         assert token in auth_h, token
 
     for token in (
+        "kPrime256v1Oid",
+        "contains_prime256v1_oid",
         "mbedtls_pk_parse_public_key",
         "mbedtls_pk_verify",
         "MBEDTLS_MD_SHA256",
@@ -133,8 +135,9 @@ def main() -> int:
         assert token in tests, token
 
     print(
-        "signed_maintenance_authorization_check PASS: pinned public-key verification, external detached signing, "
-        "device/sequence/artifact/record binding, signed-only physical apply, and production safety separation are present"
+        "signed_maintenance_authorization_check PASS: exact prime256v1 pinned-key verification, external detached "
+        "signing, device/sequence/artifact/record binding, signed-only physical apply, and production safety "
+        "separation are present"
     )
     return 0
 
