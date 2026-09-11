@@ -3,6 +3,7 @@ idf_component_register(
         "app_main.cpp"
         "link_service.cpp"
         "event_store_nvs.cpp"
+        "calibration_store_nvs.cpp"
         "telemetry_publisher.cpp"
     INCLUDE_DIRS "."
     REQUIRES
@@ -13,6 +14,7 @@ idf_component_register(
         forgesense_inference
         forgesense_events
         forgesense_telemetry
+        forgesense_sensing
 )
 
 target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_20)
