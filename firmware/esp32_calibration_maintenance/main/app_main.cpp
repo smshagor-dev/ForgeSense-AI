@@ -31,6 +31,7 @@ using forgesense::sensing::CalibrationRecord;
 constexpr std::size_t kUsbReadBufferSize = 256;
 constexpr std::size_t kStatusPayloadSize = 27;
 constexpr std::size_t kAuthorizationStatusPayloadSize = 34;
+constexpr std::size_t kActiveRecordResponseSize = 50;
 constexpr std::size_t kPrepareFixedRequestSize = 90;
 constexpr std::size_t kPrepareResponseSize = 13;
 constexpr std::size_t kCommitRequestSize = 12;
@@ -189,6 +190,32 @@ void handle_query_authorization() {
         std::memcpy(payload.data() + 2U, fingerprint.data(), fingerprint.size());
     }
     send_response(MaintenanceOpcode::AuthorizationResponse, payload.data(), payload.size());
+}
+
+void handle_query_active_record() {
+    if (!g_store_ready) {
+        send_status_only(
+            MaintenanceOpcode::ActiveRecordResponse,
+            MaintenanceStatus::StoreUnavailable);
+        return;
+    }
+
+    std::array<std::uint8_t, kActiveRecordResponseSize> payload{};
+    payload[0] = static_cast<std::uint8_t>(MaintenanceStatus::Ok);
+    if (g_store.has_active()) {
+        CalibrationRecord active{};
+        std::array<std::uint8_t, forgesense::sensing::kCalibrationBlobSize> encoded{};
+        if (!g_store.load_active(active) ||
+            !forgesense::sensing::encode_calibration_record(active, encoded)) {
+            send_status_only(
+                MaintenanceOpcode::ActiveRecordResponse,
+                MaintenanceStatus::InternalError);
+            return;
+        }
+        payload[1] = 1U;
+        std::memcpy(payload.data() + 2U, encoded.data(), encoded.size());
+    }
+    send_response(MaintenanceOpcode::ActiveRecordResponse, payload.data(), payload.size());
 }
 
 void handle_prepare(const MaintenanceFrame& frame) {
@@ -376,6 +403,15 @@ void handle_frame(const MaintenanceFrame& frame) {
             } else {
                 send_status_only(
                     MaintenanceOpcode::AuthorizationResponse,
+                    MaintenanceStatus::BadRequest);
+            }
+            break;
+        case MaintenanceOpcode::QueryActiveRecord:
+            if (frame.payload_size == 0U) {
+                handle_query_active_record();
+            } else {
+                send_status_only(
+                    MaintenanceOpcode::ActiveRecordResponse,
                     MaintenanceStatus::BadRequest);
             }
             break;

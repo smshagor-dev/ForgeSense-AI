@@ -1,0 +1,34 @@
+{
+  "schema": "forgesense.maintenance_authority_policy.v1",
+  "policy_id": "CAL-AUTH-001",
+  "algorithm": {
+    "signature": "ECDSA-P256-SHA256-DER",
+    "curve": "prime256v1",
+    "public_key_encoding": "DER-SubjectPublicKeyInfo",
+    "fingerprint": "SHA-256"
+  },
+  "key_material": {
+    "private_key_in_repository": false,
+    "private_key_on_device": false,
+    "private_key_loaded_by_forgesense_tooling": false,
+    "public_key_pinned_in_maintenance_image": true,
+    "public_key_fingerprint_readback_required": true
+  },
+  "rotation": {
+    "runtime_key_update_supported": false,
+    "remote_key_update_supported": false,
+    "dual_key_overlap_supported": false,
+    "rotation_requires_source_review": true,
+    "rotation_requires_maintenance_image_rebuild": true,
+    "rotation_requires_new_image_verification": true,
+    "old_key_revocation_requires_new_maintenance_image": true,
+    "normal_calibration_write_may_rotate_key": false
+  },
+  "authority": {
+    "automatic_key_rotation": false,
+    "may_control_actuators": false,
+    "may_relax_hard_safety_limits": false,
+    "production_runtime_key_update_authority": false
+  },
+  "boundary": "Key rotation is a maintenance-image source/build operation, never a calibration record command."
+}

@@ -19,10 +19,12 @@ enum class MaintenanceOpcode : std::uint8_t {
     PrepareRecord = 0x02,
     CommitRecord = 0x03,
     QueryAuthorization = 0x04,
+    QueryActiveRecord = 0x05,
     StatusResponse = 0x81,
     PrepareResponse = 0x82,
     CommitResponse = 0x83,
     AuthorizationResponse = 0x84,
+    ActiveRecordResponse = 0x85,
 };
 
 enum class MaintenanceStatus : std::uint8_t {

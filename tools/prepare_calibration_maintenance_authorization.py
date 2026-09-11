@@ -12,6 +12,7 @@ try:
         MaintenanceProvisioningError,
         load_provisioning_bundle,
     )
+    from commissioning.forgesense_commission.recovery import RECOVERY_INTENT_SCHEMA
     from commissioning.forgesense_commission.signed_provisioning import (
         AUTHORIZATION_REQUEST_SCHEMA,
         authorization_payload,
@@ -21,20 +22,37 @@ except ModuleNotFoundError:
         MaintenanceProvisioningError,
         load_provisioning_bundle,
     )
+    from forgesense_commission.recovery import RECOVERY_INTENT_SCHEMA  # type: ignore
     from forgesense_commission.signed_provisioning import (  # type: ignore
         AUTHORIZATION_REQUEST_SCHEMA,
         authorization_payload,
     )
 
 try:
+    from tools.validate_signed_provisioning_policy import (
+        SignedProvisioningPolicyError,
+        validate_signed_provisioning_policy,
+    )
     from tools.verify_calibration_provisioning import (
         CalibrationProvisioningVerificationError,
         verify_provisioning_bundle,
     )
+    from tools.verify_calibration_recovery import (
+        CalibrationRecoveryVerificationError,
+        verify_recovery_bundle,
+    )
 except ModuleNotFoundError:
+    from validate_signed_provisioning_policy import (  # type: ignore
+        SignedProvisioningPolicyError,
+        validate_signed_provisioning_policy,
+    )
     from verify_calibration_provisioning import (  # type: ignore
         CalibrationProvisioningVerificationError,
         verify_provisioning_bundle,
+    )
+    from verify_calibration_recovery import (  # type: ignore
+        CalibrationRecoveryVerificationError,
+        verify_recovery_bundle,
     )
 
 
@@ -46,7 +64,32 @@ def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _recovery_verification_if_present(args: argparse.Namespace, package: dict) -> dict | None:
+    intent = package.get("intent")
+    if intent is None:
+        return None
+    if not isinstance(intent, dict) or intent.get("schema") != RECOVERY_INTENT_SCHEMA:
+        raise MaintenanceProvisioningError("unsupported provisioning intent in authorization request")
+    return verify_recovery_bundle(
+        args.provisioning_dir,
+        source_change_dir=args.source_change_dir,
+        bundle_dir=args.bundle,
+        change_package_dir=args.change_package_dir,
+        approval_path=args.approval,
+        source_root=args.source_root,
+        campaign_manifest=args.campaign_manifest,
+        repo_root=args.repo_root,
+        source_change_policy_path=args.source_change_policy,
+        device_state_path=args.device_state,
+        provisioning_policy_path=args.provisioning_policy,
+    )
+
+
 def build_request(args: argparse.Namespace) -> dict[str, bytes]:
+    # Signing requests are allowed only under the stricter physical-write policy,
+    # not merely any package policy accepted by the offline bundle builder.
+    validate_signed_provisioning_policy(args.provisioning_policy)
+
     verification = verify_provisioning_bundle(
         args.provisioning_dir,
         source_change_dir=args.source_change_dir,
@@ -73,6 +116,7 @@ def build_request(args: argparse.Namespace) -> dict[str, bytes]:
             )
 
     package, index, record_blob = load_provisioning_bundle(args.provisioning_dir)
+    recovery_verification = _recovery_verification_if_present(args, package)
     sequence = package.get("sequence")
     if not isinstance(sequence, dict):
         raise MaintenanceProvisioningError("provisioning sequence metadata is missing")
@@ -99,11 +143,23 @@ def build_request(args: argparse.Namespace) -> dict[str, bytes]:
         "provisioning_verification": {
             key: verification.get(key) is True for key in required_true
         },
+        "recovery_verification": (
+            {
+                "schema": recovery_verification.get("schema"),
+                "active_record_sha256_bound": recovery_verification.get("active_record_sha256_bound") is True,
+                "approved_profile_reverified": recovery_verification.get("approved_profile_reverified") is True,
+                "monotonic_sequence_preserved": recovery_verification.get("monotonic_sequence_preserved") is True,
+                "sequence_decrement_performed": False,
+            }
+            if recovery_verification is not None
+            else None
+        ),
         "authority": {
             "request_generation_only": True,
             "external_signature_required": True,
             "private_key_accessed_by_tool": False,
             "automatic_provisioning": False,
+            "automatic_recovery": False,
             "may_control_actuators": False,
             "may_relax_hard_safety_limits": False,
         },
@@ -166,7 +222,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         publish_atomic(args.out_dir, build_request(args))
         return 0
-    except (MaintenanceProvisioningError, CalibrationProvisioningVerificationError) as exc:
+    except (
+        MaintenanceProvisioningError,
+        CalibrationProvisioningVerificationError,
+        CalibrationRecoveryVerificationError,
+        SignedProvisioningPolicyError,
+    ) as exc:
         print(f"maintenance authorization request failed: {exc}")
         return 2
 

@@ -13,6 +13,7 @@ def main() -> int:
     kconfig = (root / "firmware/esp32_calibration_maintenance/main/Kconfig.projbuild").read_text(encoding="utf-8")
     cmake = (root / "firmware/esp32_calibration_maintenance/main/CMakeLists.txt").read_text(encoding="utf-8")
     host = (root / "commissioning/forgesense_commission/signed_provisioning.py").read_text(encoding="utf-8")
+    recovery_host = (root / "commissioning/forgesense_commission/recovery.py").read_text(encoding="utf-8")
     request_tool = (root / "tools/prepare_calibration_maintenance_authorization.py").read_text(encoding="utf-8")
     package_tool = (root / "tools/package_calibration_maintenance_authorization.py").read_text(encoding="utf-8")
     physical_tool = (root / "tools/run_physical_calibration_provisioning.py").read_text(encoding="utf-8")
@@ -104,12 +105,15 @@ def main() -> int:
         assert "BEGIN EC PRIVATE KEY" not in text
         assert '"-sign"' not in text
     assert "verify_provisioning_bundle(" in request_tool
+    assert "validate_signed_provisioning_policy(args.provisioning_policy)" in request_tool
     assert "verify_signature_openssl(" in package_tool
     assert '"private_key_accessed_by_tool": False' in request_tool
     assert '"private_key_accessed_by_tool": False' in package_tool
 
-    assert "apply_signed_provisioning" in physical_tool
+    assert "apply_recovery_aware_signed_provisioning" in physical_tool
+    assert "apply_signed_provisioning(" in recovery_host
     assert "verify_authorization_bundle(" in physical_tool
+    assert "validate_signed_provisioning_policy(args.provisioning_policy)" in physical_tool
     assert "--authorization-dir" in physical_tool
     assert "--authority-public-key" in physical_tool
     auth_verify_position = physical_tool.index("authorization = verify_authorization_bundle(")
@@ -136,8 +140,8 @@ def main() -> int:
 
     print(
         "signed_maintenance_authorization_check PASS: exact prime256v1 pinned-key verification, external detached "
-        "signing, device/sequence/artifact/record binding, signed-only physical apply, and production safety "
-        "separation are present"
+        "signing, strict signed-write policy, device/sequence/artifact/record binding, recovery-aware signed physical "
+        "apply, and production safety separation are present"
     )
     return 0
 

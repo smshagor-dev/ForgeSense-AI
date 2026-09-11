@@ -81,6 +81,21 @@ int main() {
     assert(decoded.opcode == static_cast<std::uint8_t>(MaintenanceOpcode::QueryAuthorization));
     assert(decoded.payload_size == 0U);
 
+    parser.reset();
+    assert(encode_maintenance_frame(
+        static_cast<std::uint8_t>(MaintenanceOpcode::QueryActiveRecord),
+        nullptr,
+        0,
+        query,
+        query_size));
+    recovered = false;
+    for (std::size_t index = 0; index < query_size; ++index) {
+        recovered = parser.feed(query[index], decoded);
+    }
+    assert(recovered);
+    assert(decoded.opcode == static_cast<std::uint8_t>(MaintenanceOpcode::QueryActiveRecord));
+    assert(decoded.payload_size == 0U);
+
     assert(maintenance_crc32_ieee(
         reinterpret_cast<const std::uint8_t*>("123456789"), 9) == 0xCBF43926U);
 

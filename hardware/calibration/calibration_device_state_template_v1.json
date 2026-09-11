@@ -4,8 +4,12 @@
   "captured_at_utc": "REPLACE_WITH_ISO8601_UTC",
   "installed_sequence": 0,
   "installed_record_crc32": null,
+  "active_record_sha256": null,
+  "active_record_hex": null,
   "maintenance_mode_confirmed": false,
   "load_output_physically_inhibited_confirmed": false,
-  "source": "device readback plus operator confirmation required",
-  "note": "This manifest is an input declaration. It does not by itself prove that the physical device remains in the declared state at write time."
+  "maintenance_authorization_ready": false,
+  "maintenance_authority_public_key_sha256": null,
+  "source": "signed maintenance firmware exact device readback required",
+  "note": "This manifest is an input declaration. Recovery additionally requires exact active CalibrationRecord bytes and write-time revalidation; the file does not prove the physical device remains in the declared state later."
 }
