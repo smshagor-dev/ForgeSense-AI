@@ -6,7 +6,7 @@ EVENT_INC := -Ifirmware/components/forgesense_events/include
 TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check gowin-build smoke-build firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check bench-record-validate gowin-build smoke-build firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -49,6 +49,10 @@ tang-pin-check:
 
 bringup-check:
 	python tools/check_physical_bringup.py
+
+bench-record-validate:
+	@test -n "$(RECORD)" || (echo "Usage: make bench-record-validate RECORD=path/to/record.json"; exit 2)
+	python tools/validate_bench_record.py "$(RECORD)"
 
 gowin-build: tang-pin-check
 	gw_sh fpga/scripts/tang_nano_9k_build.tcl
