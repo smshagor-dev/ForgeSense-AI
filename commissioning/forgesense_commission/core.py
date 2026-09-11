@@ -7,9 +7,15 @@ from typing import Protocol
 
 from forgesense_protocol import (
     MessageType,
+    SAFETY_ADS131M02_ERROR,
+    SAFETY_ADS131M02_TRUSTED,
+    SAFETY_ADXL355_ERROR,
+    SAFETY_ADXL355_TRUSTED,
     SAFETY_DEVICE_IDENTITY_OK,
     SAFETY_DEVICE_TRANSPORT_ERROR,
     SAFETY_SENSORS_VALID,
+    SAFETY_TMP117_ERROR,
+    SAFETY_TMP117_TRUSTED,
     decode_sensor_snapshot,
     decode_status_snapshot,
 )
@@ -57,11 +63,14 @@ class SmokeMetrics:
 
     def latency_summary_ms(self) -> dict[str, float | None]:
         if not self.latencies_ms:
-            return {"min": None, "mean": None, "max": None}
+            return {"min": None, "mean": None, "p95": None, "max": None}
+        ordered = sorted(self.latencies_ms)
+        rank = max(0, min(len(ordered) - 1, ((95 * len(ordered) + 99) // 100) - 1))
         return {
-            "min": min(self.latencies_ms),
-            "mean": mean(self.latencies_ms),
-            "max": max(self.latencies_ms),
+            "min": min(ordered),
+            "mean": mean(ordered),
+            "p95": ordered[rank],
+            "max": max(ordered),
         }
 
     def as_dict(self) -> dict:
@@ -140,6 +149,15 @@ def run_smoke_commissioning(
     return result
 
 
+def _sequence_update(candidate: int, previous: int | None) -> tuple[int | None, int, int]:
+    if previous is None:
+        return candidate, 0, 0
+    delta = (candidate - previous) & 0xFFFF
+    if delta == 0 or delta >= 0x8000:
+        return previous, 0, 1
+    return candidate, max(0, delta - 1), 0
+
+
 @dataclass
 class CommissioningObserver:
     decoder: StreamDecoder = field(default_factory=lambda: StreamDecoder(max_payload=256))
@@ -150,16 +168,30 @@ class CommissioningObserver:
     latest_sensor: object | None = None
     latest_status_sequence: int | None = None
     latest_sensor_sequence: int | None = None
+    status_sequence_gaps: int = 0
+    sensor_sequence_gaps: int = 0
+    status_sequence_faults: int = 0
+    sensor_sequence_faults: int = 0
 
     def feed(self, chunk: bytes) -> None:
         for frame in self.decoder.feed(chunk):
             if frame.message_type == MessageType.STATUS:
-                self.latest_status = decode_status_snapshot(frame)
-                self.latest_status_sequence = frame.sequence
+                previous = self.latest_status_sequence
+                next_sequence, gaps, faults = _sequence_update(frame.sequence, previous)
+                self.status_sequence_gaps += gaps
+                self.status_sequence_faults += faults
+                if faults == 0:
+                    self.latest_status_sequence = next_sequence
+                    self.latest_status = decode_status_snapshot(frame)
                 self.status_frames += 1
             elif frame.message_type == MessageType.SENSOR_SNAPSHOT:
-                self.latest_sensor = decode_sensor_snapshot(frame)
-                self.latest_sensor_sequence = frame.sequence
+                previous = self.latest_sensor_sequence
+                next_sequence, gaps, faults = _sequence_update(frame.sequence, previous)
+                self.sensor_sequence_gaps += gaps
+                self.sensor_sequence_faults += faults
+                if faults == 0:
+                    self.latest_sensor_sequence = next_sequence
+                    self.latest_sensor = decode_sensor_snapshot(frame)
                 self.sensor_frames += 1
             else:
                 self.unknown_frames += 1
@@ -176,6 +208,53 @@ class CommissioningObserver:
             return None
         return bool(self.latest_status.safety_flags & SAFETY_DEVICE_TRANSPORT_ERROR)
 
+    def _device_state(self, trusted_flag: int, error_flag: int) -> dict[str, bool] | None:
+        if self.latest_status is None:
+            return None
+        flags = self.latest_status.safety_flags
+        return {
+            "trusted": bool(flags & trusted_flag),
+            "error": bool(flags & error_flag),
+        }
+
+    @property
+    def selected_devices(self) -> dict[str, dict[str, bool] | None]:
+        return {
+            "tmp117": self._device_state(SAFETY_TMP117_TRUSTED, SAFETY_TMP117_ERROR),
+            "adxl355": self._device_state(SAFETY_ADXL355_TRUSTED, SAFETY_ADXL355_ERROR),
+            "ads131m02": self._device_state(SAFETY_ADS131M02_TRUSTED, SAFETY_ADS131M02_ERROR),
+        }
+
+    @property
+    def selected_devices_pass(self) -> bool:
+        states = self.selected_devices.values()
+        return all(state is not None and state["trusted"] and not state["error"] for state in states)
+
+    @property
+    def sequence_integrity_pass(self) -> bool:
+        return (
+            self.status_sequence_gaps == 0
+            and self.sensor_sequence_gaps == 0
+            and self.status_sequence_faults == 0
+            and self.sensor_sequence_faults == 0
+        )
+
+    @property
+    def link_error_events(self) -> int:
+        return (
+            self.decoder.stats.crc_or_frame_errors
+            + self.status_sequence_gaps
+            + self.sensor_sequence_gaps
+            + self.status_sequence_faults
+            + self.sensor_sequence_faults
+        )
+
+    @property
+    def link_error_rate(self) -> float:
+        accepted = self.status_frames + self.sensor_frames
+        total = accepted + self.link_error_events
+        return self.link_error_events / total if total else 1.0
+
     @property
     def commissioning_pass(self) -> bool:
         if self.latest_status is None or self.latest_sensor is None:
@@ -186,7 +265,9 @@ class CommissioningObserver:
             and self.latest_sensor.all_valid
             and self.device_identity_ok is True
             and self.device_transport_error is False
+            and self.selected_devices_pass
             and self.decoder.stats.crc_or_frame_errors == 0
+            and self.sequence_integrity_pass
         )
 
     def as_dict(self) -> dict:
@@ -200,6 +281,12 @@ class CommissioningObserver:
                 "unknown": self.unknown_frames,
                 "crc_or_frame_errors": self.decoder.stats.crc_or_frame_errors,
                 "discarded_bytes": self.decoder.stats.discarded_bytes,
+                "status_sequence_gaps": self.status_sequence_gaps,
+                "sensor_sequence_gaps": self.sensor_sequence_gaps,
+                "status_sequence_faults": self.status_sequence_faults,
+                "sensor_sequence_faults": self.sensor_sequence_faults,
+                "link_error_events": self.link_error_events,
+                "link_error_rate": self.link_error_rate,
             },
             "status": None if status is None else {
                 "sequence": self.latest_status_sequence,
@@ -212,6 +299,8 @@ class CommissioningObserver:
                 "sensors_valid": bool(status.safety_flags & SAFETY_SENSORS_VALID),
                 "device_identity_ok": self.device_identity_ok,
                 "device_transport_error": self.device_transport_error,
+                "selected_devices": self.selected_devices,
+                "selected_devices_pass": self.selected_devices_pass,
                 "safety_flags": f"0x{status.safety_flags:04X}",
             },
             "sensor": None if sensor is None else {
@@ -295,7 +384,8 @@ def apply_smoke_to_record(record: dict, metrics: SmokeMetrics) -> dict:
         expected="Every stop-and-wait UART probe byte is echoed correctly",
         observed=(
             f"sent={metrics.echo_sent}, ok={metrics.echo_ok}, timeouts={metrics.echo_timeouts}, "
-            f"error_rate={metrics.echo_error_rate:.6f}, mean_latency_ms={latency['mean']}"
+            f"error_rate={metrics.echo_error_rate:.6f}, mean_latency_ms={latency['mean']}, "
+            f"p95_latency_ms={latency['p95']}"
         ),
         units="serial",
         passed=metrics.echo_pass,
@@ -326,22 +416,32 @@ def apply_observation_to_record(record: dict, observer: CommissioningObserver) -
         units="frames",
         passed=sensor_pass,
     )
-    identity_pass = bool(status and status["device_identity_ok"] and not status["device_transport_error"])
+    identity_pass = bool(
+        status
+        and status["device_identity_ok"]
+        and not status["device_transport_error"]
+        and status["selected_devices_pass"]
+    )
     _upsert_check(
         record,
         check_id="COMMISSION-DEVICE-IDENTITY",
-        expected="Selected sensor identity/configuration checks are good and no device transport error is reported",
-        observed=f"status={status}",
+        expected="TMP117, ADXL355, and ADS131M02 each report trusted configuration with no device-specific error",
+        observed=f"selected_devices={None if status is None else status['selected_devices']}",
         units="status",
         passed=identity_pass,
     )
     _upsert_check(
         record,
         check_id="COMMISSION-LINK-INTEGRITY",
-        expected="No complete-frame CRC/framing error is observed during the commissioning window",
-        observed=f"crc_or_frame_errors={frame_errors}, discarded_prefix_bytes={observer.decoder.stats.discarded_bytes}",
+        expected="No CRC/frame error, sequence gap, duplicate, or reordered status/sensor frame is observed",
+        observed=(
+            f"crc_or_frame_errors={frame_errors}, status_gaps={observer.status_sequence_gaps}, "
+            f"sensor_gaps={observer.sensor_sequence_gaps}, status_faults={observer.status_sequence_faults}, "
+            f"sensor_faults={observer.sensor_sequence_faults}, error_rate={observer.link_error_rate:.6f}, "
+            f"discarded_prefix_bytes={observer.decoder.stats.discarded_bytes}"
+        ),
         units="frames",
-        passed=frame_errors == 0,
+        passed=frame_errors == 0 and observer.sequence_integrity_pass,
     )
     _refresh_overall(record)
     return record
