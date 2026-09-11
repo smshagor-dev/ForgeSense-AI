@@ -112,7 +112,7 @@ begin
             else
                 bit_index := bit_index - 1;
                 if is_read and byte_index > 0 then
-                    miso_reg <= tx_byte(bit_index - 1);
+                    miso_reg <= tx_byte(bit_index);
                 end if;
             end if;
         end if;
