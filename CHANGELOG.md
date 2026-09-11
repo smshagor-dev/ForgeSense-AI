@@ -6,6 +6,8 @@ All notable repository-level changes are recorded here.
 
 ### Added
 
+- Repeatability- and uncertainty-aware calibration review with a three-run default gate, board/commit consistency checks, coefficient/bias spread limits, source-proposal hashes, conservative engineering uncertainty proxies, and strict review-only authority.
+- Calibration capture now carries declared reference uncertainty provenance and per-axis stationary accelerometer standard deviation for repeated-run review.
 - Component-backed `HW-BL-003` hardware baseline with TPS259470L protected 12 V entry, SMBJ15A TVS, explicit UVLO/OVLO, eFuse current limiting, slew control, and layered 3.46 A / 4.04 A / 5 A protection ordering.
 - Precision sensing support contract for ADS131M02 decoupling and 8.192 MHz clocking, ADXL355 low-noise SPI/bypass behavior, and TMP117 I2C pull-ups/bypass.
 - KiCad-preparation package/MPN manifest, net-endpoint/freeze table, and `SCH-CON-002` schematic contract without guessed FPGA application pins or unverified footprint identifiers.
