@@ -21,6 +21,8 @@ entity forgesense_board_core is
         temperature_valid : in std_logic;
         vibration_valid : in std_logic;
         current_valid : in std_logic;
+        device_identity_ok : in std_logic := '0';
+        device_transport_error : in std_logic := '0';
         emergency : in std_logic;
         external_hard_trip : in std_logic := '0';
         recovery_req : in std_logic;
@@ -92,6 +94,8 @@ begin
             temperature_valid => temperature_valid,
             vibration_valid => vibration_valid,
             current_valid => current_valid,
+            device_identity_ok => device_identity_ok,
+            device_transport_error => device_transport_error,
             ml_rx_valid => rx_valid_i, ml_rx_byte => rx_byte_i,
             sensor_tx_ready => tx_ready_i, sensor_tx_valid => tx_valid_i,
             sensor_tx_byte => tx_byte_i,

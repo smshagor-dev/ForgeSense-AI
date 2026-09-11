@@ -1,4 +1,4 @@
-PYTHONPATH := simulator:ml:protocol/python:telemetry
+PYTHONPATH := simulator:ml:protocol/python:telemetry:commissioning
 CXXFLAGS := -std=c++20 -Wall -Wextra -Werror -pedantic
 PROTO_INC := -Ifirmware/components/forgesense_protocol/include
 INFER_INC := -Ifirmware/components/forgesense_inference/include
@@ -6,7 +6,7 @@ EVENT_INC := -Ifirmware/components/forgesense_events/include
 TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check bench-record-validate gowin-build smoke-build firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check bench-record-validate gowin-build smoke-build firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -50,6 +50,13 @@ tang-pin-check:
 bringup-check:
 	python tools/check_physical_bringup.py
 
+commissioning-check:
+	mkdir -p build
+	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_commissioning.py
+	python tools/check_commissioning_contract.py
+	g++ $(CXXFLAGS) $(PROTO_INC) firmware/components/forgesense_protocol/forgesense_protocol.cpp firmware/tests/commissioning_status_test.cpp -o build/commissioning_status_test
+	./build/commissioning_status_test
+
 bench-record-validate:
 	@test -n "$(RECORD)" || (echo "Usage: make bench-record-validate RECORD=path/to/record.json"; exit 2)
 	python tools/validate_bench_record.py "$(RECORD)"
@@ -66,6 +73,7 @@ hardware-check:
 	python tools/check_sensor_device_drivers.py
 	python tools/check_tang_nano_9k_pinmap.py
 	python tools/check_physical_bringup.py
+	python tools/check_commissioning_contract.py
 
 firmware-host:
 	mkdir -p build
