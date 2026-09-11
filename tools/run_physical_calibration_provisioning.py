@@ -7,25 +7,21 @@ from pathlib import Path
 import sys
 
 try:
-    from commissioning.forgesense_commission.provisioning import (
-        MaintenanceProvisioningError,
-        verify_reboot_recovery,
-    )
+    from commissioning.forgesense_commission.provisioning import MaintenanceProvisioningError
     from commissioning.forgesense_commission.recovery import (
         RECOVERY_INTENT_SCHEMA,
         RecoveryMaintenanceClient,
         apply_recovery_aware_signed_provisioning,
+        verify_recovery_aware_reboot,
     )
     from commissioning.forgesense_commission.signed_provisioning import verify_authorization_bundle
 except ModuleNotFoundError:
-    from forgesense_commission.provisioning import (  # type: ignore
-        MaintenanceProvisioningError,
-        verify_reboot_recovery,
-    )
+    from forgesense_commission.provisioning import MaintenanceProvisioningError  # type: ignore
     from forgesense_commission.recovery import (  # type: ignore
         RECOVERY_INTENT_SCHEMA,
         RecoveryMaintenanceClient,
         apply_recovery_aware_signed_provisioning,
+        verify_recovery_aware_reboot,
     )
     from forgesense_commission.signed_provisioning import verify_authorization_bundle  # type: ignore
 
@@ -227,7 +223,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     reboot = sub.add_parser(
         "verify-reboot",
-        help="verify retained sequence/CRC after a manual reboot or power cycle; performs no write",
+        help=(
+            "verify retained sequence/CRC after a manual reboot or power cycle and, for recovery evidence, exact "
+            "active-record SHA-256; performs no write"
+        ),
     )
     _add_verification_args(reboot)
     _add_serial_args(reboot)
@@ -286,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             else:
                 prior = _load_json(args.evidence)
-                report = verify_reboot_recovery(client, prior)
+                report = verify_recovery_aware_reboot(client, prior)
         finally:
             serial_port.close()
 
