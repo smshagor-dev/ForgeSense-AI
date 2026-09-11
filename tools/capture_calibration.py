@@ -7,7 +7,7 @@ import json
 import math
 from pathlib import Path
 import re
-from statistics import mean
+from statistics import mean, pstdev
 
 HEX40 = re.compile(r"^[0-9a-fA-F]{40}$")
 HEX64 = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -45,6 +45,13 @@ def _require_hash(value: str, label: str) -> str:
     return value.lower()
 
 
+def _finite_nonnegative(value: object, label: str) -> float:
+    result = float(value)
+    if not math.isfinite(result) or result < 0:
+        raise ValueError(f"{label} must be finite and non-negative")
+    return result
+
+
 def _validate_capture(data: dict) -> None:
     required = ["schema", "capture_id", "repository_commit", "boards", "instruments", "evidence", "current", "temperature", "accelerometer"]
     for key in required:
@@ -67,6 +74,17 @@ def _validate_capture(data: dict) -> None:
         raise ValueError("temperature characterization requires at least three points")
     if len(data["accelerometer"].get("stationary_samples_mg", [])) < 20:
         raise ValueError("accelerometer characterization requires at least 20 stationary samples")
+
+    uncertainty = data.get("measurement_uncertainty", {})
+    if uncertainty:
+        for key in (
+            "reference_current_ma_k2",
+            "reference_temperature_c_k2",
+            "reference_accelerometer_mg_k2",
+        ):
+            if key not in uncertainty:
+                raise ValueError(f"measurement_uncertainty.{key} is required when uncertainty is declared")
+            _finite_nonnegative(uncertainty[key], f"measurement_uncertainty.{key}")
 
 
 def build_proposal(data: dict) -> dict:
@@ -98,6 +116,10 @@ def build_proposal(data: dict) -> dict:
         axis: mean(float(sample[axis]) for sample in accel_samples)
         for axis in ("x", "y", "z")
     }
+    axis_stddev = {
+        axis: pstdev(float(sample[axis]) for sample in accel_samples)
+        for axis in ("x", "y", "z")
+    }
     expected = data["accelerometer"].get("expected_stationary_mg", {"x": 0.0, "y": 0.0, "z": 1000.0})
     biases = {axis: axes[axis] - float(expected[axis]) for axis in axes}
     max_bias = max(abs(v) for v in biases.values())
@@ -118,6 +140,7 @@ def build_proposal(data: dict) -> dict:
             "instruments": data["instruments"],
             "environment": data.get("environment", {}),
             "evidence": data["evidence"],
+            "measurement_uncertainty": data.get("measurement_uncertainty", {}),
         },
         "current": {
             "fit_target": "adc_raw_to_current_milli_a",
@@ -149,6 +172,7 @@ def build_proposal(data: dict) -> dict:
             "samples": len(accel_samples),
             "expected_stationary_mg": expected,
             "mean_measured_mg": axes,
+            "axis_stddev_mg": axis_stddev,
             "bias_mg": biases,
             "correction_mg_candidate": {axis: -round(value) for axis, value in biases.items()},
             "maximum_abs_bias_mg": max_bias,
