@@ -13,7 +13,7 @@ architecture sim of tb_ads131m02_controller_behavioral is
     signal device_ok, frame_error, sample_valid : std_logic;
     signal status_word : std_logic_vector(15 downto 0);
     signal ch0, ch1 : signed(23 downto 0);
-    signal force_bad_id, force_bad_crc : std_logic := '0';
+    signal force_bad_id, force_bad_crc, force_bad_clock : std_logic := '0';
     constant CH0_VALUE : signed(23 downto 0) := to_signed(16#100000#, 24);
     constant CH1_VALUE : signed(23 downto 0) := to_signed(-16#080000#, 24);
 begin
@@ -33,6 +33,7 @@ begin
         port map (
             cs_n => cs_n, sclk => sclk, din => din, dout => dout,
             force_bad_id => force_bad_id, force_bad_crc => force_bad_crc,
+            force_bad_clock => force_bad_clock,
             channel0_raw => CH0_VALUE, channel1_raw => CH1_VALUE
         );
 
@@ -75,6 +76,17 @@ begin
         wait until frame_error = '1' for 200 us;
         assert frame_error = '1' report "ADS131M02 wrong identity was not surfaced" severity error;
         assert device_ok = '0' report "ADS131M02 wrong identity became trusted" severity error;
+
+        -- Reset again and corrupt the CLOCK register readback.
+        rst <= '1'; force_bad_id <= '0'; force_bad_clock <= '1';
+        wait for 100 ns; rst <= '0';
+        for i in 0 to 3 loop
+            pulse_drdy; wait for 130 us;
+        end loop;
+        pulse_drdy;
+        wait until frame_error = '1' for 200 us;
+        assert frame_error = '1' report "ADS131M02 CLOCK readback corruption was not rejected" severity error;
+        assert device_ok = '0' report "ADS131M02 bad CLOCK configuration became trusted" severity error;
 
         report "tb_ads131m02_controller_behavioral PASS" severity note;
         stop; wait;
