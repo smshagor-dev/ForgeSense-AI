@@ -11,6 +11,7 @@ def main() -> int:
     maintenance_store = (root / "firmware/esp32_calibration_maintenance/main/calibration_store_nvs.cpp").read_text(encoding="utf-8")
     maintenance_protocol = (root / "firmware/esp32_calibration_maintenance/main/maintenance_protocol.cpp").read_text(encoding="utf-8")
     host_protocol = (root / "commissioning/forgesense_commission/provisioning.py").read_text(encoding="utf-8")
+    signed_host_protocol = (root / "commissioning/forgesense_commission/signed_provisioning.py").read_text(encoding="utf-8")
     host_tool = (root / "tools/run_physical_calibration_provisioning.py").read_text(encoding="utf-8")
     production_app = (root / "firmware/esp32/main/app_main.cpp").read_text(encoding="utf-8")
     transparent_bridge = (root / "firmware/esp32_commissioning/main/app_main.cpp").read_text(encoding="utf-8")
@@ -84,6 +85,8 @@ def main() -> int:
     ):
         assert token in maintenance_protocol, token
 
+    # The original host helper remains a regression/reference surface for the
+    # bounded record and reboot semantics. Physical APPLY uses the signed helper.
     for token in (
         'PHYSICAL_EVIDENCE_SCHEMA = "forgesense.calibration_physical_provisioning.v1"',
         'device_id=f"esp32s3:{mac_hex}"',
@@ -97,14 +100,26 @@ def main() -> int:
     ):
         assert token in host_protocol, token
 
+    for token in (
+        "SignedMaintenanceClient",
+        "apply_signed_provisioning",
+        "prepare_authorized_record",
+        "query_authorization",
+    ):
+        assert token in signed_host_protocol, token
+
     assert 'WRITE_CONFIRMATION = "CALIBRATION-WRITE"' in host_tool
     assert 'DEVICE_STATE_SCHEMA = "forgesense.calibration_device_state.v1"' in host_tool
     assert '"status"' in host_tool
     assert "_capture_device_state" in host_tool
     assert "verify_provisioning_bundle(" in host_tool
-    assert "args.command == \"apply\" and args.confirm_write != WRITE_CONFIRMATION" in host_tool
+    assert "args.confirm_write != WRITE_CONFIRMATION" in host_tool
+    assert "verify_authorization_bundle(" in host_tool
+    assert "apply_signed_provisioning(" in host_tool
     verified_segment = host_tool[host_tool.index("verification = _verify_package(args)") :]
     assert verified_segment.index("verification = _verify_package(args)") < verified_segment.index("serial_port = _serial_port")
+    authorization_segment = host_tool[host_tool.index("authorization = verify_authorization_bundle(") :]
+    assert authorization_segment.index("authorization = verify_authorization_bundle(") < authorization_segment.index("serial_port = _serial_port")
 
     for forbidden in (
         "stage_and_commit",
@@ -131,7 +146,7 @@ def main() -> int:
 
     print(
         "maintenance_provisioning_check PASS: dedicated default-disabled maintenance image, read-only device-state "
-        "capture, dual physical gates, two-step challenged commit, full host evidence verification, retained "
+        "capture, dual physical gates, signed two-step challenged commit, full host evidence verification, retained "
         "readback/reboot checks, and no production/transparent-bridge write authority are present"
     )
     return 0
