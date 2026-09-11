@@ -7,6 +7,7 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     preparer = (root / "tools/prepare_approved_calibration_source_change.py").read_text(encoding="utf-8")
     verifier = (root / "tools/verify_calibration_source_change.py").read_text(encoding="utf-8")
+    derivation = (root / "tools/verify_calibration_source_derivation.py").read_text(encoding="utf-8")
     tests = (root / "tests/test_calibration_source_change.py").read_text(encoding="utf-8")
     approval = (root / "hardware/calibration/calibration_approval_template_v1.json").read_text(encoding="utf-8")
     policy = (root / "hardware/calibration/calibration_source_change_policy_v1.json").read_text(encoding="utf-8")
@@ -42,6 +43,21 @@ def main() -> int:
     ):
         assert token in verifier, token
 
+    for token in (
+        'VERIFICATION_SCHEMA = "forgesense.calibration_source_derivation_verification.v1"',
+        'build_change_package(',
+        '_collect_current_raw_points',
+        '_quantize_current',
+        '_quantize_temperature',
+        '"reviewer_package_rederived": True',
+        '"current_coefficients_rederived": True',
+        '"temperature_coefficients_rederived": True',
+        '"quantization_regression_rederived": True',
+        'approved current coefficients differ from evidence-derived integer coefficients',
+        'approved temperature coefficients differ from evidence-derived integer coefficients',
+    ):
+        assert token in derivation, token
+
     for forbidden in (
         "serial.serial",
         "uart_rx",
@@ -56,6 +72,7 @@ def main() -> int:
     ):
         assert forbidden not in preparer.lower(), forbidden
         assert forbidden not in verifier.lower(), forbidden
+        assert forbidden not in derivation.lower(), forbidden
 
     for token in (
         '"decision": "approved_for_source_change"',
@@ -93,9 +110,10 @@ def main() -> int:
     assert "hard-safety" in docs.lower()
     assert "runtime write" in docs.lower()
     assert "quantization" in docs.lower()
+    assert "re-derive" in docs.lower() or "rederive" in docs.lower()
 
     print(
-        "calibration_source_change_check PASS: reviewer approval, deterministic quantization, add-only profile patch, hard-safety non-regression and no-runtime-write authority are present"
+        "calibration_source_change_check PASS: reviewer approval, deterministic quantization, evidence re-derivation, add-only profile patch, hard-safety non-regression and no-runtime-write authority are present"
     )
     return 0
 
