@@ -12,7 +12,7 @@ architecture sim of tb_adxl355_controller_behavioral is
     signal cs_n, sclk, mosi, miso : std_logic;
     signal device_ok, init_error, sample_valid : std_logic;
     signal x_mg, y_mg, z_mg : signed(15 downto 0);
-    signal force_bad_id : std_logic := '0';
+    signal force_bad_id, force_bad_config : std_logic := '0';
 begin
     clk <= not clk after 5 ns;
 
@@ -29,7 +29,7 @@ begin
     sensor : entity work.adxl355_spi_model
         port map (
             cs_n => cs_n, sclk => sclk, mosi => mosi, miso => miso,
-            force_bad_id => force_bad_id,
+            force_bad_id => force_bad_id, force_bad_config => force_bad_config,
             x_raw20 => to_signed(10000, 20),
             y_raw20 => to_signed(-10000, 20),
             z_raw20 => to_signed(20000, 20)
@@ -55,6 +55,12 @@ begin
         wait until init_error = '1' for 2 ms;
         assert init_error = '1' report "ADXL355 wrong identity was not rejected" severity error;
         assert device_ok = '0' report "ADXL355 wrong identity became trusted" severity error;
+
+        rst <= '1'; force_bad_id <= '0'; force_bad_config <= '1';
+        wait for 100 ns; rst <= '0';
+        wait until init_error = '1' for 3 ms;
+        assert init_error = '1' report "ADXL355 configuration readback corruption was not rejected" severity error;
+        assert device_ok = '0' report "ADXL355 bad configuration became trusted" severity error;
 
         report "tb_adxl355_controller_behavioral PASS" severity note;
         stop; wait;
