@@ -19,6 +19,8 @@ architecture tb of tb_tang_nano_9k_smoke_top is
     signal adxl_cs_n, adxl_sclk, adxl_mosi : std_logic;
     signal ads_cs_n, ads_sclk, ads_din : std_logic;
     signal load_enable : std_logic;
+    signal echo_seen : std_logic := '0';
+    signal echoed_byte : std_logic_vector(7 downto 0) := (others => '0');
 
     procedure uart_send(signal line : out std_logic; constant data : std_logic_vector(7 downto 0)) is
     begin
@@ -73,8 +75,17 @@ begin
             load_enable_o => load_enable
         );
 
+    receiver : process
+        variable data : std_logic_vector(7 downto 0);
+    begin
+        wait until reset_n = '1';
+        uart_receive(uart_tx, data);
+        echoed_byte <= data;
+        echo_seen <= '1';
+        wait;
+    end process;
+
     stimulus : process
-        variable echoed : std_logic_vector(7 downto 0);
     begin
         wait for 20 * CLK_PERIOD;
         reset_n <= '1';
@@ -86,8 +97,8 @@ begin
         assert tmp_scl /= '0' and tmp_sda /= '0' report "I2C line driven low in smoke image" severity failure;
 
         uart_send(uart_rx, x"A6");
-        uart_receive(uart_tx, echoed);
-        assert echoed = x"A6" report "UART smoke echo mismatch" severity failure;
+        wait until echo_seen = '1';
+        assert echoed_byte = x"A6" report "UART smoke echo mismatch" severity failure;
         assert load_enable = '0' report "load output changed during UART smoke test" severity failure;
 
         report "tb_tang_nano_9k_smoke_top PASS" severity note;
