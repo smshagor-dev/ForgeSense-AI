@@ -12,7 +12,8 @@
     "canonical_json": true,
     "contiguous_entry_index_required": true,
     "previous_entry_hash_required": true,
-    "manifest_head_hash_required": true,
+    "head_derived_from_last_entry": true,
+    "metadata_bound_by_genesis": true,
     "silent_entry_rewrite_permitted": false
   },
   "write_preflight": {
