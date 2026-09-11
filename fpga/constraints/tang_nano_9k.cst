@@ -1,0 +1,57 @@
+// ForgeSense AI Tang Nano 9K physical constraints.
+// Board source: Sipeed Tang Nano 9K schematic / official pin map.
+// External application wiring is intentionally concentrated on J5 3.3 V pins.
+
+// On-board 27 MHz oscillator and S2 reset button.
+IO_LOC "clk_27m_i" 52;
+IO_PORT "clk_27m_i" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "reset_n_i" 4;
+IO_PORT "reset_n_i" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+
+// J5-5 / FPGA pin 25: ESP32 GPIO17 (U1TXD) -> FPGA RX.
+IO_LOC "esp32_uart_rx_i" 25;
+IO_PORT "esp32_uart_rx_i" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// J5-6 / FPGA pin 26: FPGA TX -> ESP32 GPIO18 (U1RXD).
+IO_LOC "esp32_uart_tx_o" 26;
+IO_PORT "esp32_uart_tx_o" IO_TYPE=LVCMOS33 DRIVE=8;
+
+// J5-7..J5-10 safety/service and TMP117 clock.
+IO_LOC "analog_hard_trip_i" 27;
+IO_PORT "analog_hard_trip_i" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "estop_sense_i" 28;
+IO_PORT "estop_sense_i" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "load_enable_o" 29;
+IO_PORT "load_enable_o" IO_TYPE=LVCMOS33 DRIVE=8 PULL_MODE=DOWN;
+IO_LOC "recovery_req_i" 30;
+IO_PORT "recovery_req_i" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+
+// TMP117 external I2C. External 4.99 kOhm pull-ups are defined by the hardware baseline.
+IO_LOC "tmp_scl_io" 33;
+IO_PORT "tmp_scl_io" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "tmp_sda_io" 34;
+IO_PORT "tmp_sda_io" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+// ADXL355 SPI0 and DRDY.
+IO_LOC "adxl_cs_n_o" 40;
+IO_PORT "adxl_cs_n_o" IO_TYPE=LVCMOS33 DRIVE=8 PULL_MODE=UP;
+IO_LOC "adxl_sclk_o" 35;
+IO_PORT "adxl_sclk_o" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "adxl_mosi_o" 41;
+IO_PORT "adxl_mosi_o" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "adxl_miso_i" 42;
+IO_PORT "adxl_miso_i" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "adxl_drdy_i" 51;
+IO_PORT "adxl_drdy_i" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+
+// ADS131M02 SPI1 and DRDY.
+IO_LOC "ads_cs_n_o" 53;
+IO_PORT "ads_cs_n_o" IO_TYPE=LVCMOS33 DRIVE=8 PULL_MODE=UP;
+IO_LOC "ads_sclk_o" 54;
+IO_PORT "ads_sclk_o" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "ads_din_o" 55;
+IO_PORT "ads_din_o" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "ads_dout_i" 56;
+IO_PORT "ads_dout_i" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "ads_drdy_n_i" 57;
+IO_PORT "ads_drdy_n_i" IO_TYPE=LVCMOS33 PULL_MODE=UP;
