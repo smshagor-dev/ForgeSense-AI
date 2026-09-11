@@ -100,11 +100,17 @@ def _fixture(tmp_path: Path, *, review_ready: bool = True) -> tuple[Path, Path, 
     review = {
         "schema": "forgesense.calibration_review.v1",
         "review_ready": review_ready,
+        "source_capture_ids": [capture["capture_id"]],
+        "source_proposal_sha256": [_canonical_sha256(proposal)],
         "authority": {
             "reviewer_approval_required": True,
             "source_control_change_required": True,
             "automatic_runtime_application": False,
             "may_relax_hard_safety_limits": False,
+        },
+        "provenance": {
+            "run_count": 1,
+            "minimum_runs": 1,
         },
         "current": {
             "mean_slope_ma_per_count_candidate": 0.0005,
