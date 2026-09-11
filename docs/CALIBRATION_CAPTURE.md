@@ -10,9 +10,37 @@ The utility covers three evidence paths:
 - temperature: TMP117 reading versus independently measured reference temperature, summarized as a constant offset characterization;
 - vibration sensing: stationary ADXL355 XYZ measurements versus a documented expected gravity orientation, summarized as axis bias.
 
+## Preferred physical workflow
+
+When using the dedicated calibration diagnostic image, do not manually copy sensor readings into the capture file. Use the session assembler described in [`CALIBRATION_SESSION_ASSEMBLY.md`](CALIBRATION_SESSION_ASSEMBLY.md).
+
+The preferred chain is:
+
+```text
+read-only diagnostic JSON
++ independent reference measurements
++ board/instrument/uncertainty metadata
+        |
+        v
+tools/assemble_calibration_capture.py
+        |
+        v
+forgesense.calibration_capture.v1
+        |
+        v
+tools/capture_calibration.py
+        |
+        v
+forgesense.calibration_proposal.v1
+```
+
+Start from `hardware/calibration/calibration_session_template_v1.json`. The assembler verifies diagnostic authority/integrity, aggregates trusted samples, computes within-capture statistics, and hashes each raw diagnostic file with SHA-256. Independent current and temperature reference values still have to be supplied from external reference instruments.
+
+For legacy/manual evidence entry, the lower-level capture template remains available.
+
 ## Evidence first
 
-Start from:
+Manual capture starts from:
 
 `hardware/calibration/calibration_capture_template_v1.json`
 
@@ -50,7 +78,22 @@ The zero values above show only the required field shape. Replace them with valu
 
 When this block is present, all three values are required and must be finite and non-negative. The values are copied into proposal provenance for the repeated-run review gate.
 
-## Generate a proposal
+## Generate an assembled capture and proposal
+
+From a session manifest:
+
+```bash
+python tools/assemble_calibration_capture.py \
+  evidence/session-01.json \
+  --out build/calibration-capture-01.json \
+  --proposal-out build/calibration-proposal-01.json
+```
+
+The session must contain at least five independent current reference points, at least three independent temperature reference points, and at least 20 trusted stationary accelerometer samples across its diagnostic evidence.
+
+The assembler does not invent or infer reference truth from ForgeSense measurements. Failed, sequence-broken, CRC-invalid, untrusted, or authority-tampered diagnostic captures are rejected.
+
+## Generate a proposal from an existing capture
 
 ```bash
 python tools/capture_calibration.py \
@@ -145,7 +188,8 @@ There is intentionally no runtime command in this utility for applying calibrati
 Run:
 
 ```bash
+make calibration-assembler-check
 make calibration-check
 ```
 
-The gate verifies single-run fit behavior, repeated-run review behavior, declared-uncertainty handling, and review-only authority constraints. Synthetic tests validate arithmetic and rejection behavior; they are not substitutes for physical measurements.
+The assembler gate verifies trusted diagnostic aggregation, independent-reference requirements, SHA-256 evidence retention, source authority, duplicate rejection, and proposal compatibility. The calibration gate verifies single-run fit behavior, repeated-run review behavior, declared-uncertainty handling, and review-only authority constraints. Synthetic tests validate arithmetic and rejection behavior; they are not substitutes for physical measurements.

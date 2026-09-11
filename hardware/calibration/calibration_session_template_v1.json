@@ -1,0 +1,68 @@
+{
+  "schema": "forgesense.calibration_session.v1",
+  "capture_id": "REPLACE_ME",
+  "repository_commit": "REPLACE_WITH_40_HEX_SHA",
+  "boards": {
+    "fpga_revision": "REPLACE_ME",
+    "esp32_revision": "REPLACE_ME",
+    "sensor_board_revision": "REPLACE_ME"
+  },
+  "instruments": [
+    {
+      "type": "reference_current_meter",
+      "manufacturer_model": "REPLACE_ME",
+      "asset_or_serial": "REPLACE_ME",
+      "calibration_status": "REPLACE_ME"
+    },
+    {
+      "type": "reference_temperature_instrument",
+      "manufacturer_model": "REPLACE_ME",
+      "asset_or_serial": "REPLACE_ME",
+      "calibration_status": "REPLACE_ME"
+    }
+  ],
+  "environment": {
+    "ambient_temperature_c": 25.0,
+    "notes": "Record actual bench conditions"
+  },
+  "measurement_uncertainty": {
+    "reference_current_ma_k2": "REPLACE_ME",
+    "reference_temperature_c_k2": "REPLACE_ME",
+    "reference_accelerometer_mg_k2": "REPLACE_ME"
+  },
+  "quality_limits": {
+    "current": {
+      "minimum_raw_span": 100000.0,
+      "minimum_r2": 0.999,
+      "maximum_rmse_ma": 50.0
+    },
+    "temperature": {
+      "maximum_offset_rmse_c": 0.20
+    },
+    "accelerometer": {
+      "maximum_abs_bias_mg": 250.0
+    }
+  },
+  "current": {
+    "points": [
+      {"diagnostic_file": "evidence/current-00.json", "reference_current_a": 0.0},
+      {"diagnostic_file": "evidence/current-01.json", "reference_current_a": 0.5},
+      {"diagnostic_file": "evidence/current-02.json", "reference_current_a": 1.0},
+      {"diagnostic_file": "evidence/current-03.json", "reference_current_a": 2.0},
+      {"diagnostic_file": "evidence/current-04.json", "reference_current_a": 3.2}
+    ]
+  },
+  "temperature": {
+    "points": [
+      {"diagnostic_file": "evidence/temp-20c.json", "reference_temperature_c": 20.0},
+      {"diagnostic_file": "evidence/temp-25c.json", "reference_temperature_c": 25.0},
+      {"diagnostic_file": "evidence/temp-30c.json", "reference_temperature_c": 30.0}
+    ]
+  },
+  "accelerometer": {
+    "expected_stationary_mg": {"x": 0.0, "y": 0.0, "z": 1000.0},
+    "diagnostic_files": [
+      "evidence/accel-stationary-01.json"
+    ]
+  }
+}

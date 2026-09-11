@@ -6,6 +6,7 @@ All notable repository-level changes are recorded here.
 
 ### Added
 
+- Evidence-backed calibration session assembler that combines trusted read-only diagnostic captures with independently measured current/temperature references, reference uncertainty, board provenance, raw-file SHA-256 hashes, aggregation statistics, and optional review-only proposal generation.
 - Dedicated load-disabled Tang Nano 9K calibration image with read-only diagnostic message `0x32`, ADS131M02 raw channels, TMP117 temperature, ADXL355 XYZ samples, device/sample trust flags, transparent ESP32-S3 bridge capture, host evidence retention, VHDL framing regression, and explicit no-actuator/no-runtime-calibration authority.
 - Repeatability- and uncertainty-aware calibration review with a three-run default gate, board/commit consistency checks, coefficient/bias spread limits, source-proposal hashes, conservative engineering uncertainty proxies, and strict review-only authority.
 - Calibration capture now carries declared reference uncertainty provenance and per-axis stationary accelerometer standard deviation for repeated-run review.
