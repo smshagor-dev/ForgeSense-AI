@@ -6,6 +6,7 @@ All notable repository-level changes are recorded here.
 
 ### Added
 
+- Evidence-bound calibration provisioning packages with exact 48-byte `CalibrationRecord v1` generation, independent re-verification, strict non-wrapping sequence increase, package-time safe-state declarations, dual-slot ESP32 NVS staging/readback/metadata commit, boot recovery to the highest valid sequence, corruption/ambiguity rejection, and explicit documentation that no remote provisioning command or hardware-backed monotonic counter is claimed.
 - Explicitly approved calibration source-change workflow with reviewer/package hash binding, deterministic integer current/temperature coefficient quantization against retained evidence points, mandatory accelerometer deferral, add-only approved profile patches, hard-safety baseline hashing, independent verification, and strict no-runtime-write authority.
 - Calibration campaign bundle verification with evidence-root recomputation, generated/source artifact tamper detection, full retained-source provenance checks, reviewer-ready change-package generation, atomic publication, and an external signing-request payload that never accesses private keys or claims a signature exists.
 - Atomic repeated-run calibration campaign orchestration with policy minimum-run enforcement, campaign/session commit and board consistency, batch capture/proposal generation, integrated repeated-run review, portable artifact paths, SHA-256 evidence indexing, and an explicit non-signature tamper-evident integrity seal.

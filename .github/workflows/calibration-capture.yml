@@ -30,3 +30,5 @@ jobs:
         run: make calibration-bundle-verification-check
       - name: Verify approved calibration source-change contract
         run: make calibration-source-change-check
+      - name: Verify calibration provisioning and anti-rollback contract
+        run: make calibration-provisioning-check
