@@ -81,7 +81,7 @@ begin
     ads_sensor : entity work.ads131m02_spi_model
         port map (
             cs_n => ads_cs_n, sclk => ads_sclk, din => ads_din, dout => ads_dout,
-            force_bad_id => '0', force_bad_crc => '0',
+            force_bad_id => '0', force_bad_crc => '0', force_bad_clock => '0',
             channel0_raw => ADS_CH0, channel1_raw => ADS_CH1
         );
 
