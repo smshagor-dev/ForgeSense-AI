@@ -63,9 +63,19 @@ def main() -> int:
     link = esp["fpga_link"]
     assert link["tx_gpio"] == 17 and link["rx_gpio"] == 18 and link["baud"] == 115200
     assert link["pin_assignment_validated_on_hardware"] is False
-    for item in interconnect["links"]:
-        assert item["fpga_pin"] is None
-        assert item["fpga_pin_status"] == "pending_board_header_freeze"
+
+    assert interconnect["revision"] == "INT-002"
+    assert interconnect["clock"]["fpga_pin"] == 52
+    assert interconnect["reset"]["fpga_pin"] == 4
+    assert all(item["fpga_pin"] is not None for item in interconnect["links"])
+    assert all(item["fpga_pin_status"] == "frozen_schematic_verified" for item in interconnect["links"])
+    assert len({item["fpga_pin"] for item in interconnect["links"]}) == len(interconnect["links"])
+
+    reserved = interconnect["reserved_or_avoided"]
+    frozen_pins = {item["fpga_pin"] for item in interconnect["links"]}
+    assert frozen_pins.isdisjoint(set(reserved["tf_card_fpga_pins"]))
+    assert frozen_pins.isdisjoint(set(reserved["onboard_usb_uart_fpga_pins"]))
+    assert frozen_pins.isdisjoint(set(reserved["bank3_1v8_external_fpga_pins"]))
 
     with (root / "hardware/bom/preliminary_bom_v1.csv").open(newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
@@ -78,7 +88,7 @@ def main() -> int:
 
     assert baseline["safety"]["ml_can_override_hard_trip"] is False
     assert baseline["safety"]["monitoring_can_drive_actuator"] is False
-    print(f"hardware_baseline_check PASS: current={sense:.3f} V/{fsr:.3f} V FSR, trip={trip:.3f} A, eFuse={entry['current_limit_reference_a']:.3f} A, fuse={baseline['input']['motor_fuse_a']:.1f} A")
+    print(f"hardware_baseline_check PASS: current={sense:.3f} V/{fsr:.3f} V FSR, trip={trip:.3f} A, eFuse={entry['current_limit_reference_a']:.3f} A, fuse={baseline['input']['motor_fuse_a']:.1f} A, interconnect={interconnect['revision']}")
     return 0
 
 

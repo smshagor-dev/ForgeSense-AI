@@ -2,17 +2,48 @@
 
 ## Purpose
 
-`HW-BL-004` is the current component-backed schematic baseline for the ForgeSense low-voltage reference platform. It is detailed enough to drive schematic capture, BOM review, analytical checks, selected-device acquisition RTL, and later PCB layout, while deliberately leaving board-revision-dependent FPGA application pins unresolved.
+`HW-BL-004` is the current component-backed schematic baseline for the ForgeSense low-voltage reference platform. It is detailed enough to drive schematic capture, BOM review, analytical checks, selected-device acquisition RTL, physical development-board wiring, and later PCB layout.
 
 This is engineering reference material. It is not certification evidence and does not establish safe limits for an arbitrary motor or industrial machine.
 
 ## Compute
 
-- FPGA: Sipeed Tang Nano 9K, GW1NR-9, 27 MHz onboard clock.
+- FPGA: Sipeed Tang Nano 9K, `GW1NR-LV9QN88PC6/I5`, 27 MHz onboard clock.
 - Edge processor: ESP32-S3-DevKitC-1.
 - FPGA/ESP32 transport: UART 115200 8N1.
 - ESP32 GPIO17 is U1TXD and GPIO18 is U1RXD in the development-board profile.
-- Tang Nano external application pins remain unfrozen until the exact board revision is verified.
+- Tang Nano external application mapping is frozen in `hardware/profiles/interconnect_v1.json` revision `INT-002` against the official Sipeed schematic/pin map. Physical bench validation is still pending.
+
+## Tang Nano 9K physical interconnect
+
+The application wiring uses J5 3.3 V header pins while deliberately avoiding the populated TF-card signals on FPGA pins 36-39, the onboard BL702 UART pins 17/18, and external BANK3 1.8 V pins 79-86.
+
+The frozen map is:
+
+| Function | Header | FPGA pin |
+| --- | --- | ---: |
+| ESP32 TX -> FPGA RX | J5-5 | 25 |
+| FPGA TX -> ESP32 RX | J5-6 | 26 |
+| Analog hard trip | J5-7 | 27 |
+| E-stop sense | J5-8 | 28 |
+| Load enable | J5-9 | 29 |
+| Recovery request | J5-10 | 30 |
+| TMP117 SCL | J5-11 | 33 |
+| TMP117 SDA | J5-12 | 34 |
+| ADXL355 CS_N | J5-13 | 40 |
+| ADXL355 SCLK | J5-14 | 35 |
+| ADXL355 MOSI | J5-15 | 41 |
+| ADXL355 MISO | J5-16 | 42 |
+| ADXL355 DRDY | J5-17 | 51 |
+| ADS131M02 CS_N | J5-18 | 53 |
+| ADS131M02 SCLK | J5-19 | 54 |
+| ADS131M02 DIN | J5-20 | 55 |
+| ADS131M02 DOUT | J5-21 | 56 |
+| ADS131M02 DRDY_N | J5-22 | 57 |
+
+The onboard 27 MHz oscillator is FPGA pin 52. Onboard S2 is FPGA pin 4 in the 1.8 V bank and is used only as the local reset input. Pins shared with the RGB header are valid only when no RGB panel is attached.
+
+The authoritative constraints are `fpga/constraints/tang_nano_9k.cst` and `fpga/constraints/tang_nano_9k.sdc`. `make tang-pin-check` cross-checks those files against the machine-readable interconnect profile and physical top-level wrapper.
 
 ## Protected 12 V entry
 
@@ -138,4 +169,4 @@ Run:
 make hardware-check
 ```
 
-The checks prevent silent drift across protection ordering, current transfer, ADC headroom, trip threshold, serial timing assumptions, selected sensor identities/registers, E-stop policy, package manifest, and unresolved FPGA pin state.
+The checks prevent silent drift across protection ordering, current transfer, ADC headroom, trip threshold, serial timing assumptions, selected sensor identities/registers, E-stop policy, package manifest, and the frozen Tang Nano 9K physical pin map.
