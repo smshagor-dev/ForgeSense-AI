@@ -20,7 +20,7 @@ def _serial_port(name: str, baud: int, timeout: float):
     try:
         import serial  # type: ignore
     except ImportError as exc:
-        raise SystemExit("pyserial is required for physical commissioning: install the commissioning optional dependency") from exc
+        raise SystemExit("pyserial is required for physical commissioning: install pyserial>=3.5,<4") from exc
     return serial.Serial(name, baudrate=baud, timeout=timeout, write_timeout=timeout)
 
 
@@ -128,8 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             observer = observe_production_stream(serial_port, duration_s=args.duration)
             report = {"mode": "observe", "result": observer.as_dict()}
-            status = observer.as_dict()["status"]
-            exit_code = 0 if status and observer.status_frames > 0 and observer.sensor_frames > 0 else 2
+            exit_code = 0 if observer.commissioning_pass else 2
             record = apply_observation_to_record(_record_from_template(args), observer) if args.record_out else None
 
         print(json.dumps(report, indent=2))
