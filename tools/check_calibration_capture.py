@@ -18,6 +18,8 @@ def main() -> int:
         '"fit_target": "adc_raw_to_current_milli_a"',
         '"constant_offset_characterization"',
         '"stationary_axis_bias_characterization"',
+        '"measurement_uncertainty"',
+        '"axis_stddev_mg"',
     ):
         assert token in tool, token
 
@@ -37,6 +39,10 @@ def main() -> int:
     assert '"esp32_revision"' in template
     assert '"sensor_board_revision"' in template
     assert '"sha256"' in template
+    assert '"measurement_uncertainty"' in template
+    assert '"reference_current_ma_k2"' in template
+    assert '"reference_temperature_c_k2"' in template
+    assert '"reference_accelerometer_mg_k2"' in template
 
     for token in (
         "test_good_capture_produces_review_only_proposal",
@@ -48,9 +54,11 @@ def main() -> int:
 
     assert "does not modify FPGA or ESP32 runtime calibration" in docs
     assert "not a safety-limit approval" in docs
+    assert "measurement uncertainty" in docs.lower()
+    assert "repeated-run review" in docs.lower()
     assert "review" in docs.lower()
 
-    print("calibration_capture_check PASS: proposal-only calibration evidence path and tests are present")
+    print("calibration_capture_check PASS: proposal-only calibration evidence path, uncertainty metadata and tests are present")
     return 0
 
 
