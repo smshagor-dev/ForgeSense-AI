@@ -1,0 +1,11 @@
+{
+  "schema": "forgesense.calibration_device_state.v1",
+  "device_id": "REPLACE_ME",
+  "captured_at_utc": "REPLACE_WITH_ISO8601_UTC",
+  "installed_sequence": 0,
+  "installed_record_crc32": null,
+  "maintenance_mode_confirmed": false,
+  "load_output_physically_inhibited_confirmed": false,
+  "source": "device readback plus operator confirmation required",
+  "note": "This manifest is an input declaration. It does not by itself prove that the physical device remains in the declared state at write time."
+}
