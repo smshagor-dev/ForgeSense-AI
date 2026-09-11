@@ -31,6 +31,7 @@ int main() {
     assert(!calibration_sequence_is_newer(4, 4));
     assert(!calibration_sequence_is_newer(3, 4));
     assert(calibration_sequence_is_newer(5, 4));
+    assert(!calibration_sequence_is_newer(0xFFFFFFFFU, 4));
 
     const auto seq4 = make_blob(4);
     const auto seq5 = make_blob(5);
@@ -63,6 +64,11 @@ int main() {
     selected = select_calibration_slot(view5, view5, 5);
     assert(selected.status == CalibrationSelectionStatus::Selected);
     assert(selected.record.sequence == 5);
+
+    const auto terminal = make_blob(0xFFFFFFFFU);
+    CalibrationSlotView terminal_view{terminal.data(), terminal.size(), true};
+    selected = select_calibration_slot(terminal_view, empty, 4);
+    assert(selected.status == CalibrationSelectionStatus::RollbackDetected);
 
     std::cout << "calibration_provisioning_test PASS\n";
     return 0;
