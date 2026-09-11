@@ -1,0 +1,44 @@
+{
+  "schema": "forgesense.calibration_audit_ledger_policy.v1",
+  "policy_id": "CAL-AUDIT-001",
+  "initialization": {
+    "fresh_device_sequence_required": 0,
+    "active_record_must_be_absent": true,
+    "maintenance_authority_ready_required": true,
+    "adopt_nonzero_history_supported": false
+  },
+  "chain": {
+    "hash": "SHA-256",
+    "canonical_json": true,
+    "contiguous_entry_index_required": true,
+    "previous_entry_hash_required": true,
+    "head_derived_from_last_entry": true,
+    "metadata_bound_by_genesis": true,
+    "silent_entry_rewrite_permitted": false
+  },
+  "write_preflight": {
+    "ledger_required": true,
+    "live_device_id_match_required": true,
+    "live_sequence_match_required": true,
+    "live_active_record_sha256_match_required_when_active": true,
+    "live_authority_public_key_sha256_match_required": true,
+    "unexpected_authority_rotation_permitted": false
+  },
+  "events": {
+    "write_commit": true,
+    "recovery_commit": true,
+    "reboot_verified": true,
+    "automatic_event_insertion": false,
+    "sequence_decrement_permitted": false,
+    "recovery_increment_exactly_one": true
+  },
+  "authority": {
+    "audit_only": true,
+    "is_digital_signature": false,
+    "is_immutable_storage": false,
+    "automatic_provisioning": false,
+    "may_control_actuators": false,
+    "may_relax_hard_safety_limits": false,
+    "hardware_backed_monotonic_counter_claimed": false
+  }
+}

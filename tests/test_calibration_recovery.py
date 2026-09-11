@@ -15,7 +15,6 @@ from commissioning.forgesense_commission.provisioning import (
     MaintenanceProvisioningError,
     encode_frame,
 )
-import commissioning.forgesense_commission.recovery as recovery_module
 from commissioning.forgesense_commission.recovery import (
     OP_ACTIVE_RECORD_RESPONSE,
     OP_QUERY_ACTIVE_RECORD,
@@ -23,6 +22,7 @@ from commissioning.forgesense_commission.recovery import (
     RecoveryMaintenanceClient,
     validate_recovery_runtime_binding,
 )
+import commissioning.forgesense_commission.recovery as recovery_module
 import tools.prepare_calibration_recovery as prep
 import tools.verify_calibration_recovery as verify
 
@@ -362,6 +362,7 @@ def test_recovery_reboot_verification_requires_exact_record_sha(monkeypatch: pyt
         "provisioning": {
             "record_sha256": _sha256(active),
             "candidate_sequence": 5,
+            "candidate_crc32_ieee": struct.unpack_from("<I", active, 44)[0],
         },
         "recovery": {
             "intent_schema": "forgesense.calibration_recovery_intent.v1",
@@ -370,6 +371,7 @@ def test_recovery_reboot_verification_requires_exact_record_sha(monkeypatch: pyt
     verified = recovery_module.verify_recovery_aware_reboot(FakeRecoveryClient(active), evidence)  # type: ignore[arg-type]
     assert verified["reboot_verification"]["exact_record_sha256_match"] is True
     assert verified["reboot_verification"]["exact_active_record"]["sha256"] == _sha256(active)
+    assert verified["reboot_verification"]["active_record_sha256"] == _sha256(active)
 
     tampered = make_record(5, current_num=9, current_den=2000, temp_offset=2)
     with pytest.raises(MaintenanceProvisioningError, match="exact active-record SHA-256"):

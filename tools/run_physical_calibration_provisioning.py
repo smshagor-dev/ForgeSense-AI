@@ -3,10 +3,19 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
+import tempfile
 import sys
 
 try:
+    from commissioning.forgesense_commission.audit_ledger import (
+        CalibrationAuditLedgerError,
+        append_reboot_evidence,
+        append_write_evidence,
+        preflight_live_state,
+        verify_ledger,
+    )
     from commissioning.forgesense_commission.provisioning import MaintenanceProvisioningError
     from commissioning.forgesense_commission.recovery import (
         RECOVERY_INTENT_SCHEMA,
@@ -16,6 +25,13 @@ try:
     )
     from commissioning.forgesense_commission.signed_provisioning import verify_authorization_bundle
 except ModuleNotFoundError:
+    from forgesense_commission.audit_ledger import (  # type: ignore
+        CalibrationAuditLedgerError,
+        append_reboot_evidence,
+        append_write_evidence,
+        preflight_live_state,
+        verify_ledger,
+    )
     from forgesense_commission.provisioning import MaintenanceProvisioningError  # type: ignore
     from forgesense_commission.recovery import (  # type: ignore
         RECOVERY_INTENT_SCHEMA,
@@ -67,8 +83,23 @@ def _serial_port(name: str, baud: int, timeout: float):
 
 
 def _save_json(path: Path, data: dict) -> None:
+    path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    payload = (json.dumps(data, indent=2, allow_nan=False) + "\n").encode("utf-8")
+    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+    except Exception:
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def _load_json(path: Path) -> dict:
@@ -108,6 +139,12 @@ def _add_verification_args(parser: argparse.ArgumentParser) -> None:
         "--provisioning-policy",
         type=Path,
         default=Path("hardware/calibration/calibration_provisioning_policy_v1.json"),
+    )
+    parser.add_argument("--audit-ledger", type=Path, required=True)
+    parser.add_argument(
+        "--audit-policy",
+        type=Path,
+        default=Path("hardware/calibration/calibration_audit_ledger_policy_v1.json"),
     )
 
 
@@ -184,10 +221,42 @@ def _capture_device_state(args: argparse.Namespace) -> dict:
         "note": (
             "Read-only status capture from eFuse MAC, exact active CalibrationRecord bytes, calibration NVS state, "
             "physical gate GPIOs, and pinned maintenance-authority public-key state. Physical gates, active record, "
-            "and authorization are rechecked at write time."
+            "authorization, and audit-ledger continuity are rechecked at write time."
         ),
         "maintenance_readback": status.as_dict(),
     }
+
+
+def _preflight_audit_ledger(args: argparse.Namespace, client: RecoveryMaintenanceClient) -> dict:
+    package = _load_json(args.provisioning_dir / "provisioning.json")
+    device_id = str(package.get("device_id", ""))
+    structural = verify_ledger(
+        args.audit_ledger,
+        policy_path=args.audit_policy,
+        expected_device_id=device_id,
+    )
+    status = client.query_status()
+    authorization = client.query_authorization()
+    active = client.query_active_record()
+    if status.device_id != device_id:
+        raise CalibrationAuditLedgerError("live device identity differs from provisioning/audit-ledger device")
+    if status.has_active != active.present:
+        raise CalibrationAuditLedgerError("live status and active-record readback disagree during audit preflight")
+    if active.present and (
+        active.sequence != status.installed_sequence or active.crc32_ieee != status.installed_crc32
+    ):
+        raise CalibrationAuditLedgerError("live exact active record differs from status during audit preflight")
+    live = preflight_live_state(
+        args.audit_ledger,
+        policy_path=args.audit_policy,
+        device_id=status.device_id,
+        installed_sequence=status.installed_sequence,
+        active_record_sha256=active.sha256,
+        authority_public_key_sha256=authorization.public_key_sha256,
+    )
+    if live != structural:
+        raise CalibrationAuditLedgerError("audit ledger changed during preflight verification")
+    return live.as_dict()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -209,8 +278,8 @@ def build_parser() -> argparse.ArgumentParser:
     apply = sub.add_parser(
         "apply",
         help=(
-            "verify evidence, recovery intent when present, and external signature, then perform one physically "
-            "gated signed calibration write"
+            "verify evidence, audit-ledger continuity, recovery intent when present, and external signature, then "
+            "perform one physically gated signed calibration write"
         ),
     )
     _add_verification_args(apply)
@@ -224,8 +293,8 @@ def build_parser() -> argparse.ArgumentParser:
     reboot = sub.add_parser(
         "verify-reboot",
         help=(
-            "verify retained sequence/CRC after a manual reboot or power cycle and, for recovery evidence, exact "
-            "active-record SHA-256; performs no write"
+            "verify retained sequence/CRC/exact active record after a manual reboot or power cycle and append a "
+            "non-mutating audit event; performs no write"
         ),
     )
     _add_verification_args(reboot)
@@ -244,16 +313,19 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2, allow_nan=False))
             return 0
 
-        # The actual signed write path is stricter than generic package creation:
-        # the policy must explicitly require signed authorization and monotonic recovery.
         validate_signed_provisioning_policy(args.provisioning_policy)
 
-        # Full source/evidence derivation and provisioning-bundle integrity must
-        # pass before any bundle-bound serial operation opens the device.
         verification = _verify_package(args)
         if verification.get("record_rederived") is not True or verification.get("anti_rollback_gate_pass") is not True:
             raise MaintenanceProvisioningError("provisioning verification did not establish record/sequence integrity")
         recovery_verification = _verify_recovery_if_present(args)
+
+        package = _load_json(args.provisioning_dir / "provisioning.json")
+        pre_serial_ledger = verify_ledger(
+            args.audit_ledger,
+            policy_path=args.audit_policy,
+            expected_device_id=str(package.get("device_id", "")),
+        )
 
         authorization = None
         if args.command == "apply":
@@ -261,8 +333,6 @@ def main(argv: list[str] | None = None) -> int:
                 raise MaintenanceProvisioningError(
                     f"physical write requires exact --confirm-write {WRITE_CONFIRMATION}"
                 )
-            # External signature verification also completes before the serial
-            # port is opened. Device-side verification is then required again.
             authorization = verify_authorization_bundle(
                 args.authorization_dir,
                 provisioning_dir=args.provisioning_dir,
@@ -274,6 +344,9 @@ def main(argv: list[str] | None = None) -> int:
             if hasattr(serial_port, "reset_input_buffer"):
                 serial_port.reset_input_buffer()
             client = RecoveryMaintenanceClient(serial_port, timeout_s=args.timeout)
+            live_ledger = _preflight_audit_ledger(args, client)
+            if live_ledger["head_sha256"] != pre_serial_ledger.head_sha256:
+                raise CalibrationAuditLedgerError("audit ledger head changed between structural and live preflight")
             if args.command == "apply":
                 if authorization is None:
                     raise MaintenanceProvisioningError("verified signed authorization is missing")
@@ -301,15 +374,45 @@ def main(argv: list[str] | None = None) -> int:
                 recovery_verification is not None
                 and recovery_verification.get("monotonic_sequence_preserved") is True
             ),
+            "audit_ledger_required": True,
+            "audit_ledger_preflight_verified": True,
+            "audit_ledger_head_before_operation": live_ledger["head_sha256"],
+            "audit_ledger_entry_count_before_operation": live_ledger["entry_count"],
         }
+
+        # Retain the physical evidence before appending its hash into the ledger.
+        # If the append fails after a successful device write, this file remains
+        # available for explicit ledger reconciliation; history is never silently rewritten.
         _save_json(args.report_out, report)
-        print(json.dumps(report, indent=2, allow_nan=False))
+        if args.command == "apply":
+            ledger_after = append_write_evidence(
+                args.audit_ledger,
+                evidence_path=args.report_out,
+                policy_path=args.audit_policy,
+            )
+        else:
+            ledger_after = append_reboot_evidence(
+                args.audit_ledger,
+                evidence_path=args.report_out,
+                policy_path=args.audit_policy,
+            )
+
+        output = dict(report)
+        output["audit_ledger_append"] = {
+            "entry_count": ledger_after.entry_count,
+            "head_sha256": ledger_after.head_sha256,
+            "sequence": ledger_after.sequence,
+            "record_sha256": ledger_after.record_sha256,
+            "authority_public_key_sha256": ledger_after.authority_public_key_sha256,
+        }
+        print(json.dumps(output, indent=2, allow_nan=False))
         return 0
     except (
         MaintenanceProvisioningError,
         CalibrationProvisioningVerificationError,
         CalibrationRecoveryVerificationError,
         SignedProvisioningPolicyError,
+        CalibrationAuditLedgerError,
     ) as exc:
         print(f"physical calibration provisioning failed: {exc}", file=sys.stderr)
         return 2
