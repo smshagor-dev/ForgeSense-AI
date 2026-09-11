@@ -110,7 +110,7 @@ def main() -> int:
     assert "hard-safety" in docs.lower()
     assert "runtime write" in docs.lower()
     assert "quantization" in docs.lower()
-    assert "re-derive" in docs.lower() or "rederive" in docs.lower()
+    assert "reconstructed from the original campaign evidence" in docs.lower()
 
     print(
         "calibration_source_change_check PASS: reviewer approval, deterministic quantization, evidence re-derivation, add-only profile patch, hard-safety non-regression and no-runtime-write authority are present"
