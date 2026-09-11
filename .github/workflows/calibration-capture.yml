@@ -28,3 +28,5 @@ jobs:
         run: make calibration-campaign-check
       - name: Verify campaign bundle integrity and reviewer package contract
         run: make calibration-bundle-verification-check
+      - name: Verify approved calibration source-change contract
+        run: make calibration-source-change-check

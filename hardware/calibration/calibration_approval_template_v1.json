@@ -1,0 +1,28 @@
+{
+  "schema": "forgesense.calibration_approval.v1",
+  "approval_id": "REPLACE_ME",
+  "campaign_id": "REPLACE_ME",
+  "repository_commit": "REPLACE_WITH_40_HEX_SHA",
+  "evidence_root_sha256": "REPLACE_WITH_64_HEX_SHA256",
+  "change_package_sha256": "REPLACE_WITH_64_HEX_SHA256",
+  "decision": "approved_for_source_change",
+  "approved_channels": [
+    "current",
+    "temperature"
+  ],
+  "deferred_channels": [
+    "accelerometer"
+  ],
+  "reviewer": {
+    "name": "REPLACE_ME",
+    "role": "REPLACE_ME"
+  },
+  "reviewed_at_utc": "REPLACE_WITH_ISO8601_UTC",
+  "rationale": "REPLACE_ME",
+  "authority_acknowledgements": {
+    "source_control_change_required": true,
+    "runtime_write_approved": false,
+    "automatic_runtime_application": false,
+    "hard_safety_limit_change_approved": false
+  }
+}
