@@ -42,7 +42,7 @@ The complete ESP-IDF target build still requires validation on the selected phys
 
 ### FPGA sensing and board integration
 
-The VHDL tree contains deterministic safety/control, protocol RX/TX, UART, sample/timebase logic, generated sensor contract constants, sensor freshness supervision, physical-interface adapters, and selected-device acquisition controllers.
+The VHDL tree contains deterministic safety/control, protocol RX/TX, UART, sample/timebase logic, generated sensor contract constants, sensor freshness supervision, physical-interface adapters, selected-device acquisition controllers, and a Tang Nano 9K physical-board wrapper.
 
 The normalized frontend includes signed raw-code calibration, fixed-window integer vibration RMS, normalized update strobes, numeric-saturation diagnostics, and `forgesense_sensor_board_core` connecting the frontend through `sensor_supervisor` into the board core.
 
@@ -55,6 +55,8 @@ Selected register-level acquisition now exists for:
 - ADS131M02 over CPOL=0/CPHA=1 SPI with delayed RREG response handling, CLOCK programming/readback, 24-bit four-word conversion frames, and mandatory output CRC validation.
 
 `forgesense_reference_sensor_io.vhd` composes the three selected devices with the existing normalized sensing and deterministic safety path.
+
+`forgesense_tang_nano_9k_top.vhd` now binds that composition to the 27 MHz Tang Nano 9K physical interface, implements open-drain TMP117 I2C pins, synchronizes the asynchronous hard-trip/E-stop/recovery observations, and preserves the independent physical E-stop gate-inhibit authority.
 
 ### Selected sensor behavioral verification
 
@@ -71,6 +73,22 @@ Coverage includes:
 
 These models are verification sources, not physical-device evidence.
 
+### Tang Nano 9K physical mapping
+
+`hardware/profiles/interconnect_v1.json` revision `INT-002`, `fpga/constraints/tang_nano_9k.cst`, and `fpga/constraints/tang_nano_9k.sdc` now freeze the development-board application mapping against the official Sipeed schematic/pin map.
+
+The external ForgeSense wiring uses J5-5 through J5-22 on 3.3 V banks for UART, hard-trip/E-stop/load control, TMP117 I2C, ADXL355 SPI/DRDY, and ADS131M02 SPI/DRDY. The map intentionally excludes:
+
+- populated TF-card FPGA pins 36-39;
+- onboard BL702 USB-UART FPGA pins 17/18;
+- external BANK3 1.8 V FPGA pins 79-86.
+
+The onboard 27 MHz oscillator remains FPGA pin 52. Onboard S2 is FPGA pin 4 in the 1.8 V bank and is used only as the local reset input.
+
+`tools/check_tang_nano_9k_pinmap.py` verifies unique pin allocation, voltage standards, reserved-pin exclusion, the machine-readable interconnect profile, open-drain I2C behavior, and physical-top synchronizer invariants. `make tang-pin-check` runs this contract directly; `make hardware-check` includes it.
+
+`fpga/scripts/tang_nano_9k_build.tcl` is the Gowin command-line project entry point and targets `GW1NR-LV9QN88PC6/I5` with `forgesense_tang_nano_9k_top`. A successful Gowin synthesis/place-and-route result is still pending.
+
 ### Calibration authority
 
 `forgesense_calibration.*` defines an integrity-checked provisioning/reference record, but the current design exposes no dashboard or ESP32 runtime command that can rewrite FPGA safety calibration. FPGA coefficients remain frozen in the hardware build until a separately reviewed provisioning mechanism exists.
@@ -79,7 +97,7 @@ This preserves the rule that a compromised or malfunctioning monitoring/intellig
 
 ### Component-backed low-voltage hardware baseline
 
-`hardware/profiles/hardware_baseline_v1.json` is revision `HW-BL-004`. It links the protected power-entry, sensing-support, selected-device, current-sense, motor-output, interconnect, package, and net-freeze sources used for schematic capture.
+`hardware/profiles/hardware_baseline_v1.json` is revision `HW-BL-004`. It links the protected power-entry, sensing-support, selected-device, current-sense, motor-output, interconnect, package, and net-freeze sources used for schematic capture. Its status now records the frozen Tang Nano 9K application mapping while retaining the pre-hardware evidence boundary.
 
 The 12 V input reference is:
 
@@ -128,18 +146,20 @@ The pre-layout electrical source set includes:
 - `hardware/profiles/sensor_devices_v1.json`;
 - `hardware/profiles/hardware_baseline_v1.json`;
 - `hardware/profiles/reference_circuit_v1.json`;
-- `hardware/profiles/interconnect_v1.json`;
+- `hardware/profiles/interconnect_v1.json` revision `INT-002`;
 - `hardware/kicad/schematic_contract_v1.json`;
 - `hardware/kicad/POWER_AND_SAFETY_SHEET_V1.md`;
 - `hardware/kicad/component_packages_v1.csv`;
 - `hardware/kicad/net_endpoints_v1.csv`;
-- `hardware/bom/preliminary_bom_v1.csv`.
+- `hardware/bom/preliminary_bom_v1.csv`;
+- `fpga/constraints/tang_nano_9k.cst`;
+- `fpga/constraints/tang_nano_9k.sdc`.
 
-Manufacturer orderable MPN/package information is recorded separately from KiCad library footprint IDs. Footprint bindings remain intentionally pending until verified against the installed KiCad library. Tang Nano external application pins also remain intentionally unresolved rather than guessed.
+Manufacturer orderable MPN/package information is recorded separately from KiCad library footprint IDs. Footprint bindings remain intentionally pending until verified against the installed KiCad library.
 
 ### Hardware consistency checks
 
-`make hardware-check` validates the cross-file hardware baseline, analytical circuit calculations, and selected sensor register/transport contracts.
+`make hardware-check` validates the cross-file hardware baseline, analytical circuit calculations, selected sensor register/transport contracts, and frozen Tang Nano 9K pin mapping.
 
 Checks include:
 
@@ -154,25 +174,29 @@ Checks include:
 - TMP117 address/identity/temperature-register contract;
 - BOM and package-manifest coverage;
 - critical-net endpoint presence;
-- continued absence of guessed FPGA application pins.
+- frozen Tang Nano J5 pin allocation and reserved-interface exclusions;
+- LVCMOS33/LVCMOS18 voltage-standard consistency;
+- 27 MHz timing constraint and physical-top open-drain/synchronizer invariants.
 
 Behavioral SPICE files exist for the current-sense and inductive motor-output topologies. They remain source artifacts; no SPICE execution result is claimed until a compatible simulator is run and evidence is retained.
 
 ## Current validation baseline
 
-Repository validation covers Python simulation/integration, portable C++ protocol/stream/inference/event/telemetry/sensor-contract/sensing/PHY checks, hardware-profile consistency checks, analytical low-voltage circuit checks, and a growing set of self-checking VHDL verification sources.
+Repository validation covers Python simulation/integration, portable C++ protocol/stream/inference/event/telemetry/sensor-contract/sensing/PHY checks, hardware-profile consistency checks, analytical low-voltage circuit checks, static physical-pin consistency, and a growing set of self-checking VHDL verification sources.
 
 Reference software checks include calibration encode/decode and CRC-corruption rejection, invalid-calibration rejection, PHY normalization, deterministic 3 g / 4 g two-sample RMS = 3535 mg, signed 24-bit raw-range rejection, profile/schema consistency, protected-entry equations, current-sense calculations, and safety ordering.
 
 The deterministic seven-scenario software matrix covers normal operation, bearing degradation, overcurrent trend, cooling loss, sensor dropout, intelligence-link loss, and emergency input.
 
-The selected sensor behavioral suite is wired for GHDL execution. Local GHDL execution is not claimed in the current development environment, and recent hosted runs have historically stopped before job-step allocation. A passing hosted or retained local GHDL run is therefore still required before reporting compiler/simulation success for the new bus-level models.
+The selected sensor behavioral suite and Tang Nano physical-top analysis are wired for GHDL execution. Local GHDL execution is not claimed in the current development environment, and recent hosted runs have historically stopped before job-step allocation. A passing hosted or retained local GHDL run is therefore still required before reporting compiler/simulation success for those VHDL additions.
 
 ## Evidence still missing
 
 The following remain intentionally unclaimed until measured or tool-verified:
 
-- a retained successful GHDL compile/run for the new selected-device bus models;
+- a retained successful GHDL compile/run for the selected-device bus models and Tang Nano physical top;
+- successful Gowin synthesis, place-and-route, resource-utilization report, and timing closure for the physical top;
+- physical continuity confirmation for the frozen J5 wiring on the actual board revision;
 - selected physical sensor accuracy and calibration;
 - ADS131M02 behavior on the physical bus and measured ADC/reference/shunt/amplifier transfer accuracy;
 - ADXL355 and TMP117 behavior on physical buses;
@@ -187,9 +211,7 @@ The following remain intentionally unclaimed until measured or tool-verified:
 - real motor/pump fault signatures and predictive lead time;
 - false alarms per operating hour;
 - ESP32-S3 device-level latency and memory use;
-- UART/USB signal integrity on the selected boards;
-- exact Tang Nano application-pin/CST mapping;
-- FPGA synthesis utilization and timing closure for the complete physical acquisition path;
+- UART/SPI/I2C signal integrity and I2C rise-time on the selected boards;
 - power-tree efficiency and thermal performance;
 - verified KiCad footprint binding, ERC/DRC, PCB manufacturing evidence;
 - industrial functional-safety suitability or certification.
