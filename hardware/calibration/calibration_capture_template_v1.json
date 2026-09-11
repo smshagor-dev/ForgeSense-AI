@@ -1,0 +1,75 @@
+{
+  "schema": "forgesense.calibration_capture.v1",
+  "capture_id": "REPLACE_ME",
+  "repository_commit": "REPLACE_WITH_40_HEX_SHA",
+  "boards": {
+    "fpga_revision": "REPLACE_ME",
+    "esp32_revision": "REPLACE_ME",
+    "sensor_board_revision": "REPLACE_ME"
+  },
+  "instruments": [
+    {
+      "type": "DMM_or_reference_meter",
+      "manufacturer_model": "REPLACE_ME",
+      "asset_or_serial": "REPLACE_ME",
+      "calibration_status": "REPLACE_ME"
+    }
+  ],
+  "environment": {
+    "ambient_temperature_c": 25.0,
+    "notes": "Record actual bench conditions"
+  },
+  "evidence": [
+    {
+      "file": "REPLACE_ME",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256",
+      "description": "Raw bench capture or log"
+    }
+  ],
+  "current": {
+    "minimum_raw_span": 100000.0,
+    "minimum_r2": 0.999,
+    "maximum_rmse_ma": 50.0,
+    "points": [
+      {"adc_raw": 0, "reference_current_a": 0.0},
+      {"adc_raw": 1000000, "reference_current_a": 0.5},
+      {"adc_raw": 2000000, "reference_current_a": 1.0},
+      {"adc_raw": 4000000, "reference_current_a": 2.0},
+      {"adc_raw": 6400000, "reference_current_a": 3.2}
+    ]
+  },
+  "temperature": {
+    "maximum_offset_rmse_c": 0.20,
+    "points": [
+      {"tmp117_temperature_c": 20.0, "reference_temperature_c": 20.0},
+      {"tmp117_temperature_c": 25.0, "reference_temperature_c": 25.0},
+      {"tmp117_temperature_c": 30.0, "reference_temperature_c": 30.0}
+    ]
+  },
+  "accelerometer": {
+    "expected_stationary_mg": {"x": 0.0, "y": 0.0, "z": 1000.0},
+    "maximum_abs_bias_mg": 250.0,
+    "stationary_samples_mg": [
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0},
+      {"x": 0.0, "y": 0.0, "z": 1000.0}
+    ]
+  }
+}
