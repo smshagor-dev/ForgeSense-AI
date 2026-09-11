@@ -24,3 +24,5 @@ jobs:
         run: make calibration-check
       - name: Verify calibration session assembly contract
         run: make calibration-assembler-check
+      - name: Verify repeated-run calibration campaign contract
+        run: make calibration-campaign-check
