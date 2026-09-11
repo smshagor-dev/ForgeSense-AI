@@ -21,6 +21,11 @@ BOARDS = {
 }
 
 
+def _canonical_sha256(data: dict) -> str:
+    blob = json.dumps(data, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()
+
+
 def _write_diagnostic(
     path: Path,
     *,
@@ -168,6 +173,7 @@ def test_campaign_builds_three_run_review_and_integrity_index(tmp_path: Path) ->
     assert campaign_result["run_count"] == 3
     assert campaign_result["authority"]["automatic_runtime_application"] is False
     assert campaign_result["authority"]["may_control_actuators"] is False
+    assert campaign_result["runs"][0]["source_session_manifest"] == "run-01/session.json"
 
     evidence_index = json.loads(bundle["evidence-index.json"])
     assert evidence_index["schema"] == "forgesense.calibration_evidence_index.v1"
@@ -175,9 +181,19 @@ def test_campaign_builds_three_run_review_and_integrity_index(tmp_path: Path) ->
     assert evidence_index["integrity_seal"]["digital_signature_present"] is False
     assert evidence_index["authority"]["integrity_index_only"] is True
 
+    source_roles = [entry["role"] for entry in evidence_index["source_entries"]]
+    assert source_roles.count("campaign_manifest") == 1
+    assert source_roles.count("review_policy") == 1
+    assert source_roles.count("session_manifest") == 3
+    review_policy = next(entry for entry in evidence_index["source_entries"] if entry["role"] == "review_policy")
+    assert review_policy["path"] == "policy.json"
+
     generated = {entry["path"]: entry for entry in evidence_index["generated_entries"]}
     assert generated["review.json"]["sha256"] == hashlib.sha256(bundle["review.json"]).hexdigest()
     assert generated["campaign.json"]["sha256"] == hashlib.sha256(bundle["campaign.json"]).hexdigest()
+
+    index_core = {key: value for key, value in evidence_index.items() if key != "integrity_seal"}
+    assert evidence_index["integrity_seal"]["root_sha256"] == _canonical_sha256(index_core)
 
 
 def test_policy_minimum_runs_is_enforced_before_bundle_generation(tmp_path: Path) -> None:
