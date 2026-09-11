@@ -28,6 +28,8 @@ jobs:
         run: make signed-maintenance-authorization-check
       - name: Verify monotonic calibration recovery contract
         run: make calibration-recovery-check
+      - name: Verify calibration audit ledger contract
+        run: make calibration-audit-ledger-check
 
   status-diagnostic-vhdl:
     runs-on: ubuntu-latest
