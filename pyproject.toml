@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Virtual reference implementation for ForgeSense AI"
 requires-python = ">=3.11"
 
+[project.optional-dependencies]
+commissioning = ["pyserial>=3.5,<4"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["simulator", "ml", "protocol/python"]
+pythonpath = ["simulator", "ml", "protocol/python", "commissioning"]
 addopts = "-q"
