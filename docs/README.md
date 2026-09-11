@@ -14,6 +14,7 @@ This directory is the engineering source of truth for system behavior, interface
 - [`SENSOR_FRONTEND.md`](SENSOR_FRONTEND.md) — deterministic calibration, RMS extraction, diagnostics, and normalized hardware boundary.
 - [`SENSOR_PHY_REFERENCE.md`](SENSOR_PHY_REFERENCE.md) — acquisition, calibration record, self-test, and electronics boundary.
 - [`SENSOR_DEVICE_DRIVERS.md`](SENSOR_DEVICE_DRIVERS.md) — TMP117, ADXL355, and ADS131M02 register-level FPGA acquisition and verification boundary.
+- [`SENSOR_BEHAVIORAL_VERIFICATION.md`](SENSOR_BEHAVIORAL_VERIFICATION.md) — bus-level selected-sensor models, fault injection, combined acquisition verification, and evidence limits.
 - [`REFERENCE_CIRCUITS.md`](REFERENCE_CIRCUITS.md) — component-backed 12 V current sensing, analog hard trip, protected motor output, E-stop, and SPICE references.
 - [`HARDWARE_BASELINE_V1.md`](HARDWARE_BASELINE_V1.md) — `HW-BL-004` protected power entry, selected reference parts, precision sensor support, schematic contracts, and evidence boundary.
 - [`HARDWARE_DESIGN.md`](HARDWARE_DESIGN.md) — electronics, protection, power, sensing, and PCB design rules.
