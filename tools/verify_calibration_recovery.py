@@ -17,6 +17,10 @@ except ModuleNotFoundError:
 try:
     from tools.prepare_calibration_provisioning import _file_sha256, _load_json
     from tools.prepare_calibration_recovery import RECOVERY_INTENT_SCHEMA
+    from tools.validate_signed_provisioning_policy import (
+        SignedProvisioningPolicyError,
+        validate_signed_provisioning_policy,
+    )
     from tools.verify_calibration_provisioning import (
         CalibrationProvisioningVerificationError,
         verify_provisioning_bundle,
@@ -24,6 +28,10 @@ try:
 except ModuleNotFoundError:
     from prepare_calibration_provisioning import _file_sha256, _load_json  # type: ignore
     from prepare_calibration_recovery import RECOVERY_INTENT_SCHEMA  # type: ignore
+    from validate_signed_provisioning_policy import (  # type: ignore
+        SignedProvisioningPolicyError,
+        validate_signed_provisioning_policy,
+    )
     from verify_calibration_provisioning import (  # type: ignore
         CalibrationProvisioningVerificationError,
         verify_provisioning_bundle,
@@ -72,6 +80,13 @@ def verify_recovery_bundle(
     device_state_path: Path,
     provisioning_policy_path: Path,
 ) -> dict:
+    try:
+        validate_signed_provisioning_policy(provisioning_policy_path)
+    except SignedProvisioningPolicyError as exc:
+        raise CalibrationRecoveryVerificationError(
+            f"signed provisioning policy validation failed: {exc}"
+        ) from exc
+
     generic = verify_provisioning_bundle(
         provisioning_dir,
         source_change_dir=source_change_dir,
@@ -156,6 +171,8 @@ def verify_recovery_bundle(
 
     if generic.get("record_rederived") is not True or generic.get("source_derivation_reverified") is not True:
         raise CalibrationRecoveryVerificationError("generic provisioning verification did not rederive recovery record")
+    if generic.get("hard_safety_non_regression_pass") is not True:
+        raise CalibrationRecoveryVerificationError("generic provisioning verification did not preserve hard-safety baseline")
 
     return {
         "schema": VERIFICATION_SCHEMA,
@@ -171,7 +188,7 @@ def verify_recovery_bundle(
         "monotonic_sequence_preserved": True,
         "sequence_decrement_performed": False,
         "signed_maintenance_authorization_required": True,
-        "hard_safety_non_regression_pass": generic.get("hard_safety_non_regression_pass") is True,
+        "hard_safety_non_regression_pass": True,
         "authority": {
             "verification_only": True,
             "automatic_recovery": False,
