@@ -223,6 +223,8 @@ def verify_ledger(
     ledger_dir = ledger_dir.resolve()
     policy = load_policy(policy_path)
     metadata_path = ledger_dir / "ledger.json"
+    if metadata_path.exists() and (metadata_path.is_symlink() or not metadata_path.is_file()):
+        raise CalibrationAuditLedgerError("audit ledger metadata must be a regular non-symlink file")
     metadata = _load_json(metadata_path, "calibration audit ledger metadata")
     if metadata.get("schema") != LEDGER_SCHEMA:
         raise CalibrationAuditLedgerError("unsupported calibration audit ledger schema")
@@ -421,6 +423,18 @@ def preflight_live_state(
     return state
 
 
+def _require_preflight_binding(report: dict[str, Any], state: LedgerState) -> None:
+    host = report.get("host_verification")
+    if not isinstance(host, dict):
+        raise CalibrationAuditLedgerError("physical evidence lacks audit-ledger host preflight binding")
+    if host.get("audit_ledger_required") is not True or host.get("audit_ledger_preflight_verified") is not True:
+        raise CalibrationAuditLedgerError("physical evidence was not produced under mandatory audit-ledger preflight")
+    if host.get("audit_ledger_head_before_operation") != state.head_sha256:
+        raise CalibrationAuditLedgerError("physical evidence audit-ledger head does not match current ledger head")
+    if int(host.get("audit_ledger_entry_count_before_operation", -1)) != state.entry_count:
+        raise CalibrationAuditLedgerError("physical evidence audit-ledger entry count does not match current ledger")
+
+
 def _append_entry(ledger_dir: Path, entry_core: dict[str, Any], *, policy_path: Path) -> LedgerState:
     ledger_dir = ledger_dir.resolve()
     state = verify_ledger(ledger_dir, policy_path=policy_path, expected_device_id=str(entry_core["device_id"]))
@@ -461,6 +475,7 @@ def append_write_evidence(
         raise CalibrationAuditLedgerError("physical provisioning evidence sections are incomplete")
     device_id = str(device.get("device_id", ""))
     state = verify_ledger(ledger_dir, policy_path=policy_path, expected_device_id=device_id)
+    _require_preflight_binding(report, state)
     pre = observations.get("pre_write")
     post = observations.get("post_write")
     if not isinstance(pre, dict) or not isinstance(post, dict):
@@ -542,6 +557,7 @@ def append_reboot_evidence(
         raise CalibrationAuditLedgerError("reboot evidence sections are incomplete")
     device_id = str(device.get("device_id", ""))
     state = verify_ledger(ledger_dir, policy_path=policy_path, expected_device_id=device_id)
+    _require_preflight_binding(report, state)
     sequence = int(provisioning.get("candidate_sequence", -1))
     record_sha = _require_sha256(provisioning.get("record_sha256"), "reboot evidence record SHA-256")
     signer_sha = _require_sha256(
