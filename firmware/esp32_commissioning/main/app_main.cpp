@@ -1,4 +1,5 @@
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 #include "driver/uart.h"
@@ -15,13 +16,39 @@ constexpr int kFpgaRxGpio = 18;
 constexpr int kBaud = 115200;
 constexpr std::size_t kBufferSize = 512;
 
+void write_all_usb(const std::uint8_t* data, std::size_t size) {
+    std::size_t offset = 0;
+    while (offset < size) {
+        const int written = usb_serial_jtag_write_bytes(
+            data + offset, size - offset, pdMS_TO_TICKS(100));
+        if (written > 0) {
+            offset += static_cast<std::size_t>(written);
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(1));
+        }
+    }
+}
+
+void write_all_uart(const std::uint8_t* data, std::size_t size) {
+    std::size_t offset = 0;
+    while (offset < size) {
+        const int written = uart_write_bytes(
+            kFpgaUart, data + offset, size - offset);
+        if (written > 0) {
+            offset += static_cast<std::size_t>(written);
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(1));
+        }
+    }
+}
+
 void usb_to_fpga_task(void*) {
     std::array<std::uint8_t, kBufferSize> buffer{};
     while (true) {
         const int received = usb_serial_jtag_read_bytes(
             buffer.data(), buffer.size(), pdMS_TO_TICKS(20));
         if (received > 0) {
-            uart_write_bytes(kFpgaUart, buffer.data(), received);
+            write_all_uart(buffer.data(), static_cast<std::size_t>(received));
         }
     }
 }
@@ -32,8 +59,7 @@ void fpga_to_usb_task(void*) {
         const int received = uart_read_bytes(
             kFpgaUart, buffer.data(), buffer.size(), pdMS_TO_TICKS(20));
         if (received > 0) {
-            usb_serial_jtag_write_bytes(
-                buffer.data(), static_cast<std::size_t>(received), pdMS_TO_TICKS(20));
+            write_all_usb(buffer.data(), static_cast<std::size_t>(received));
         }
     }
 }
