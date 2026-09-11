@@ -17,6 +17,7 @@ def main() -> int:
         '"automatic_runtime_application": False',
         '"may_relax_hard_safety_limits": False',
         '"measurement_uncertainty_complete"',
+        '"accelerometer_stddev_complete"',
         '"slope_span_ppm"',
         '"axis_bias_span_mg"',
         '"review_ready"',
@@ -48,6 +49,7 @@ def main() -> int:
         "test_board_revision_mismatch_blocks_review_readiness",
         "test_large_current_gain_drift_is_rejected",
         "test_missing_uncertainty_blocks_review_readiness",
+        "test_legacy_proposal_without_axis_stddev_is_not_review_ready",
         "test_authority_tamper_is_rejected",
         "test_too_few_runs_is_not_review_ready",
     ):
@@ -59,7 +61,7 @@ def main() -> int:
     assert "uncertainty" in docs.lower()
     assert "repeatability" in docs.lower()
 
-    print("calibration_review_check PASS: repeatability, uncertainty and review-only authority gates are present")
+    print("calibration_review_check PASS: repeatability, uncertainty, evidence completeness and review-only authority gates are present")
     return 0
 
 
