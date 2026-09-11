@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sys
@@ -32,6 +33,7 @@ except ModuleNotFoundError:
     )
 
 WRITE_CONFIRMATION = "CALIBRATION-WRITE"
+DEVICE_STATE_SCHEMA = "forgesense.calibration_device_state.v1"
 
 
 def _serial_port(name: str, baud: int, timeout: float):
@@ -59,6 +61,12 @@ def _load_json(path: Path) -> dict:
     if not isinstance(value, dict):
         raise MaintenanceProvisioningError("evidence file must contain a JSON object")
     return value
+
+
+def _add_serial_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--port", required=True)
+    parser.add_argument("--baud", type=int, default=115200)
+    parser.add_argument("--timeout", type=float, default=1.0)
 
 
 def _add_verification_args(parser: argparse.ArgumentParser) -> None:
@@ -99,20 +107,52 @@ def _verify_package(args: argparse.Namespace) -> dict:
     )
 
 
+def _capture_device_state(args: argparse.Namespace) -> dict:
+    serial_port = _serial_port(args.port, args.baud, args.timeout)
+    try:
+        if hasattr(serial_port, "reset_input_buffer"):
+            serial_port.reset_input_buffer()
+        status = MaintenanceClient(serial_port, timeout_s=args.timeout).query_status()
+    finally:
+        serial_port.close()
+
+    now = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return {
+        "schema": DEVICE_STATE_SCHEMA,
+        "device_id": status.device_id,
+        "captured_at_utc": now,
+        "installed_sequence": status.installed_sequence,
+        "installed_record_crc32": status.installed_crc32 if status.has_active else None,
+        "maintenance_mode_confirmed": status.maintenance_asserted,
+        "load_output_physically_inhibited_confirmed": status.load_inhibit_asserted,
+        "source": "dedicated calibration maintenance firmware readback",
+        "note": (
+            "Read-only status capture from eFuse MAC, calibration NVS state, and physical gate GPIOs. "
+            "The gates must be checked again at PREPARE and COMMIT time."
+        ),
+        "maintenance_readback": status.as_dict(),
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="ForgeSense maintenance-only physical calibration provisioning utility"
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
+    status = sub.add_parser(
+        "status",
+        help="read device identity, installed calibration state, and physical gates; performs no write",
+    )
+    _add_serial_args(status)
+    status.add_argument("--report-out", type=Path, required=True)
+
     apply = sub.add_parser(
         "apply",
         help="verify the full evidence chain, then perform one physically gated calibration record write",
     )
     _add_verification_args(apply)
-    apply.add_argument("--port", required=True)
-    apply.add_argument("--baud", type=int, default=115200)
-    apply.add_argument("--timeout", type=float, default=1.0)
+    _add_serial_args(apply)
     apply.add_argument("--operator", required=True)
     apply.add_argument("--confirm-write", required=True)
     apply.add_argument("--report-out", type=Path, required=True)
@@ -122,9 +162,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="verify retained sequence/CRC after a manual reboot or power cycle; performs no write",
     )
     _add_verification_args(reboot)
-    reboot.add_argument("--port", required=True)
-    reboot.add_argument("--baud", type=int, default=115200)
-    reboot.add_argument("--timeout", type=float, default=1.0)
+    _add_serial_args(reboot)
     reboot.add_argument("--evidence", type=Path, required=True)
     reboot.add_argument("--report-out", type=Path, required=True)
     return parser
@@ -133,18 +171,24 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.command == "status":
+            report = _capture_device_state(args)
+            _save_json(args.report_out, report)
+            print(json.dumps(report, indent=2, allow_nan=False))
+            return 0
+
         # Full source/evidence derivation and provisioning-bundle integrity must
-        # pass before a serial device is opened. This prevents transport access
-        # from becoming an alternate trust path around review/source controls.
+        # pass before APPLY or reboot-verification opens a serial device. This
+        # prevents transport access from becoming an alternate trust path around
+        # review/source controls for any operation tied to a provisioning bundle.
         verification = _verify_package(args)
         if verification.get("record_rederived") is not True or verification.get("anti_rollback_gate_pass") is not True:
             raise MaintenanceProvisioningError("provisioning verification did not establish record/sequence integrity")
 
-        if args.command == "apply":
-            if args.confirm_write != WRITE_CONFIRMATION:
-                raise MaintenanceProvisioningError(
-                    f"physical write requires exact --confirm-write {WRITE_CONFIRMATION}"
-                )
+        if args.command == "apply" and args.confirm_write != WRITE_CONFIRMATION:
+            raise MaintenanceProvisioningError(
+                f"physical write requires exact --confirm-write {WRITE_CONFIRMATION}"
+            )
 
         serial_port = _serial_port(args.port, args.baud, args.timeout)
         try:
