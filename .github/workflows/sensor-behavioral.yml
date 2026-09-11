@@ -1,0 +1,48 @@
+name: Selected sensor behavioral checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  selected-sensor-behavioral:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install GHDL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ghdl
+      - name: Analyze selected sensor RTL and models
+        run: |
+          ghdl -a --std=08 fpga/rtl/protocol/crc16_ccitt_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/io/spi_mode0_byte_engine.vhd
+          ghdl -a --std=08 fpga/rtl/io/spi_mode1_byte_engine.vhd
+          ghdl -a --std=08 fpga/rtl/io/i2c_byte_engine.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_device_math_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/tmp117_controller.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/adxl355_controller.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/ads131m02_controller.vhd
+          ghdl -a --std=08 fpga/tb/models/tmp117_i2c_model.vhd
+          ghdl -a --std=08 fpga/tb/models/adxl355_spi_model.vhd
+          ghdl -a --std=08 fpga/tb/models/ads131m02_spi_model.vhd
+          ghdl -a --std=08 fpga/tb/tb_tmp117_controller_behavioral.vhd
+          ghdl -a --std=08 fpga/tb/tb_adxl355_controller_behavioral.vhd
+          ghdl -a --std=08 fpga/tb/tb_ads131m02_controller_behavioral.vhd
+          ghdl -a --std=08 fpga/tb/tb_selected_sensor_cluster_behavioral.vhd
+      - name: Run selected sensor behavioral verification
+        run: |
+          for tb in \
+            tb_tmp117_controller_behavioral \
+            tb_adxl355_controller_behavioral \
+            tb_ads131m02_controller_behavioral \
+            tb_selected_sensor_cluster_behavioral
+          do
+            ghdl -e --std=08 "$tb"
+            ghdl -r --std=08 "$tb" --assert-level=error --stop-time=10ms
+          done
