@@ -15,6 +15,7 @@ from commissioning.forgesense_commission.provisioning import (
     MaintenanceProvisioningError,
     encode_frame,
 )
+import commissioning.forgesense_commission.recovery as recovery_module
 from commissioning.forgesense_commission.recovery import (
     OP_ACTIVE_RECORD_RESPONSE,
     OP_QUERY_ACTIVE_RECORD,
@@ -245,6 +246,7 @@ def test_runtime_recovery_binding_rejects_changed_active_record() -> None:
             "sequence_semantics": {
                 "candidate_is_new_higher_sequence": True,
                 "decrement_permitted": False,
+                "increment_exactly_one": True,
             },
             "authority": {
                 "signed_maintenance_authorization_required": True,
@@ -330,3 +332,45 @@ def test_recovery_verifier_rejects_tampered_active_record_binding(
             device_state_path=state_path,
             provisioning_policy_path=tmp_path / "provision-policy.json",
         )
+
+
+def test_recovery_reboot_verification_requires_exact_record_sha(monkeypatch: pytest.MonkeyPatch) -> None:
+    active = make_record(5, current_num=1, current_den=2000, temp_offset=2)
+
+    class FakeRecoveryClient:
+        def __init__(self, record: bytes) -> None:
+            self.record = record
+
+        def query_active_record(self) -> ActiveCalibrationRecord:
+            return ActiveCalibrationRecord(
+                True,
+                self.record,
+                struct.unpack_from("<I", self.record, 8)[0],
+                struct.unpack_from("<I", self.record, 44)[0],
+                _sha256(self.record),
+            )
+
+    monkeypatch.setattr(
+        recovery_module,
+        "verify_reboot_recovery",
+        lambda client, evidence: {
+            "reboot_recovery_verified": True,
+            "reboot_verification": {"sequence_match": True, "crc_match": True},
+        },
+    )
+    evidence = {
+        "provisioning": {
+            "record_sha256": _sha256(active),
+            "candidate_sequence": 5,
+        },
+        "recovery": {
+            "intent_schema": "forgesense.calibration_recovery_intent.v1",
+        },
+    }
+    verified = recovery_module.verify_recovery_aware_reboot(FakeRecoveryClient(active), evidence)  # type: ignore[arg-type]
+    assert verified["reboot_verification"]["exact_record_sha256_match"] is True
+    assert verified["reboot_verification"]["exact_active_record"]["sha256"] == _sha256(active)
+
+    tampered = make_record(5, current_num=9, current_den=2000, temp_offset=2)
+    with pytest.raises(MaintenanceProvisioningError, match="exact active-record SHA-256"):
+        recovery_module.verify_recovery_aware_reboot(FakeRecoveryClient(tampered), evidence)  # type: ignore[arg-type]
