@@ -3,7 +3,6 @@
 #include "esp_err.h"
 
 #include <algorithm>
-#include <cstring>
 
 namespace forgesense::edge {
 namespace {
@@ -19,6 +18,19 @@ CalibrationNvsStore::~CalibrationNvsStore() {
     if (opened_) {
         nvs_close(handle_);
     }
+}
+
+void CalibrationNvsStore::reset_failed_open() {
+    if (opened_) {
+        nvs_close(handle_);
+    }
+    handle_ = 0;
+    installed_floor_ = 0;
+    active_slot_ = 0;
+    has_active_ = false;
+    opened_ = false;
+    ready_ = false;
+    active_record_ = {};
 }
 
 bool CalibrationNvsStore::read_slot(
@@ -55,8 +67,11 @@ bool CalibrationNvsStore::write_metadata(
 }
 
 bool CalibrationNvsStore::begin() {
-    if (opened_) {
+    if (ready_) {
         return true;
+    }
+    if (opened_) {
+        reset_failed_open();
     }
     if (nvs_open(kNamespace, NVS_READWRITE, &handle_) != ESP_OK) {
         return false;
@@ -66,6 +81,7 @@ bool CalibrationNvsStore::begin() {
     std::uint32_t stored_floor = 0;
     const esp_err_t floor_err = nvs_get_u32(handle_, kFloorKey, &stored_floor);
     if (floor_err != ESP_OK && floor_err != ESP_ERR_NVS_NOT_FOUND) {
+        reset_failed_open();
         return false;
     }
 
@@ -74,6 +90,7 @@ bool CalibrationNvsStore::begin() {
     bool present0 = false;
     bool present1 = false;
     if (!read_slot(0, slot0, present0) || !read_slot(1, slot1, present1)) {
+        reset_failed_open();
         return false;
     }
 
@@ -85,9 +102,11 @@ bool CalibrationNvsStore::begin() {
     if (selected.status == sensing::CalibrationSelectionStatus::Empty) {
         installed_floor_ = 0;
         has_active_ = false;
+        ready_ = true;
         return true;
     }
     if (selected.status != sensing::CalibrationSelectionStatus::Selected) {
+        reset_failed_open();
         return false;
     }
 
@@ -101,13 +120,15 @@ bool CalibrationNvsStore::begin() {
     const bool metadata_needs_repair =
         active_err != ESP_OK || stored_active != active_slot_ || stored_floor != installed_floor_;
     if (metadata_needs_repair && !write_metadata(active_slot_, installed_floor_)) {
+        reset_failed_open();
         return false;
     }
+    ready_ = true;
     return true;
 }
 
 bool CalibrationNvsStore::load_active(sensing::CalibrationRecord& out) const {
-    if (!opened_ || !has_active_) {
+    if (!ready_ || !has_active_) {
         return false;
     }
     out = active_record_;
@@ -116,7 +137,7 @@ bool CalibrationNvsStore::load_active(sensing::CalibrationRecord& out) const {
 
 bool CalibrationNvsStore::stage_and_commit(
     const sensing::CalibrationRecord& candidate) {
-    if (!opened_ || !sensing::calibration_sequence_is_newer(candidate.sequence, installed_floor_)) {
+    if (!ready_ || !sensing::calibration_sequence_is_newer(candidate.sequence, installed_floor_)) {
         return false;
     }
     if (!sensing::calibration_is_usable(candidate.temperature) ||
