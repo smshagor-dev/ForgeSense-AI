@@ -1,6 +1,5 @@
 #include "forgesense_calibration_provisioning.h"
 
-#include <array>
 #include <cstring>
 
 namespace forgesense::sensing {
@@ -36,7 +35,7 @@ bool same_blob(const CalibrationSlotView& a, const CalibrationSlotView& b) {
 bool calibration_sequence_is_newer(
     std::uint32_t candidate,
     std::uint32_t installed_floor) {
-    return candidate != 0U && candidate > installed_floor;
+    return candidate != 0U && candidate != 0xFFFFFFFFU && candidate > installed_floor;
 }
 
 CalibrationSelection select_calibration_slot(
@@ -71,7 +70,8 @@ CalibrationSelection select_calibration_slot(
         selected = decoded1.record;
     }
 
-    if (selected.sequence == 0U || selected.sequence < installed_floor) {
+    if (selected.sequence == 0U || selected.sequence == 0xFFFFFFFFU ||
+        selected.sequence < installed_floor) {
         return {CalibrationSelectionStatus::RollbackDetected, selected_slot, selected};
     }
 
