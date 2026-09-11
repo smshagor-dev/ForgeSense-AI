@@ -87,6 +87,7 @@ jobs:
           ghdl -a --std=08 fpga/rtl/io/spi_mode1_byte_engine.vhd
           ghdl -a --std=08 fpga/rtl/io/i2c_byte_engine.vhd
           ghdl -a --std=08 fpga/rtl/sensing/sensor_contract_pkg.vhd
+          ghdl -a --std=08 fpga/rtl/sensing/sensor_device_math_pkg.vhd
           ghdl -a --std=08 fpga/rtl/sensing/linear_sensor_adapter.vhd
           ghdl -a --std=08 fpga/rtl/sensing/vibration_rms_window.vhd
           ghdl -a --std=08 fpga/rtl/sensing/sensor_frontend.vhd
@@ -108,6 +109,11 @@ jobs:
           ghdl -a --std=08 fpga/rtl/top/forgesense_sensor_board_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_phy_board_core.vhd
           ghdl -a --std=08 fpga/rtl/top/forgesense_reference_sensor_io.vhd
+      - name: Run selected sensor math testbench
+        run: |
+          ghdl -a --std=08 fpga/tb/tb_sensor_device_math_pkg.vhd
+          ghdl -e --std=08 tb_sensor_device_math_pkg
+          ghdl -r --std=08 tb_sensor_device_math_pkg --assert-level=error
       - name: Run SPI mode-0 byte-engine testbench
         run: |
           ghdl -a --std=08 fpga/tb/tb_spi_mode0_byte_engine.vhd
