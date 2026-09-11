@@ -26,6 +26,8 @@ SAFETY_ML_WARNING = 0x0008
 SAFETY_ML_CRITICAL = 0x0010
 SAFETY_EMERGENCY = 0x0020
 SAFETY_SENSORS_VALID = 0x0040
+SAFETY_DEVICE_IDENTITY_OK = 0x0080
+SAFETY_DEVICE_TRANSPORT_ERROR = 0x0100
 
 _HEADER = struct.Struct("<2sBBHHI")
 _ML_PAYLOAD = struct.Struct("<HHHHHBBH")
@@ -95,6 +97,14 @@ class StatusSnapshotWire:
     @property
     def operational_ready(self) -> bool:
         return bool(self.control_flags & STATUS_OPERATIONAL_READY)
+
+    @property
+    def device_identity_ok(self) -> bool:
+        return bool(self.safety_flags & SAFETY_DEVICE_IDENTITY_OK)
+
+    @property
+    def device_transport_error(self) -> bool:
+        return bool(self.safety_flags & SAFETY_DEVICE_TRANSPORT_ERROR)
 
 
 @dataclass(frozen=True)
