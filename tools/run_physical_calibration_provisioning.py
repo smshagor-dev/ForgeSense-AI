@@ -11,31 +11,49 @@ try:
         MaintenanceProvisioningError,
         verify_reboot_recovery,
     )
-    from commissioning.forgesense_commission.signed_provisioning import (
-        SignedMaintenanceClient,
-        apply_signed_provisioning,
-        verify_authorization_bundle,
+    from commissioning.forgesense_commission.recovery import (
+        RECOVERY_INTENT_SCHEMA,
+        RecoveryMaintenanceClient,
+        apply_recovery_aware_signed_provisioning,
     )
+    from commissioning.forgesense_commission.signed_provisioning import verify_authorization_bundle
 except ModuleNotFoundError:
     from forgesense_commission.provisioning import (  # type: ignore
         MaintenanceProvisioningError,
         verify_reboot_recovery,
     )
-    from forgesense_commission.signed_provisioning import (  # type: ignore
-        SignedMaintenanceClient,
-        apply_signed_provisioning,
-        verify_authorization_bundle,
+    from forgesense_commission.recovery import (  # type: ignore
+        RECOVERY_INTENT_SCHEMA,
+        RecoveryMaintenanceClient,
+        apply_recovery_aware_signed_provisioning,
     )
+    from forgesense_commission.signed_provisioning import verify_authorization_bundle  # type: ignore
 
 try:
+    from tools.validate_signed_provisioning_policy import (
+        SignedProvisioningPolicyError,
+        validate_signed_provisioning_policy,
+    )
     from tools.verify_calibration_provisioning import (
         CalibrationProvisioningVerificationError,
         verify_provisioning_bundle,
     )
+    from tools.verify_calibration_recovery import (
+        CalibrationRecoveryVerificationError,
+        verify_recovery_bundle,
+    )
 except ModuleNotFoundError:
+    from validate_signed_provisioning_policy import (  # type: ignore
+        SignedProvisioningPolicyError,
+        validate_signed_provisioning_policy,
+    )
     from verify_calibration_provisioning import (  # type: ignore
         CalibrationProvisioningVerificationError,
         verify_provisioning_bundle,
+    )
+    from verify_calibration_recovery import (  # type: ignore
+        CalibrationRecoveryVerificationError,
+        verify_recovery_bundle,
     )
 
 WRITE_CONFIRMATION = "CALIBRATION-WRITE"
@@ -113,16 +131,45 @@ def _verify_package(args: argparse.Namespace) -> dict:
     )
 
 
+def _verify_recovery_if_present(args: argparse.Namespace) -> dict | None:
+    package = _load_json(args.provisioning_dir / "provisioning.json")
+    intent = package.get("intent")
+    if intent is None:
+        return None
+    if not isinstance(intent, dict) or intent.get("schema") != RECOVERY_INTENT_SCHEMA:
+        raise MaintenanceProvisioningError("unsupported provisioning intent on physical write path")
+    return verify_recovery_bundle(
+        args.provisioning_dir,
+        source_change_dir=args.source_change_dir,
+        bundle_dir=args.bundle,
+        change_package_dir=args.change_package_dir,
+        approval_path=args.approval,
+        source_root=args.source_root,
+        campaign_manifest=args.campaign_manifest,
+        repo_root=args.repo_root,
+        source_change_policy_path=args.source_change_policy,
+        device_state_path=args.device_state,
+        provisioning_policy_path=args.provisioning_policy,
+    )
+
+
 def _capture_device_state(args: argparse.Namespace) -> dict:
     serial_port = _serial_port(args.port, args.baud, args.timeout)
     try:
         if hasattr(serial_port, "reset_input_buffer"):
             serial_port.reset_input_buffer()
-        client = SignedMaintenanceClient(serial_port, timeout_s=args.timeout)
+        client = RecoveryMaintenanceClient(serial_port, timeout_s=args.timeout)
         status = client.query_status()
         authorization = client.query_authorization()
+        active = client.query_active_record()
     finally:
         serial_port.close()
+
+    if status.has_active != active.present:
+        raise MaintenanceProvisioningError("status and active-record readback disagree about active calibration presence")
+    if active.present:
+        if active.sequence != status.installed_sequence or active.crc32_ieee != status.installed_crc32:
+            raise MaintenanceProvisioningError("status and exact active-record readback disagree")
 
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     return {
@@ -131,14 +178,17 @@ def _capture_device_state(args: argparse.Namespace) -> dict:
         "captured_at_utc": now,
         "installed_sequence": status.installed_sequence,
         "installed_record_crc32": status.installed_crc32 if status.has_active else None,
+        "active_record_sha256": active.sha256,
+        "active_record_hex": active.blob.hex() if active.blob is not None else None,
         "maintenance_mode_confirmed": status.maintenance_asserted,
         "load_output_physically_inhibited_confirmed": status.load_inhibit_asserted,
         "maintenance_authorization_ready": authorization.ready,
         "maintenance_authority_public_key_sha256": authorization.public_key_sha256,
-        "source": "dedicated signed calibration maintenance firmware readback",
+        "source": "dedicated signed calibration maintenance firmware exact readback",
         "note": (
-            "Read-only status capture from eFuse MAC, calibration NVS state, physical gate GPIOs, and pinned "
-            "maintenance-authority public-key state. Physical gates and authorization are rechecked at write time."
+            "Read-only status capture from eFuse MAC, exact active CalibrationRecord bytes, calibration NVS state, "
+            "physical gate GPIOs, and pinned maintenance-authority public-key state. Physical gates, active record, "
+            "and authorization are rechecked at write time."
         ),
         "maintenance_readback": status.as_dict(),
     }
@@ -152,14 +202,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     status = sub.add_parser(
         "status",
-        help="read device identity, calibration state, physical gates, and signer fingerprint; performs no write",
+        help=(
+            "read device identity, exact active calibration record, physical gates, and signer fingerprint; "
+            "performs no write"
+        ),
     )
     _add_serial_args(status)
     status.add_argument("--report-out", type=Path, required=True)
 
     apply = sub.add_parser(
         "apply",
-        help="verify evidence and external signature, then perform one physically gated signed calibration write",
+        help=(
+            "verify evidence, recovery intent when present, and external signature, then perform one physically "
+            "gated signed calibration write"
+        ),
     )
     _add_verification_args(apply)
     _add_serial_args(apply)
@@ -189,11 +245,16 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, indent=2, allow_nan=False))
             return 0
 
+        # The actual signed write path is stricter than generic package creation:
+        # the policy must explicitly require signed authorization and monotonic recovery.
+        validate_signed_provisioning_policy(args.provisioning_policy)
+
         # Full source/evidence derivation and provisioning-bundle integrity must
         # pass before any bundle-bound serial operation opens the device.
         verification = _verify_package(args)
         if verification.get("record_rederived") is not True or verification.get("anti_rollback_gate_pass") is not True:
             raise MaintenanceProvisioningError("provisioning verification did not establish record/sequence integrity")
+        recovery_verification = _verify_recovery_if_present(args)
 
         authorization = None
         if args.command == "apply":
@@ -213,11 +274,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             if hasattr(serial_port, "reset_input_buffer"):
                 serial_port.reset_input_buffer()
-            client = SignedMaintenanceClient(serial_port, timeout_s=args.timeout)
+            client = RecoveryMaintenanceClient(serial_port, timeout_s=args.timeout)
             if args.command == "apply":
                 if authorization is None:
                     raise MaintenanceProvisioningError("verified signed authorization is missing")
-                report = apply_signed_provisioning(
+                report = apply_recovery_aware_signed_provisioning(
                     client,
                     args.provisioning_dir,
                     authorization=authorization,
@@ -236,11 +297,21 @@ def main(argv: list[str] | None = None) -> int:
             "anti_rollback_gate_pass": verification.get("anti_rollback_gate_pass") is True,
             "hard_safety_non_regression_pass": verification.get("hard_safety_non_regression_pass") is True,
             "external_signature_verified_before_transport": authorization is not None,
+            "recovery_intent_present": recovery_verification is not None,
+            "recovery_monotonic_sequence_verified": (
+                recovery_verification is not None
+                and recovery_verification.get("monotonic_sequence_preserved") is True
+            ),
         }
         _save_json(args.report_out, report)
         print(json.dumps(report, indent=2, allow_nan=False))
         return 0
-    except (MaintenanceProvisioningError, CalibrationProvisioningVerificationError) as exc:
+    except (
+        MaintenanceProvisioningError,
+        CalibrationProvisioningVerificationError,
+        CalibrationRecoveryVerificationError,
+        SignedProvisioningPolicyError,
+    ) as exc:
         print(f"physical calibration provisioning failed: {exc}", file=sys.stderr)
         return 2
 
