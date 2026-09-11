@@ -46,11 +46,13 @@ It records:
 - unique run identifiers;
 - one unique calibration session manifest for each run.
 
+Relative `review_policy` and `session_manifest` paths are resolved from the campaign manifest's directory. The supplied template assumes the working campaign manifest is copied to the repository `evidence/` directory, so its policy path points back to `../hardware/calibration/` and its run sessions live under `evidence/run-01/`, `evidence/run-02/`, and `evidence/run-03/`.
+
 If campaign-level board revisions are declared, every session must match them exactly. Every session must also use the campaign repository commit.
 
 ## Run independence
 
-Every run must reference a different session manifest. Reusing the same session file under multiple run identifiers is rejected.
+Every run must reference a different session manifest. Reusing the same session file under multiple run identifiers is rejected, including different relative path spellings that resolve to the same file.
 
 Each session remains responsible for its own independent reference measurements, instrument metadata, uncertainty, diagnostic evidence hashes, current points, temperature points, and stationary accelerometer evidence.
 
