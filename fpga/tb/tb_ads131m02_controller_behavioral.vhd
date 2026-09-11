@@ -40,13 +40,16 @@ begin
         procedure pulse_drdy is
         begin
             drdy_n <= '0'; wait for 200 ns;
-            drdy_n <= '1'; wait for 130 us;
+            drdy_n <= '1';
         end procedure;
     begin
         wait for 100 ns; rst <= '0';
 
         -- RREG ID command/response, CLOCK write, CLOCK read command/response.
-        for i in 0 to 4 loop pulse_drdy; end loop;
+        for i in 0 to 4 loop
+            pulse_drdy;
+            wait for 130 us;
+        end loop;
         assert device_ok = '1' report "ADS131M02 startup verification did not pass" severity error;
 
         pulse_drdy;
@@ -55,21 +58,23 @@ begin
         assert status_word = x"05A0" report "ADS131M02 status word mismatch" severity error;
         assert ch0 = CH0_VALUE report "ADS131M02 channel 0 mismatch" severity error;
         assert ch1 = CH1_VALUE report "ADS131M02 channel 1 mismatch" severity error;
+        wait for 10 us;
 
         -- A corrupted mandatory output CRC must suppress publication.
         force_bad_crc <= '1';
         pulse_drdy;
         wait until frame_error = '1' for 200 us;
         assert frame_error = '1' report "ADS131M02 CRC corruption was not rejected" severity error;
+        wait for 10 us;
 
         -- Reset and prove a wrong identity cannot become trusted.
         rst <= '1'; force_bad_crc <= '0'; force_bad_id <= '1';
         wait for 100 ns; rst <= '0';
+        pulse_drdy; wait for 130 us;
         pulse_drdy;
-        pulse_drdy;
-        assert device_ok = '0' report "ADS131M02 wrong identity became trusted" severity error;
-        wait until frame_error = '1' for 100 us;
+        wait until frame_error = '1' for 200 us;
         assert frame_error = '1' report "ADS131M02 wrong identity was not surfaced" severity error;
+        assert device_ok = '0' report "ADS131M02 wrong identity became trusted" severity error;
 
         report "tb_ads131m02_controller_behavioral PASS" severity note;
         stop; wait;
