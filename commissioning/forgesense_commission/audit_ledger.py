@@ -58,10 +58,6 @@ def _canonical_sha256(data: dict[str, Any]) -> str:
     ).hexdigest()
 
 
-def _sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
 def _file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     try:
@@ -104,44 +100,54 @@ def _validate_policy(policy: dict[str, Any]) -> None:
     authority = policy.get("authority")
     if not all(isinstance(section, dict) for section in (init, chain, preflight, events, authority)):
         raise CalibrationAuditLedgerError("calibration audit-ledger policy sections are incomplete")
-    if int(init.get("fresh_device_sequence_required", -1)) != 0:
-        raise CalibrationAuditLedgerError("audit ledger must initialize only at calibration sequence zero")
-    if init.get("active_record_must_be_absent") is not True:
-        raise CalibrationAuditLedgerError("audit ledger initialization must require no active calibration record")
-    if init.get("maintenance_authority_ready_required") is not True:
-        raise CalibrationAuditLedgerError("audit ledger initialization must require a ready maintenance authority")
-    if init.get("adopt_nonzero_history_supported") is not False:
-        raise CalibrationAuditLedgerError("audit ledger may not silently adopt nonzero calibration history")
+
+    expected_init = {
+        "fresh_device_sequence_required": 0,
+        "active_record_must_be_absent": True,
+        "maintenance_authority_ready_required": True,
+        "adopt_nonzero_history_supported": False,
+    }
+    for key, expected in expected_init.items():
+        if init.get(key) != expected:
+            raise CalibrationAuditLedgerError(f"audit ledger initialization policy field {key} is invalid")
+
     expected_chain = {
         "hash": "SHA-256",
         "canonical_json": True,
         "contiguous_entry_index_required": True,
         "previous_entry_hash_required": True,
-        "manifest_head_hash_required": True,
+        "head_derived_from_last_entry": True,
+        "metadata_bound_by_genesis": True,
         "silent_entry_rewrite_permitted": False,
     }
     for key, expected in expected_chain.items():
         if chain.get(key) != expected:
             raise CalibrationAuditLedgerError(f"audit ledger chain policy field {key} is invalid")
-    for key in (
-        "ledger_required",
-        "live_device_id_match_required",
-        "live_sequence_match_required",
-        "live_active_record_sha256_match_required_when_active",
-        "live_authority_public_key_sha256_match_required",
-    ):
-        if preflight.get(key) is not True:
-            raise CalibrationAuditLedgerError(f"audit ledger preflight policy field {key} must be true")
-    if preflight.get("unexpected_authority_rotation_permitted") is not False:
-        raise CalibrationAuditLedgerError("unexpected maintenance-authority rotation must fail closed")
-    if events.get("write_commit") is not True or events.get("recovery_commit") is not True or events.get("reboot_verified") is not True:
-        raise CalibrationAuditLedgerError("required audit event types are disabled")
-    if events.get("automatic_event_insertion") is not False:
-        raise CalibrationAuditLedgerError("audit events may not be silently inserted")
-    if events.get("sequence_decrement_permitted") is not False:
-        raise CalibrationAuditLedgerError("audit ledger may not permit calibration sequence decrement")
-    if events.get("recovery_increment_exactly_one") is not True:
-        raise CalibrationAuditLedgerError("recovery audit events must increment the sequence exactly once")
+
+    expected_preflight = {
+        "ledger_required": True,
+        "live_device_id_match_required": True,
+        "live_sequence_match_required": True,
+        "live_active_record_sha256_match_required_when_active": True,
+        "live_authority_public_key_sha256_match_required": True,
+        "unexpected_authority_rotation_permitted": False,
+    }
+    for key, expected in expected_preflight.items():
+        if preflight.get(key) != expected:
+            raise CalibrationAuditLedgerError(f"audit ledger preflight policy field {key} is invalid")
+
+    expected_events = {
+        "write_commit": True,
+        "recovery_commit": True,
+        "reboot_verified": True,
+        "automatic_event_insertion": False,
+        "sequence_decrement_permitted": False,
+        "recovery_increment_exactly_one": True,
+    }
+    for key, expected in expected_events.items():
+        if events.get(key) != expected:
+            raise CalibrationAuditLedgerError(f"audit ledger event policy field {key} is invalid")
+
     expected_authority = {
         "audit_only": True,
         "is_digital_signature": False,
@@ -152,7 +158,7 @@ def _validate_policy(policy: dict[str, Any]) -> None:
         "hardware_backed_monotonic_counter_claimed": False,
     }
     for key, expected in expected_authority.items():
-        if authority.get(key) is not expected:
+        if authority.get(key) != expected:
             raise CalibrationAuditLedgerError(f"audit ledger authority field {key} is invalid")
 
 
@@ -168,8 +174,12 @@ def _entry_hash(entry: dict[str, Any]) -> str:
 
 
 def _entry_files(ledger_dir: Path) -> list[Path]:
+    try:
+        children = list(ledger_dir.iterdir())
+    except FileNotFoundError as exc:
+        raise CalibrationAuditLedgerError(f"audit ledger not found: {ledger_dir}") from exc
     result: list[tuple[int, Path]] = []
-    for child in ledger_dir.iterdir():
+    for child in children:
         if child.name == "ledger.json":
             continue
         match = _ENTRY_NAME.fullmatch(child.name)
@@ -192,7 +202,11 @@ def _state_fields(entry: dict[str, Any], label: str) -> tuple[int, str | None, s
         raise CalibrationAuditLedgerError(f"audit entry {label}.sequence must be an integer") from exc
     if sequence < 0 or sequence > 0xFFFFFFFE:
         raise CalibrationAuditLedgerError(f"audit entry {label}.sequence is outside supported range")
-    record_sha = _require_sha256(section.get("record_sha256"), f"audit entry {label}.record_sha256", allow_none=True)
+    record_sha = _require_sha256(
+        section.get("record_sha256"),
+        f"audit entry {label}.record_sha256",
+        allow_none=True,
+    )
     authority_sha = _require_sha256(
         section.get("authority_public_key_sha256"),
         f"audit entry {label}.authority_public_key_sha256",
@@ -220,9 +234,7 @@ def verify_ledger(
     if expected_device_id is not None and device_id != expected_device_id:
         raise CalibrationAuditLedgerError("audit ledger belongs to a different device")
     authority_meta = metadata.get("authority")
-    if not isinstance(authority_meta, dict):
-        raise CalibrationAuditLedgerError("audit ledger metadata authority section is missing")
-    if authority_meta != policy["authority"]:
+    if not isinstance(authority_meta, dict) or authority_meta != policy["authority"]:
         raise CalibrationAuditLedgerError("audit ledger metadata authority boundary differs from policy")
 
     files = _entry_files(ledger_dir)
@@ -234,8 +246,7 @@ def verify_ledger(
     record_sha: str | None = None
     authority_sha = ""
     for expected_index, path in enumerate(files):
-        expected_name = f"{expected_index:08d}.json"
-        if path.name != expected_name:
+        if path.name != f"{expected_index:08d}.json":
             raise CalibrationAuditLedgerError("audit ledger entry indexes are not contiguous")
         entry = _load_json(path, f"audit ledger entry {path.name}")
         if entry.get("schema") != ENTRY_SCHEMA:
@@ -247,8 +258,7 @@ def verify_ledger(
         if entry.get("previous_entry_sha256") != previous_hash:
             raise CalibrationAuditLedgerError(f"audit ledger previous-entry hash mismatch in {path.name}")
         claimed_hash = _require_sha256(entry.get("entry_sha256"), f"{path.name}.entry_sha256")
-        actual_hash = _entry_hash(entry)
-        if claimed_hash != actual_hash:
+        if claimed_hash != _entry_hash(entry):
             raise CalibrationAuditLedgerError(f"audit ledger entry hash mismatch in {path.name}")
 
         before_sequence, before_record, before_authority = _state_fields(entry, "state_before")
@@ -278,15 +288,11 @@ def verify_ledger(
             if after_authority != before_authority:
                 raise CalibrationAuditLedgerError("unexpected maintenance-authority rotation in audit ledger")
             if event_type == "write_commit":
-                if after_sequence <= before_sequence:
-                    raise CalibrationAuditLedgerError("write audit event does not increase calibration sequence")
-                if after_record is None:
-                    raise CalibrationAuditLedgerError("write audit event is missing committed record SHA-256")
+                if after_sequence <= before_sequence or after_record is None:
+                    raise CalibrationAuditLedgerError("write audit event does not contain a newer committed record")
             elif event_type == "recovery_commit":
-                if after_sequence != before_sequence + 1:
-                    raise CalibrationAuditLedgerError("recovery audit event must increment sequence exactly once")
-                if after_record is None:
-                    raise CalibrationAuditLedgerError("recovery audit event is missing committed record SHA-256")
+                if after_sequence != before_sequence + 1 or after_record is None:
+                    raise CalibrationAuditLedgerError("recovery audit event must commit a record at exactly the next sequence")
             elif event_type == "reboot_verified":
                 if after_sequence != before_sequence or after_record != before_record:
                     raise CalibrationAuditLedgerError("reboot verification audit event may not mutate calibration state")
@@ -320,7 +326,11 @@ def initialize_ledger(
         raise CalibrationAuditLedgerError("device state device_id is missing")
     if int(state.get("installed_sequence", -1)) != 0:
         raise CalibrationAuditLedgerError("audit ledger initialization requires installed calibration sequence zero")
-    if state.get("installed_record_crc32") is not None or state.get("active_record_sha256") is not None or state.get("active_record_hex") is not None:
+    if (
+        state.get("installed_record_crc32") is not None
+        or state.get("active_record_sha256") is not None
+        or state.get("active_record_hex") is not None
+    ):
         raise CalibrationAuditLedgerError("audit ledger initialization requires no active calibration record")
     if state.get("maintenance_authorization_ready") is not True:
         raise CalibrationAuditLedgerError("audit ledger initialization requires a ready maintenance authority")
@@ -357,9 +367,7 @@ def initialize_ledger(
             "device_id": device_id,
             "previous_entry_sha256": GENESIS_PREVIOUS_SHA256,
             "ledger_metadata_sha256": _file_sha256(metadata_path),
-            "evidence": {
-                "device_state_sha256": _file_sha256(device_state_path),
-            },
+            "evidence": {"device_state_sha256": _file_sha256(device_state_path)},
             "state_before": {
                 "sequence": 0,
                 "record_sha256": None,
@@ -426,21 +434,14 @@ def _append_entry(ledger_dir: Path, entry_core: dict[str, Any], *, policy_path: 
     target = ledger_dir / f"{index:08d}.json"
     if target.exists():
         raise CalibrationAuditLedgerError(f"audit ledger entry already exists: {target.name}")
-    data = _json_bytes(entry)
     try:
         with target.open("xb") as handle:
-            handle.write(data)
+            handle.write(_json_bytes(entry))
             handle.flush()
             os.fsync(handle.fileno())
     except FileExistsError as exc:
         raise CalibrationAuditLedgerError(f"audit ledger entry already exists: {target.name}") from exc
-    try:
-        return verify_ledger(ledger_dir, policy_path=policy_path, expected_device_id=state.device_id)
-    except Exception:
-        # Deliberately leave the newly created entry in place. A partial or
-        # invalid append must fail closed and require explicit evidence repair,
-        # never silent deletion or history rewrite.
-        raise
+    return verify_ledger(ledger_dir, policy_path=policy_path, expected_device_id=state.device_id)
 
 
 def append_write_evidence(
@@ -555,7 +556,10 @@ def append_reboot_evidence(
     if not isinstance(reboot, dict) or reboot.get("boot_nonce_changed") is not True:
         raise CalibrationAuditLedgerError("reboot evidence lacks a verified new boot nonce")
     exact_record_sha = reboot.get("active_record_sha256")
-    if exact_record_sha is not None and _require_sha256(exact_record_sha, "reboot exact active record SHA-256") != record_sha:
+    if exact_record_sha is not None and _require_sha256(
+        exact_record_sha,
+        "reboot exact active record SHA-256",
+    ) != record_sha:
         raise CalibrationAuditLedgerError("reboot exact active record SHA-256 differs from committed record")
 
     entry_core: dict[str, Any] = {
