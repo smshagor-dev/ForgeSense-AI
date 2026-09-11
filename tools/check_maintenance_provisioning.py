@@ -17,13 +17,14 @@ def main() -> int:
     tests = (root / "tests/test_maintenance_provisioning.py").read_text(encoding="utf-8")
     host_test = (root / "firmware/tests/maintenance_protocol_test.cpp").read_text(encoding="utf-8")
 
+    target_cmake = (root / "firmware/esp32_calibration_maintenance/CMakeLists.txt").read_text(encoding="utf-8")
     for token in (
         'project(forgesense_calibration_maintenance)',
         '"maintenance_protocol.cpp"',
         '"calibration_store_nvs.cpp"',
         'forgesense_sensing',
     ):
-        target_text = (root / "firmware/esp32_calibration_maintenance/CMakeLists.txt").read_text(encoding="utf-8") if token.startswith("project") else maintenance_cmake
+        target_text = target_cmake if token.startswith("project") else maintenance_cmake
         assert token in target_text, token
 
     assert maintenance_kconfig.count("default -1") >= 2
@@ -96,12 +97,14 @@ def main() -> int:
     ):
         assert token in host_protocol, token
 
-    verify_position = host_tool.index("verification = _verify_package(args)")
-    serial_position = host_tool.index("serial_port = _serial_port")
-    assert verify_position < serial_position
     assert 'WRITE_CONFIRMATION = "CALIBRATION-WRITE"' in host_tool
+    assert 'DEVICE_STATE_SCHEMA = "forgesense.calibration_device_state.v1"' in host_tool
+    assert '"status"' in host_tool
+    assert "_capture_device_state" in host_tool
     assert "verify_provisioning_bundle(" in host_tool
-    assert "if args.confirm_write != WRITE_CONFIRMATION" in host_tool
+    assert "args.command == \"apply\" and args.confirm_write != WRITE_CONFIRMATION" in host_tool
+    verified_segment = host_tool[host_tool.index("verification = _verify_package(args)") :]
+    assert verified_segment.index("verification = _verify_package(args)") < verified_segment.index("serial_port = _serial_port")
 
     for forbidden in (
         "stage_and_commit",
@@ -127,9 +130,9 @@ def main() -> int:
     assert "maintenance_protocol_test PASS" in host_test
 
     print(
-        "maintenance_provisioning_check PASS: dedicated default-disabled maintenance image, dual physical gates, "
-        "two-step challenged commit, full host evidence verification, retained readback/reboot checks, and no "
-        "production/transparent-bridge write authority are present"
+        "maintenance_provisioning_check PASS: dedicated default-disabled maintenance image, read-only device-state "
+        "capture, dual physical gates, two-step challenged commit, full host evidence verification, retained "
+        "readback/reboot checks, and no production/transparent-bridge write authority are present"
     )
     return 0
 
