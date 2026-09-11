@@ -15,6 +15,8 @@ constexpr std::size_t kCalibrationRecordSize = 48;
 constexpr std::size_t kAuthorizationDomainSize = sizeof(kAuthorizationDomain) - 1U;
 constexpr std::size_t kAuthorizationPayloadSize =
     kAuthorizationDomainSize + 6U + 4U + kAuthorizationArtifactRootSize + kCalibrationRecordSize;
+constexpr std::array<std::uint8_t, 10> kPrime256v1Oid{
+    0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07};
 
 int hex_nibble(char value) {
     if (value >= '0' && value <= '9') {
@@ -54,6 +56,18 @@ bool decode_hex(
     return true;
 }
 
+bool contains_prime256v1_oid(const std::uint8_t* data, std::size_t size) {
+    if (data == nullptr || size < kPrime256v1Oid.size()) {
+        return false;
+    }
+    for (std::size_t offset = 0; offset + kPrime256v1Oid.size() <= size; ++offset) {
+        if (std::memcmp(data + offset, kPrime256v1Oid.data(), kPrime256v1Oid.size()) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void write_le32(std::uint8_t* out, std::uint32_t value) {
     out[0] = static_cast<std::uint8_t>(value & 0xFFU);
     out[1] = static_cast<std::uint8_t>((value >> 8U) & 0xFFU);
@@ -82,6 +96,9 @@ bool MaintenanceAuthorizationVerifier::begin(const char* public_key_der_hex) {
             public_key_der_.data(),
             public_key_der_.size(),
             public_key_der_size_)) {
+        return false;
+    }
+    if (!contains_prime256v1_oid(public_key_der_.data(), public_key_der_size_)) {
         return false;
     }
 
