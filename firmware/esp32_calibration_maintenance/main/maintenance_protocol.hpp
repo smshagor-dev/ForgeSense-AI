@@ -8,7 +8,7 @@ namespace forgesense::maintenance {
 
 constexpr std::array<std::uint8_t, 4> kMaintenanceMagic{'F', 'S', 'M', '1'};
 constexpr std::uint8_t kMaintenanceVersion = 1;
-constexpr std::size_t kMaintenanceMaxPayload = 64;
+constexpr std::size_t kMaintenanceMaxPayload = 192;
 constexpr std::size_t kMaintenanceHeaderSize = 8;
 constexpr std::size_t kMaintenanceCrcSize = 4;
 constexpr std::size_t kMaintenanceMaxFrameSize =
@@ -18,9 +18,11 @@ enum class MaintenanceOpcode : std::uint8_t {
     QueryStatus = 0x01,
     PrepareRecord = 0x02,
     CommitRecord = 0x03,
+    QueryAuthorization = 0x04,
     StatusResponse = 0x81,
     PrepareResponse = 0x82,
     CommitResponse = 0x83,
+    AuthorizationResponse = 0x84,
 };
 
 enum class MaintenanceStatus : std::uint8_t {
@@ -34,6 +36,8 @@ enum class MaintenanceStatus : std::uint8_t {
     PendingMismatch = 7,
     CommitFailed = 8,
     InternalError = 9,
+    AuthorizationFailed = 10,
+    AuthorizationUnavailable = 11,
 };
 
 struct MaintenanceFrame {
