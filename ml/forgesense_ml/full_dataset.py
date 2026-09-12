@@ -106,6 +106,9 @@ SCENARIOS = (
     ScenarioSpec("temperature_drift", "sensor_integrity", "temperature_drift", samples=640),
     ScenarioSpec("vibration_drift", "sensor_integrity", "vibration_drift", samples=640),
     ScenarioSpec("current_drift", "sensor_integrity", "current_drift", samples=640),
+    ScenarioSpec("temperature_high_noise", "sensor_integrity", "temperature_high_noise"),
+    ScenarioSpec("vibration_high_noise", "sensor_integrity", "vibration_high_noise"),
+    ScenarioSpec("current_high_noise", "sensor_integrity", "current_high_noise"),
     ScenarioSpec("temperature_stuck", "sensor_integrity", "temperature_stuck"),
     ScenarioSpec("vibration_stuck", "sensor_integrity", "vibration_stuck"),
     ScenarioSpec("current_stuck", "sensor_integrity", "current_stuck"),
@@ -193,6 +196,12 @@ def _impairments(kind: str, severity: float, active: bool) -> SensorImpairmentPr
         return SensorImpairmentProfile(vibration=ChannelImpairment(drift_per_s=0.0007 + 0.0030 * severity))
     if kind == "current_drift":
         return SensorImpairmentProfile(current=ChannelImpairment(drift_per_s=0.0015 + 0.0080 * severity))
+    if kind == "temperature_high_noise":
+        return SensorImpairmentProfile(temperature=ChannelImpairment(noise_sigma=0.35 + 1.65 * severity))
+    if kind == "vibration_high_noise":
+        return SensorImpairmentProfile(vibration=ChannelImpairment(noise_sigma=0.020 + 0.120 * severity))
+    if kind == "current_high_noise":
+        return SensorImpairmentProfile(current=ChannelImpairment(noise_sigma=0.040 + 0.260 * severity))
     if kind == "temperature_stuck":
         return SensorImpairmentProfile(temperature=ChannelImpairment(stuck_value=48.0))
     if kind == "vibration_stuck":
@@ -200,11 +209,11 @@ def _impairments(kind: str, severity: float, active: bool) -> SensorImpairmentPr
     if kind == "current_stuck":
         return SensorImpairmentProfile(current=ChannelImpairment(stuck_value=1.35))
     if kind == "temperature_saturation":
-        return SensorImpairmentProfile(temperature=ChannelImpairment(saturation_max=52.0))
+        return SensorImpairmentProfile(temperature=ChannelImpairment(saturation_max=28.0))
     if kind == "vibration_saturation":
-        return SensorImpairmentProfile(vibration=ChannelImpairment(saturation_max=0.28))
+        return SensorImpairmentProfile(vibration=ChannelImpairment(saturation_max=0.12))
     if kind == "current_saturation":
-        return SensorImpairmentProfile(current=ChannelImpairment(saturation_max=1.70))
+        return SensorImpairmentProfile(current=ChannelImpairment(saturation_max=1.15))
     if kind == "temperature_dropout":
         return SensorImpairmentProfile(temperature=ChannelImpairment(dropout=True))
     if kind == "vibration_dropout":
@@ -447,7 +456,7 @@ def generate_full_dataset(
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n", encoding="utf-8")
 
-    readme = f"""# ForgeSense Full Synthetic ML Dataset v2\n\nDataset ID: `{DATASET_ID}`\n\nThis package contains deterministic synthetic training/evaluation data generated from the ForgeSense digital twin. It is not physical machine evidence.\n\n## Files\n\n- `raw-train.csv`, `raw-validation.csv`, `raw-test.csv`: sample-level truth, measured channels, validity, severity and labels.\n- `windows-train.csv`, `windows-validation.csv`, `windows-test.csv`: leakage-safe {WINDOW_SIZE}-sample engineered windows for supervised models.\n- `baseline-normal-train.csv`: clean normal training subset for the current diagonal-Gaussian reference model.\n- `scenario-summary.csv`: scenario/family row counts.\n- `manifest.json`: provenance, split policy, schemas, row counts and hashes.\n- `checksums.sha256`: SHA-256 for every retained artifact.\n\n## Labels\n\n`target_health_class`: `0=normal`, `1=warning`, `2=critical`. `target_anomaly` is binary. Sensor dropout/stuck/saturation cases become critical after fault activation; progressive physical/bias/drift faults transition warning -> critical as severity rises.\n\n## Split rule\n\nSplits are grouped by `run_id`. A run is never divided across train/validation/test, preventing adjacent-window leakage.\n\n## Boundary\n\nThis dataset is synthetic. Final model qualification requires physical data captured from the selected sensors/electronics and representative machinery.\n"""
+    readme = f"""# ForgeSense Full Synthetic ML Dataset v2\n\nDataset ID: `{DATASET_ID}`\n\nThis package contains deterministic synthetic training/evaluation data generated from the ForgeSense digital twin. It is not physical machine evidence.\n\n## Files\n\n- `raw-train.csv`, `raw-validation.csv`, `raw-test.csv`: sample-level truth, measured channels, validity, severity and labels.\n- `windows-train.csv`, `windows-validation.csv`, `windows-test.csv`: leakage-safe {WINDOW_SIZE}-sample engineered windows for supervised models.\n- `baseline-normal-train.csv`: clean normal training subset for the current diagonal-Gaussian reference model.\n- `scenario-summary.csv`: scenario/family row counts.\n- `manifest.json`: provenance, split policy, schemas, row counts and hashes.\n- `checksums.sha256`: SHA-256 for every retained artifact.\n\n## Labels\n\n`target_health_class`: `0=normal`, `1=warning`, `2=critical`. `target_anomaly` is binary. Sensor dropout/stuck/saturation cases become critical after fault activation; progressive physical/bias/drift/noise faults transition warning -> critical as severity rises.\n\n## Split rule\n\nSplits are grouped by `run_id`. A run is never divided across train/validation/test, preventing adjacent-window leakage.\n\n## Boundary\n\nThis dataset is synthetic. Final model qualification requires physical data captured from the selected sensors/electronics and representative machinery.\n"""
     readme_path = output_dir / "README.md"
     readme_path.write_text(readme, encoding="utf-8")
 
