@@ -29,18 +29,28 @@ except ModuleNotFoundError:
     from forgesense_commission.provisioning import MaintenanceProvisioningError  # type: ignore
 
 DEFAULT_POLICY = Path("hardware/calibration/calibration_audit_ledger_policy_v1.json")
+DEFAULT_TRANSITION_POLICY = Path("hardware/calibration/maintenance_authority_transition_policy_v1.json")
 
 
-def _load_json(path: Path) -> dict:
+def _load_json(path: Path, label: str = "device-state") -> dict:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
-        raise CalibrationAuditLedgerError(f"device-state file not found: {path}") from exc
+        raise CalibrationAuditLedgerError(f"{label} file not found: {path}") from exc
     except json.JSONDecodeError as exc:
-        raise CalibrationAuditLedgerError(f"device-state file is not valid JSON: {path}") from exc
+        raise CalibrationAuditLedgerError(f"{label} file is not valid JSON: {path}") from exc
     if not isinstance(value, dict):
-        raise CalibrationAuditLedgerError("device-state file must contain a JSON object")
+        raise CalibrationAuditLedgerError(f"{label} file must contain a JSON object")
     return value
+
+
+def _require_active_transition_policy(package_dir: Path, policy_path: Path) -> None:
+    request = _load_json(package_dir / "transition-request.json", "transition-request")
+    policy = _load_json(policy_path, "transition-policy")
+    if policy.get("schema") != "forgesense.maintenance_authority_transition_policy.v1":
+        raise CalibrationAuditLedgerError("unsupported maintenance-authority transition policy schema")
+    if request.get("policy_id") != policy.get("policy_id"):
+        raise CalibrationAuditLedgerError("transition request policy_id differs from active transition policy")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -83,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     append_transition.add_argument("--transition-package", type=Path, required=True)
     append_transition.add_argument("--post-device-state", type=Path, required=True)
     append_transition.add_argument("--policy", type=Path, default=DEFAULT_POLICY)
+    append_transition.add_argument("--transition-policy", type=Path, default=DEFAULT_TRANSITION_POLICY)
     return parser
 
 
@@ -122,6 +133,7 @@ def main(argv: list[str] | None = None) -> int:
                 policy_path=args.policy,
             )
         else:
+            _require_active_transition_policy(args.transition_package, args.transition_policy)
             state = append_authority_transition_evidence(
                 args.ledger,
                 transition_package_dir=args.transition_package,
