@@ -10,6 +10,7 @@ def main() -> int:
     ledger = (root / "commissioning/forgesense_commission/audit_ledger.py").read_text(encoding="utf-8")
     prepare = (root / "tools/prepare_maintenance_authority_transition.py").read_text(encoding="utf-8")
     package = (root / "tools/package_maintenance_authority_transition.py").read_text(encoding="utf-8")
+    verifier = (root / "tools/verify_maintenance_authority_transition.py").read_text(encoding="utf-8")
     manager = (root / "tools/manage_calibration_audit_ledger.py").read_text(encoding="utf-8")
     tests = (root / "tests/test_maintenance_authority_transition.py").read_text(encoding="utf-8")
     protocol = (root / "firmware/esp32_calibration_maintenance/main/maintenance_protocol.hpp").read_text(encoding="utf-8")
@@ -49,6 +50,7 @@ def main() -> int:
         assert forbidden not in core, forbidden
         assert forbidden not in prepare, forbidden
         assert forbidden not in package, forbidden
+        assert forbidden not in verifier, forbidden
 
     for token in (
         'event_type == "authority_transition"',
@@ -61,6 +63,13 @@ def main() -> int:
         assert token in ledger, token
     assert '"append-authority-transition"' in manager
     assert "append_authority_transition_evidence(" in manager
+
+    for text in (package, verifier):
+        assert "transition request policy_id differs from active transition policy" in text
+        assert "maintenance_authority_transition_policy_v1.json" in text
+    assert '"forgesense.maintenance_authority_transition_verification.v1"' in verifier
+    assert '"calibration_state_change_authorized": False' in verifier
+    assert '"firmware_write_authorized": False' in verifier
 
     assert transition_policy["signatures"]["old_authority_signature_required"] is True
     assert transition_policy["signatures"]["new_authority_proof_of_possession_required"] is True
@@ -117,9 +126,9 @@ def main() -> int:
         assert token in tests, token
 
     print(
-        "maintenance_authority_transition_check PASS: dual old/new P-256 signatures, rebuilt-image/source/config "
-        "binding, unchanged calibration state, explicit audit continuity, no private-key access, no firmware-writing "
-        "authority, and no runtime/remote key-update path are present"
+        "maintenance_authority_transition_check PASS: dual old/new P-256 signatures, active-policy verification, "
+        "rebuilt-image/source/config binding, unchanged calibration state, explicit audit continuity, no private-key "
+        "access, no firmware-writing authority, and no runtime/remote key-update path are present"
     )
     return 0
 
