@@ -16,6 +16,8 @@
     "old_public_key_fingerprint_required": true,
     "new_public_key_fingerprint_required": true,
     "source_commit_required": true,
+    "source_checkout_head_must_equal_source_commit": true,
+    "maintenance_source_clean_required": true,
     "maintenance_source_manifest_root_required": true,
     "sdkconfig_sha256_required": true,
     "maintenance_image_sha256_required": true,
