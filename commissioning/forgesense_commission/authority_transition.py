@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import shutil
 import struct
+import subprocess
 import tempfile
 from typing import Any
 
@@ -177,13 +178,49 @@ def _full_commit(value: str) -> str:
     return value
 
 
+def _git_output(repo_root: Path, args: list[str]) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), *args],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise MaintenanceAuthorityTransitionError("Git is required to bind maintenance sources to a reviewed commit") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or str(result.returncode)
+        raise MaintenanceAuthorityTransitionError(f"Git source verification failed: {detail}")
+    return result.stdout
+
+
+def _verify_source_checkout(repo_root: Path, source_commit: str) -> str:
+    repo_root = repo_root.resolve()
+    expected = _full_commit(source_commit)
+    head = _git_output(repo_root, ["rev-parse", "HEAD"]).strip().lower()
+    if head != expected:
+        raise MaintenanceAuthorityTransitionError(
+            f"maintenance source checkout HEAD {head} differs from reviewed source commit {expected}"
+        )
+    for relative in _SOURCE_FILES:
+        _git_output(repo_root, ["ls-files", "--error-unmatch", "--", relative])
+    status = _git_output(
+        repo_root,
+        ["status", "--porcelain=v1", "--untracked-files=all", "--", *_SOURCE_FILES],
+    )
+    if status.strip():
+        raise MaintenanceAuthorityTransitionError("maintenance source files are dirty relative to the reviewed source commit")
+    return expected
+
+
 def _device_mac(device_id: str) -> bytes:
     if not re.fullmatch(r"esp32s3:[0-9a-f]{12}", device_id):
         raise MaintenanceAuthorityTransitionError("device_id must use esp32s3:<12 lowercase hex> format")
     return bytes.fromhex(device_id.split(":", 1)[1])
 
 
-def _source_manifest(repo_root: Path) -> dict[str, Any]:
+def _source_manifest(repo_root: Path, source_commit: str) -> dict[str, Any]:
     repo_root = repo_root.resolve()
     files: list[dict[str, str]] = []
     for relative in _SOURCE_FILES:
@@ -195,11 +232,12 @@ def _source_manifest(repo_root: Path) -> dict[str, Any]:
         if path.is_symlink() or not path.is_file():
             raise MaintenanceAuthorityTransitionError(f"maintenance source is not a regular file: {relative}")
         files.append({"path": relative, "sha256": _file_sha256(path)})
-    root_sha = _canonical_sha256(files)
+    root_material = {"source_commit": source_commit, "files": files}
     return {
         "schema": SOURCE_MANIFEST_SCHEMA,
+        "source_commit": source_commit,
         "files": files,
-        "root_sha256": root_sha,
+        "root_sha256": _canonical_sha256(root_material),
     }
 
 
@@ -305,8 +343,8 @@ def build_transition_request(
     if match.group(1).lower() != new_der.hex():
         raise MaintenanceAuthorityTransitionError("sdkconfig maintenance authority pin does not equal the new public key")
 
-    manifest = _source_manifest(repo_root)
-    source_commit_value = _full_commit(source_commit)
+    source_commit_value = _verify_source_checkout(repo_root, source_commit)
+    manifest = _source_manifest(repo_root, source_commit_value)
     sdkconfig_sha = _file_sha256(sdkconfig_path)
     image_sha = _file_sha256(maintenance_image_path)
     payload = transition_payload(
@@ -333,6 +371,7 @@ def build_transition_request(
         "old_authority_public_key_sha256": old_fp,
         "new_authority_public_key_sha256": new_fp,
         "source_commit": source_commit_value,
+        "source_checkout_verified_clean": True,
         "source_manifest_root_sha256": manifest["root_sha256"],
         "sdkconfig_sha256": sdkconfig_sha,
         "maintenance_image_sha256": image_sha,
@@ -448,6 +487,8 @@ def verify_transition_package(package_dir: Path) -> VerifiedAuthorityTransition:
     request = _load_json(package_dir / "transition-request.json", "maintenance-authority transition request")
     if package.get("schema") != TRANSITION_SCHEMA or request.get("schema") != TRANSITION_REQUEST_SCHEMA:
         raise MaintenanceAuthorityTransitionError("unsupported maintenance-authority transition package schema")
+    if request.get("source_checkout_verified_clean") is not True:
+        raise MaintenanceAuthorityTransitionError("transition request lacks verified clean source-checkout binding")
     payload = (package_dir / "transition-payload.bin").read_bytes()
     old_signature = (package_dir / "old-authority-signature.der").read_bytes()
     new_signature = (package_dir / "new-authority-signature.der").read_bytes()
@@ -456,9 +497,15 @@ def verify_transition_package(package_dir: Path) -> VerifiedAuthorityTransition:
     manifest = _load_json(package_dir / "source-manifest.json", "maintenance source manifest")
     if manifest.get("schema") != SOURCE_MANIFEST_SCHEMA:
         raise MaintenanceAuthorityTransitionError("unsupported maintenance source manifest schema")
+    if manifest.get("source_commit") != request.get("source_commit"):
+        raise MaintenanceAuthorityTransitionError("transition source-manifest commit differs from signed request")
     if request.get("source_manifest_root_sha256") != manifest.get("root_sha256"):
         raise MaintenanceAuthorityTransitionError("transition request source-manifest root mismatch")
-    if _canonical_sha256(manifest.get("files")) != manifest.get("root_sha256"):
+    manifest_material = {
+        "source_commit": manifest.get("source_commit"),
+        "files": manifest.get("files"),
+    }
+    if _canonical_sha256(manifest_material) != manifest.get("root_sha256"):
         raise MaintenanceAuthorityTransitionError("transition source-manifest root is invalid")
     expected_payload = transition_payload(
         device_id=str(request.get("device_id", "")),
