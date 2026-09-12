@@ -20,6 +20,7 @@ DEVICE_ID = "esp32s3:aabbccddeeff"
 AUTHORITY_SHA = "1" * 64
 RECORD1_SHA = "2" * 64
 RECORD2_SHA = "3" * 64
+CRC = 0x12345678
 
 
 def write_json(path: Path, data: dict) -> None:
@@ -32,7 +33,7 @@ def device_state(*, sequence: int = 0, record_sha: str | None = None) -> dict:
         "device_id": DEVICE_ID,
         "captured_at_utc": "2026-09-12T01:00:00Z",
         "installed_sequence": sequence,
-        "installed_record_crc32": None if sequence == 0 else 0x12345678,
+        "installed_record_crc32": None if sequence == 0 else CRC,
         "active_record_sha256": record_sha,
         "active_record_hex": None if sequence == 0 else "00" * 48,
         "maintenance_mode_confirmed": True,
@@ -59,7 +60,7 @@ def physical_write_report(
             "provisioning_json_sha256": "5" * 64,
             "record_sha256": record_sha,
             "candidate_sequence": to_sequence,
-            "candidate_crc32_ieee": 0x12345678,
+            "candidate_crc32_ieee": CRC,
         },
         "authorization": {
             "schema": "forgesense.calibration_maintenance_authorization.v1",
@@ -74,6 +75,13 @@ def physical_write_report(
         "observations": {
             "pre_write": {"installed_sequence": from_sequence},
             "post_write": {"installed_sequence": to_sequence},
+            "post_write_exact_active_record": {
+                "present": True,
+                "sequence": to_sequence,
+                "crc32_ieee": CRC,
+                "sha256": record_sha,
+                "record_hex": "aa" * 48,
+            },
         },
         "commit_verified": True,
         "reboot_recovery_verified": False,
@@ -100,6 +108,8 @@ def bind_preflight(report: dict, ledger: Path) -> dict:
 
 def reboot_report(write_report: dict, ledger: Path) -> dict:
     report = copy.deepcopy(write_report)
+    record_sha = report["provisioning"]["record_sha256"]
+    sequence = report["provisioning"]["candidate_sequence"]
     report["reboot_recovery_verified"] = True
     report["reboot_verification"] = {
         "timestamp_utc": "2026-09-12T01:10:00Z",
@@ -108,6 +118,15 @@ def reboot_report(write_report: dict, ledger: Path) -> dict:
         "boot_nonce_changed": True,
         "sequence_match": True,
         "crc_match": True,
+        "active_record_sha256": record_sha,
+        "exact_record_sha256_match": True,
+        "exact_active_record": {
+            "present": True,
+            "sequence": sequence,
+            "crc32_ieee": CRC,
+            "sha256": record_sha,
+            "record_hex": "aa" * 48,
+        },
     }
     return bind_preflight(report, ledger)
 
@@ -169,12 +188,7 @@ def test_write_reboot_recovery_chain_is_contiguous(tmp_path: Path) -> None:
 
     recovery_path = tmp_path / "recovery.json"
     recovery = bind_preflight(
-        physical_write_report(
-            from_sequence=1,
-            to_sequence=2,
-            record_sha=RECORD2_SHA,
-            recovery=True,
-        ),
+        physical_write_report(from_sequence=1, to_sequence=2, record_sha=RECORD2_SHA, recovery=True),
         ledger,
     )
     write_json(recovery_path, recovery)
@@ -182,9 +196,7 @@ def test_write_reboot_recovery_chain_is_contiguous(tmp_path: Path) -> None:
     assert recovered.sequence == 2
     assert recovered.record_sha256 == RECORD2_SHA
     assert recovered.entry_count == 4
-
-    final = verify_ledger(ledger, policy_path=POLICY)
-    assert final == recovered
+    assert verify_ledger(ledger, policy_path=POLICY) == recovered
 
 
 def test_entry_tamper_is_detected(tmp_path: Path) -> None:
@@ -196,7 +208,6 @@ def test_entry_tamper_is_detected(tmp_path: Path) -> None:
     )
     write_json(evidence, report)
     append_write_evidence(ledger, evidence_path=evidence, policy_path=POLICY)
-
     entry_path = ledger / "00000001.json"
     entry = json.loads(entry_path.read_text(encoding="utf-8"))
     entry["state_after"]["sequence"] = 9
@@ -235,7 +246,6 @@ def test_live_record_drift_and_signer_drift_fail_closed(tmp_path: Path) -> None:
     )
     write_json(evidence, report)
     append_write_evidence(ledger, evidence_path=evidence, policy_path=POLICY)
-
     with pytest.raises(CalibrationAuditLedgerError, match="CalibrationRecord SHA-256 differs"):
         preflight_live_state(
             ledger,
@@ -245,7 +255,6 @@ def test_live_record_drift_and_signer_drift_fail_closed(tmp_path: Path) -> None:
             active_record_sha256="9" * 64,
             authority_public_key_sha256=AUTHORITY_SHA,
         )
-
     with pytest.raises(CalibrationAuditLedgerError, match="authority fingerprint differs"):
         preflight_live_state(
             ledger,
@@ -266,20 +275,27 @@ def test_recovery_event_requires_exact_next_sequence(tmp_path: Path) -> None:
     )
     write_json(first, first_report)
     append_write_evidence(ledger, evidence_path=first, policy_path=POLICY)
-
     bad = tmp_path / "bad-recovery.json"
     bad_report = bind_preflight(
-        physical_write_report(
-            from_sequence=1,
-            to_sequence=3,
-            record_sha=RECORD2_SHA,
-            recovery=True,
-        ),
+        physical_write_report(from_sequence=1, to_sequence=3, record_sha=RECORD2_SHA, recovery=True),
         ledger,
     )
     write_json(bad, bad_report)
     with pytest.raises(CalibrationAuditLedgerError, match="exactly the next"):
         append_write_evidence(ledger, evidence_path=bad, policy_path=POLICY)
+
+
+def test_exact_post_write_record_is_required(tmp_path: Path) -> None:
+    ledger, _ = init_ledger(tmp_path)
+    evidence = tmp_path / "write.json"
+    report = bind_preflight(
+        physical_write_report(from_sequence=0, to_sequence=1, record_sha=RECORD1_SHA),
+        ledger,
+    )
+    report["observations"].pop("post_write_exact_active_record")
+    write_json(evidence, report)
+    with pytest.raises(CalibrationAuditLedgerError, match="exact pre/post"):
+        append_write_evidence(ledger, evidence_path=evidence, policy_path=POLICY)
 
 
 def test_genesis_metadata_tamper_is_detected(tmp_path: Path) -> None:
