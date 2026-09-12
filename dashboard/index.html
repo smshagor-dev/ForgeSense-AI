@@ -4,67 +4,237 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>ForgeSense AI — Local Monitor</title>
+  <meta name="theme-color" content="#07111d">
+  <title>ForgeSense AI — Industrial HMI</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">FORGESENSE AI · LOCAL MONITOR</p>
-        <h1>Machine Intelligence & Safety</h1>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="ForgeSense navigation">
+      <div class="brand-block">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+        <div>
+          <div class="brand-name">ForgeSense <b>AI</b></div>
+          <div class="brand-tagline">Intelligent machines. Safer tomorrow.</div>
+        </div>
       </div>
-      <div class="connection"><span id="linkDot" class="dot"></span><span id="linkText">Connecting</span></div>
-    </header>
 
-    <section class="hero-grid">
-      <article class="state-card panel">
-        <p class="label">FPGA AUTHORITY STATE</p>
-        <div class="state-row"><span id="state" class="state">UNKNOWN</span><span id="authority" class="authority">FPGA</span></div>
-        <p id="stateNote" class="muted">Waiting for authoritative status.</p>
-        <div class="flag-row">
-          <span id="loadFlag" class="flag">LOAD --</span>
-          <span id="readyFlag" class="flag">READY --</span>
-          <span id="faultFlag" class="flag">FAULT --</span>
+      <nav class="side-nav">
+        <a class="nav-link active" href="#overview" data-section="overview"><span class="nav-icon">⌂</span><span>Overview</span></a>
+        <a class="nav-link" href="#telemetry" data-section="telemetry"><span class="nav-icon">⌁</span><span>Telemetry</span></a>
+        <a class="nav-link" href="#sensors" data-section="sensors"><span class="nav-icon">◉</span><span>Sensors</span></a>
+        <a class="nav-link" href="#safety" data-section="safety"><span class="nav-icon">⬡</span><span>Safety</span></a>
+        <a class="nav-link" href="#events-section" data-section="events-section"><span class="nav-icon">▤</span><span>Events</span></a>
+        <a class="nav-link" href="#calibration" data-section="calibration"><span class="nav-icon">⚒</span><span>Calibration</span></a>
+        <a class="nav-link" href="#diagnostics" data-section="diagnostics"><span class="nav-icon">⌁</span><span>Diagnostics</span></a>
+        <a class="nav-link" href="#security" data-section="security"><span class="nav-icon">▣</span><span>Security</span></a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-mountain" aria-hidden="true"></div>
+        <p>BUILT FOR<br>REAL WORLDS.<br>POWERED BY AI.</p>
+        <span>v1 · LOCAL HMI</span>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" type="button" aria-label="Toggle navigation">☰</button>
+        <div class="topbar-status">
+          <span id="linkDot" class="status-dot warning"></span>
+          <span id="linkText">Connecting</span>
         </div>
-      </article>
+        <div class="topbar-meta"><span class="topbar-icon">⌂</span><span>Local mode</span></div>
+        <div class="topbar-meta"><span class="topbar-icon">◷</span><span id="clockValue">--:--:--</span></div>
+        <div class="topbar-spacer"></div>
+        <div class="topbar-readonly"><span>READ ONLY</span><small>No actuator routes</small></div>
+      </header>
 
-      <article class="risk-card panel">
-        <p class="label">EDGE INTELLIGENCE</p>
-        <div class="risk-line"><span id="riskValue">--</span><small>% anomaly</small></div>
-        <div class="meter"><span id="riskBar"></span></div>
-        <div class="risk-meta"><span id="mlClass">NO DATA</span><span id="confidence">confidence --</span></div>
-      </article>
-    </section>
+      <section id="overview" class="section-anchor summary-strip" aria-label="System summary">
+        <article class="summary-card">
+          <div class="summary-icon green">♥</div>
+          <div><span class="summary-label">System Health</span><strong id="systemHealth">Waiting</strong><small id="systemHealthNote">Awaiting telemetry</small></div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-icon green">⬡</div>
+          <div><span class="summary-label">FPGA Safety State</span><strong id="summarySafety">Unknown</strong><small id="summarySafetyNote">Authoritative state pending</small></div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-icon blue">▦</div>
+          <div><span class="summary-label">ML Health</span><strong id="summaryMl">No data</strong><small id="summaryMlNote">Inference pending</small></div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-icon cyan">⌁</div>
+          <div><span class="summary-label">Communication</span><strong id="summaryComm">Connecting</strong><small id="summaryCommNote">FPGA status pending</small></div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-icon red">♨</div>
+          <div><span class="summary-label">Temperature</span><strong><span id="summaryTemperature">--</span> °C</strong><small id="summaryTemperatureNote">No sensor data</small></div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-icon amber">ϟ</div>
+          <div><span class="summary-label">Current</span><strong><span id="summaryCurrent">--</span> A</strong><small id="summaryCurrentNote">No sensor data</small></div>
+        </article>
+      </section>
 
-    <section class="sensor-grid">
-      <article class="metric panel"><p class="label">TEMPERATURE</p><strong id="temperature">--</strong><span>°C</span></article>
-      <article class="metric panel"><p class="label">VIBRATION RMS</p><strong id="vibration">--</strong><span>g</span></article>
-      <article class="metric panel"><p class="label">CURRENT</p><strong id="current">--</strong><span>A</span></article>
-      <article class="metric panel"><p class="label">SENSOR VALIDITY</p><strong id="sensorValidity">--</strong><span id="sensorSeq">sequence --</span></article>
-    </section>
+      <section class="overview-grid">
+        <article class="panel machine-panel">
+          <div class="panel-heading">
+            <div><span class="eyebrow">MACHINE OVERVIEW</span><h1>Protected Drive Train</h1></div>
+            <div class="machine-state"><span id="machineStateDot" class="mini-dot muted-dot"></span><b id="machineState">UNKNOWN</b><span class="divider"></span><small>ForgeSense reference rig</small></div>
+          </div>
 
-    <section class="lower-grid">
-      <article class="panel safety-panel">
-        <div class="section-title"><div><p class="label">DETERMINISTIC SAFETY</p><h2>FPGA Signals</h2></div><span id="statusAge" class="age">--</span></div>
-        <div class="safety-grid">
-          <div><span>Hard warning</span><b id="hardWarning">--</b></div>
-          <div><span>Hard critical</span><b id="hardCritical">--</b></div>
-          <div><span>Watchdog timeout</span><b id="commTimeout">--</b></div>
-          <div><span>Emergency</span><b id="emergency">--</b></div>
-          <div><span>Retained ML warning</span><b id="mlWarning">--</b></div>
-          <div><span>Retained ML critical</span><b id="mlCritical">--</b></div>
-        </div>
-      </article>
+          <div class="machine-stage">
+            <svg class="machine-svg" viewBox="0 0 760 300" role="img" aria-label="Industrial motor, gearbox, coupling and protected load schematic">
+              <defs>
+                <linearGradient id="metal" x1="0" x2="1"><stop offset="0" stop-color="#26394a"/><stop offset=".5" stop-color="#5c7180"/><stop offset="1" stop-color="#1a2b3a"/></linearGradient>
+                <linearGradient id="metalDark" x1="0" x2="1"><stop offset="0" stop-color="#132331"/><stop offset=".5" stop-color="#344a59"/><stop offset="1" stop-color="#0d1924"/></linearGradient>
+                <linearGradient id="hot" x1="0" x2="1"><stop offset="0" stop-color="#9d481f"/><stop offset=".5" stop-color="#ff9d39"/><stop offset="1" stop-color="#8a2f16"/></linearGradient>
+                <filter id="glow"><feGaussianBlur stdDeviation="7" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              </defs>
+              <rect x="40" y="248" width="680" height="18" rx="4" fill="#263b4a"/>
+              <rect x="65" y="269" width="630" height="8" rx="4" fill="#142331"/>
+              <g class="motor-shape">
+                <rect x="72" y="131" width="180" height="94" rx="26" fill="url(#metal)" stroke="#6d8291" stroke-width="2"/>
+                <circle cx="90" cy="178" r="48" fill="url(#metalDark)" stroke="#607686" stroke-width="2"/>
+                <rect x="112" y="117" width="103" height="13" rx="4" fill="#1a2e3c"/>
+                <rect x="129" y="106" width="72" height="12" rx="3" fill="#304758"/>
+                <g stroke="#10202c" stroke-width="5" opacity=".7">
+                  <line x1="120" y1="139" x2="120" y2="216"/><line x1="137" y1="136" x2="137" y2="219"/><line x1="154" y1="136" x2="154" y2="219"/><line x1="171" y1="136" x2="171" y2="219"/><line x1="188" y1="136" x2="188" y2="219"/><line x1="205" y1="139" x2="205" y2="216"/>
+                </g>
+                <rect x="103" y="224" width="35" height="22" rx="3" fill="#233a4a"/><rect x="190" y="224" width="35" height="22" rx="3" fill="#233a4a"/>
+              </g>
+              <g>
+                <rect x="245" y="147" width="96" height="70" rx="12" fill="url(#metalDark)" stroke="#617889" stroke-width="2"/>
+                <circle cx="258" cy="182" r="34" fill="#182a38" stroke="#617889" stroke-width="2"/>
+                <rect x="270" y="125" width="58" height="24" rx="5" fill="#2d4658"/>
+                <rect x="267" y="217" width="18" height="28" fill="#263b4a"/><rect x="307" y="217" width="18" height="28" fill="#263b4a"/>
+              </g>
+              <g>
+                <rect x="337" y="164" width="42" height="35" rx="5" fill="#314a5b" stroke="#8295a2"/>
+                <rect x="374" y="153" width="26" height="57" rx="6" fill="url(#metal)"/>
+                <rect x="397" y="163" width="32" height="37" rx="5" fill="#243b4b" stroke="#738b99"/>
+              </g>
+              <g>
+                <rect x="424" y="126" width="118" height="100" rx="17" fill="url(#metalDark)" stroke="#627a8a" stroke-width="2"/>
+                <rect x="444" y="112" width="78" height="14" rx="4" fill="#31495a"/>
+                <g stroke="#304a5d" stroke-width="4">
+                  <line x1="450" y1="136" x2="450" y2="216"/><line x1="465" y1="132" x2="465" y2="220"/><line x1="480" y1="132" x2="480" y2="220"/><line x1="495" y1="132" x2="495" y2="220"/><line x1="510" y1="132" x2="510" y2="220"/>
+                </g>
+                <rect x="440" y="226" width="26" height="20" fill="#263b4a"/><rect x="505" y="226" width="26" height="20" fill="#263b4a"/>
+              </g>
+              <g>
+                <rect x="538" y="139" width="38" height="76" rx="7" fill="url(#metal)"/>
+                <rect x="571" y="151" width="118" height="52" rx="18" fill="url(#metalDark)" stroke="#697f8d" stroke-width="2"/>
+                <circle cx="670" cy="177" r="39" fill="#152430" stroke="#687d8c" stroke-width="2"/>
+                <rect id="loadGlow" x="586" y="168" width="70" height="18" rx="8" fill="url(#hot)" opacity=".28" filter="url(#glow)"/>
+              </g>
+            </svg>
 
-      <article class="panel event-panel">
-        <div class="section-title"><div><p class="label">DIAGNOSTIC TIMELINE</p><h2>Recent Events</h2></div><span id="revision" class="age">rev --</span></div>
-        <div id="events" class="events"><p class="muted">No events yet.</p></div>
-      </article>
-    </section>
+            <div class="sensor-tag tag-temp"><span class="mini-dot" id="tagTempDot"></span><small>Temperature</small><b><span id="machineTemp">--</span> °C</b></div>
+            <div class="sensor-tag tag-vibration"><span class="mini-dot" id="tagVibrationDot"></span><small>Vibration RMS</small><b><span id="machineVibration">--</span> g</b></div>
+            <div class="sensor-tag tag-current"><span class="mini-dot" id="tagCurrentDot"></span><small>Current</small><b><span id="machineCurrent">--</span> A</b></div>
+            <div class="sensor-tag tag-load"><span class="mini-dot" id="tagLoadDot"></span><small>Protected output</small><b id="machineLoad">--</b></div>
+          </div>
 
-    <footer><span>Monitoring only — no actuator command routes are exposed.</span><span>Schema: forgesense.telemetry.v1</span></footer>
-  </main>
+          <div class="machine-subsystems">
+            <div><span class="mini-dot" id="driveDot"></span><small>Drive</small><b id="driveStatus">No data</b></div>
+            <div><span class="mini-dot" id="sensorDot"></span><small>Sensors</small><b id="sensorSubsystemStatus">No data</b></div>
+            <div><span class="mini-dot" id="linkSubsystemDot"></span><small>FPGA link</small><b id="linkSubsystemStatus">No data</b></div>
+            <div><span class="mini-dot" id="enclosureDot"></span><small>Safety domain</small><b id="enclosureStatus">Unknown</b></div>
+          </div>
+        </article>
+
+        <article id="sensors" class="panel trend-panel section-anchor">
+          <div class="panel-heading compact">
+            <div><span class="eyebrow">LIVE SENSOR TRENDS</span><h2>Recent telemetry</h2></div>
+            <span class="window-pill">latest 120 samples</span>
+          </div>
+          <div class="trend-legend"><span><i class="legend-temp"></i>Temperature °C</span><span><i class="legend-current"></i>Current A</span><span><i class="legend-vibration"></i>Vibration g</span></div>
+          <div class="chart-wrap"><canvas id="trendCanvas" aria-label="Live sensor trend chart"></canvas><div id="chartEmpty" class="chart-empty">Waiting for live telemetry…</div></div>
+        </article>
+
+        <article class="panel gauge-panel">
+          <div class="panel-heading compact"><div><span class="eyebrow">LIVE VALUES</span><h2>Normalized sensor channels</h2></div><span id="sensorAgeBadge" class="window-pill">--</span></div>
+          <div class="gauge-grid">
+            <div class="gauge-card">
+              <span class="gauge-title">Temperature</span>
+              <svg class="gauge-svg" viewBox="0 0 160 92" aria-hidden="true"><path class="gauge-track" d="M20 80 A60 60 0 0 1 140 80"/><path id="tempGauge" class="gauge-value gauge-red" d="M20 80 A60 60 0 0 1 140 80"/></svg>
+              <strong><span id="temperature">--</span><small> °C</small></strong><span id="tempGaugeState" class="gauge-state">No data</span>
+            </div>
+            <div class="gauge-card">
+              <span class="gauge-title">Current</span>
+              <svg class="gauge-svg" viewBox="0 0 160 92" aria-hidden="true"><path class="gauge-track" d="M20 80 A60 60 0 0 1 140 80"/><path id="currentGauge" class="gauge-value gauge-blue" d="M20 80 A60 60 0 0 1 140 80"/></svg>
+              <strong><span id="current">--</span><small> A</small></strong><span id="currentGaugeState" class="gauge-state">No data</span>
+            </div>
+            <div class="gauge-card">
+              <span class="gauge-title">Vibration RMS</span>
+              <svg class="gauge-svg" viewBox="0 0 160 92" aria-hidden="true"><path class="gauge-track" d="M20 80 A60 60 0 0 1 140 80"/><path id="vibrationGauge" class="gauge-value gauge-green" d="M20 80 A60 60 0 0 1 140 80"/></svg>
+              <strong><span id="vibration">--</span><small> g</small></strong><span id="vibrationGaugeState" class="gauge-state">No data</span>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="operations-grid">
+        <article id="safety" class="panel operation-card section-anchor">
+          <div class="operation-title"><span class="op-icon blue">⬡</span><h2>Safety Status</h2></div>
+          <div class="status-table">
+            <div><span>E-Stop</span><b id="emergency"><i class="mini-dot"></i>--</b></div>
+            <div><span>Hard Limit Monitor</span><b id="hardLimitStatus"><i class="mini-dot"></i>--</b></div>
+            <div><span>Watchdog</span><b id="commTimeout"><i class="mini-dot"></i>--</b></div>
+            <div><span>Load Output State</span><b id="loadOutputStatus"><i class="mini-dot"></i>--</b></div>
+            <div><span>Safety FSM State</span><b id="safetyFsmStatus"><i class="mini-dot"></i>--</b></div>
+          </div>
+        </article>
+
+        <article id="telemetry" class="panel operation-card section-anchor">
+          <div class="operation-title"><span class="op-icon cyan">⌁</span><h2>Telemetry / Device</h2></div>
+          <div class="status-table">
+            <div><span>FPGA status</span><b id="telemetryLink"><i class="mini-dot"></i>--</b></div>
+            <div><span>Sensor validity</span><b id="sensorValidity"><i class="mini-dot"></i>--</b></div>
+            <div><span>Packet freshness</span><b id="packetFreshness">--</b></div>
+            <div><span>Status sequence</span><b id="statusSequence">--</b></div>
+            <div><span>Sensor sequence</span><b id="sensorSeq">--</b></div>
+          </div>
+        </article>
+
+        <article id="events-section" class="panel operation-card events-card section-anchor">
+          <div class="operation-title with-action"><div><span class="op-icon amber">▤</span><h2>Recent Events</h2></div><span id="revision" class="small-action">rev --</span></div>
+          <div id="events" class="event-list"><p class="empty-copy">No events yet.</p></div>
+        </article>
+
+        <article id="calibration" class="panel operation-card section-anchor">
+          <div class="operation-title"><span class="op-icon silver">⚒</span><h2>Calibration & Maintenance</h2></div>
+          <div class="status-table">
+            <div><span>Calibration record</span><b class="neutral-status"><i class="mini-dot neutral"></i>Not exposed live</b></div>
+            <div><span>Maintenance authorization</span><b class="neutral-status"><i class="mini-dot neutral"></i>Separate image</b></div>
+            <div><span>Audit ledger continuity</span><b class="neutral-status"><i class="mini-dot neutral"></i>Host evidence</b></div>
+            <div><span>Provisioning status</span><b class="neutral-status"><i class="mini-dot neutral"></i>Offline workflow</b></div>
+            <div><span>Dashboard authority</span><b class="safe-static"><i class="mini-dot good"></i>Read only</b></div>
+          </div>
+        </article>
+
+        <article id="security" class="panel operation-card section-anchor">
+          <div class="operation-title"><span class="op-icon silver">▣</span><h2>Security & Compliance</h2></div>
+          <div class="status-table">
+            <div><span>FPGA hard-safety authority</span><b class="safe-static"><i class="mini-dot good"></i>Independent</b></div>
+            <div><span>Write routes</span><b class="safe-static"><i class="mini-dot good"></i>Not exposed</b></div>
+            <div><span>Secure boot state</span><b class="neutral-status"><i class="mini-dot neutral"></i>Not exposed live</b></div>
+            <div><span>Firmware provenance</span><b class="neutral-status"><i class="mini-dot neutral"></i>Build evidence</b></div>
+            <div><span>Authority key status</span><b class="neutral-status"><i class="mini-dot neutral"></i>Maintenance only</b></div>
+          </div>
+        </article>
+      </section>
+
+      <section id="diagnostics" class="diagnostic-footer section-anchor">
+        <div><span class="footer-brand">ForgeSense AI</span><span>Industrial intelligence for a safer tomorrow</span></div>
+        <div><span id="statusAge">status age --</span><span class="divider"></span><span>Schema: forgesense.telemetry.v1</span></div>
+      </section>
+    </main>
+  </div>
   <script src="/app.js" defer></script>
 </body>
 </html>
