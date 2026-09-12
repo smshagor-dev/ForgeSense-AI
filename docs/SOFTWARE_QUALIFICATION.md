@@ -9,7 +9,7 @@ ForgeSense separates repository-executable qualification from physical qualifica
 `simulator/forgesense_sim/qualification.py` produces `forgesense.software_qualification.v1` and covers:
 
 - the seven-scenario deterministic validation matrix;
-- extended normal-operation virtual soak using multiple deterministic noise seeds;
+- normal-envelope stability across multiple deterministic sensor-noise seeds;
 - replayed intelligence-frame abuse and watchdog shutdown;
 - reset/startup load-disable behavior;
 - required-sensor dropout fail-closed behavior;
