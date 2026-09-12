@@ -30,9 +30,14 @@ def main() -> int:
         'SIGNATURE_FORMAT = "ECDSA-P256-SHA256-DER"',
         "build_transition_request",
         "transition_payload",
+        "_payload_from_request",
         "package_transition",
         "verify_transition_package",
         "verify_signature_openssl",
+        "_require_policy_id",
+        'struct.pack("<H", len(policy))',
+        "policy_id=policy_id",
+        '"policy_id": request["policy_id"]',
         "_verify_source_checkout",
         '["rev-parse", "HEAD"]',
         '"ls-files", "--error-unmatch"',
@@ -40,6 +45,7 @@ def main() -> int:
         "maintenance source files are dirty relative to the reviewed source commit",
         '"source_checkout_verified_clean": True',
         "transition source-manifest commit differs from signed request",
+        "transition source-manifest path set/order is invalid",
         "sdkconfig maintenance authority pin does not equal the new public key",
         "new maintenance authority public key must differ from old key",
         '"private_key_accessed_by_tool": False',
@@ -88,6 +94,8 @@ def main() -> int:
     assert transition_policy["signatures"]["new_authority_proof_of_possession_required"] is True
     assert transition_policy["signatures"]["same_payload_required"] is True
     assert transition_policy["signatures"]["private_key_loaded_by_forgesense_tooling"] is False
+    assert transition_policy["binding"]["source_checkout_head_must_equal_source_commit"] is True
+    assert transition_policy["binding"]["maintenance_source_clean_required"] is True
     assert transition_policy["binding"]["sdkconfig_must_pin_new_public_key"] is True
     assert transition_policy["binding"]["maintenance_image_sha256_required"] is True
     assert transition_policy["installation"]["runtime_key_update_supported"] is False
@@ -135,15 +143,16 @@ def main() -> int:
         "test_dirty_maintenance_source_is_rejected",
         "test_same_key_transition_is_rejected",
         "test_tampered_new_signature_is_rejected",
+        "test_policy_id_is_cryptographically_bound",
         "test_post_install_calibration_state_change_is_rejected",
         "test_post_install_wrong_new_fingerprint_is_rejected",
     ):
         assert token in tests, token
 
     print(
-        "maintenance_authority_transition_check PASS: dual old/new P-256 signatures, active-policy verification, "
-        "clean reviewed Git source binding, rebuilt-image/config binding, unchanged calibration state, explicit audit "
-        "continuity, no private-key access, no firmware-writing authority, and no runtime/remote key-update path are present"
+        "maintenance_authority_transition_check PASS: dual old/new P-256 signatures, cryptographically bound active "
+        "policy, clean reviewed Git source binding, rebuilt-image/config binding, unchanged calibration state, explicit "
+        "audit continuity, no private-key access, no firmware-writing authority, and no runtime/remote key-update path are present"
     )
     return 0
 
