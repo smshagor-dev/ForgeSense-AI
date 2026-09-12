@@ -52,7 +52,7 @@ def _json_bytes(data: dict[str, Any]) -> bytes:
     return (json.dumps(data, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
 
 
-def _canonical_sha256(data: dict[str, Any]) -> str:
+def _canonical_sha256(data: Any) -> str:
     return hashlib.sha256(
         json.dumps(data, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
     ).hexdigest()
@@ -107,10 +107,6 @@ def _validate_policy(policy: dict[str, Any]) -> None:
         "maintenance_authority_ready_required": True,
         "adopt_nonzero_history_supported": False,
     }
-    for key, expected in expected_init.items():
-        if init.get(key) != expected:
-            raise CalibrationAuditLedgerError(f"audit ledger initialization policy field {key} is invalid")
-
     expected_chain = {
         "hash": "SHA-256",
         "canonical_json": True,
@@ -120,10 +116,6 @@ def _validate_policy(policy: dict[str, Any]) -> None:
         "metadata_bound_by_genesis": True,
         "silent_entry_rewrite_permitted": False,
     }
-    for key, expected in expected_chain.items():
-        if chain.get(key) != expected:
-            raise CalibrationAuditLedgerError(f"audit ledger chain policy field {key} is invalid")
-
     expected_preflight = {
         "ledger_required": True,
         "live_device_id_match_required": True,
@@ -132,22 +124,17 @@ def _validate_policy(policy: dict[str, Any]) -> None:
         "live_authority_public_key_sha256_match_required": True,
         "unexpected_authority_rotation_permitted": False,
     }
-    for key, expected in expected_preflight.items():
-        if preflight.get(key) != expected:
-            raise CalibrationAuditLedgerError(f"audit ledger preflight policy field {key} is invalid")
-
     expected_events = {
         "write_commit": True,
         "recovery_commit": True,
         "reboot_verified": True,
+        "authority_transition": True,
+        "authority_transition_requires_dual_signature_evidence": True,
+        "authority_transition_calibration_state_change_permitted": False,
         "automatic_event_insertion": False,
         "sequence_decrement_permitted": False,
         "recovery_increment_exactly_one": True,
     }
-    for key, expected in expected_events.items():
-        if events.get(key) != expected:
-            raise CalibrationAuditLedgerError(f"audit ledger event policy field {key} is invalid")
-
     expected_authority = {
         "audit_only": True,
         "is_digital_signature": False,
@@ -157,9 +144,16 @@ def _validate_policy(policy: dict[str, Any]) -> None:
         "may_relax_hard_safety_limits": False,
         "hardware_backed_monotonic_counter_claimed": False,
     }
-    for key, expected in expected_authority.items():
-        if authority.get(key) != expected:
-            raise CalibrationAuditLedgerError(f"audit ledger authority field {key} is invalid")
+    for section, expected_map, label in (
+        (init, expected_init, "initialization"),
+        (chain, expected_chain, "chain"),
+        (preflight, expected_preflight, "preflight"),
+        (events, expected_events, "event"),
+        (authority, expected_authority, "authority"),
+    ):
+        for key, expected in expected_map.items():
+            if section.get(key) != expected:
+                raise CalibrationAuditLedgerError(f"audit ledger {label} policy field {key} is invalid")
 
 
 def load_policy(policy_path: Path) -> dict[str, Any]:
@@ -169,8 +163,7 @@ def load_policy(policy_path: Path) -> dict[str, Any]:
 
 
 def _entry_hash(entry: dict[str, Any]) -> str:
-    core = {key: value for key, value in entry.items() if key != "entry_sha256"}
-    return _canonical_sha256(core)
+    return _canonical_sha256({key: value for key, value in entry.items() if key != "entry_sha256"})
 
 
 def _entry_files(ledger_dir: Path) -> list[Path]:
@@ -185,7 +178,7 @@ def _entry_files(ledger_dir: Path) -> list[Path]:
         match = _ENTRY_NAME.fullmatch(child.name)
         if not match:
             raise CalibrationAuditLedgerError(f"unexpected file in audit ledger directory: {child.name}")
-        if not child.is_file() or child.is_symlink():
+        if child.is_symlink() or not child.is_file():
             raise CalibrationAuditLedgerError(f"audit ledger entry is not a regular file: {child.name}")
         result.append((int(match.group(1)), child))
     result.sort(key=lambda item: item[0])
@@ -235,8 +228,7 @@ def verify_ledger(
         raise CalibrationAuditLedgerError("audit ledger device_id is missing")
     if expected_device_id is not None and device_id != expected_device_id:
         raise CalibrationAuditLedgerError("audit ledger belongs to a different device")
-    authority_meta = metadata.get("authority")
-    if not isinstance(authority_meta, dict) or authority_meta != policy["authority"]:
+    if metadata.get("authority") != policy["authority"]:
         raise CalibrationAuditLedgerError("audit ledger metadata authority boundary differs from policy")
 
     files = _entry_files(ledger_dir)
@@ -287,17 +279,35 @@ def verify_ledger(
         else:
             if before_sequence != sequence or before_record != record_sha or before_authority != authority_sha:
                 raise CalibrationAuditLedgerError(f"audit ledger state continuity mismatch in {path.name}")
-            if after_authority != before_authority:
-                raise CalibrationAuditLedgerError("unexpected maintenance-authority rotation in audit ledger")
             if event_type == "write_commit":
+                if after_authority != before_authority:
+                    raise CalibrationAuditLedgerError("calibration write may not change maintenance authority")
                 if after_sequence <= before_sequence or after_record is None:
                     raise CalibrationAuditLedgerError("write audit event does not contain a newer committed record")
             elif event_type == "recovery_commit":
+                if after_authority != before_authority:
+                    raise CalibrationAuditLedgerError("calibration recovery may not change maintenance authority")
                 if after_sequence != before_sequence + 1 or after_record is None:
                     raise CalibrationAuditLedgerError("recovery audit event must commit a record at exactly the next sequence")
             elif event_type == "reboot_verified":
+                if after_authority != before_authority:
+                    raise CalibrationAuditLedgerError("reboot verification may not change maintenance authority")
                 if after_sequence != before_sequence or after_record != before_record:
                     raise CalibrationAuditLedgerError("reboot verification audit event may not mutate calibration state")
+            elif event_type == "authority_transition":
+                if after_sequence != before_sequence or after_record != before_record:
+                    raise CalibrationAuditLedgerError("authority transition may not mutate calibration state")
+                if after_authority == before_authority:
+                    raise CalibrationAuditLedgerError("authority transition must change the maintenance authority fingerprint")
+                transition = entry.get("transition")
+                if not isinstance(transition, dict):
+                    raise CalibrationAuditLedgerError("authority transition audit entry lacks verified transition evidence")
+                if transition.get("dual_signature_verified") is not True:
+                    raise CalibrationAuditLedgerError("authority transition lacks dual-signature verification")
+                if transition.get("old_authority_public_key_sha256") != before_authority:
+                    raise CalibrationAuditLedgerError("authority transition old fingerprint differs from prior ledger state")
+                if transition.get("new_authority_public_key_sha256") != after_authority:
+                    raise CalibrationAuditLedgerError("authority transition new fingerprint differs from resulting ledger state")
             else:
                 raise CalibrationAuditLedgerError(f"unsupported audit event_type in {path.name}: {event_type}")
             sequence = after_sequence
@@ -458,6 +468,15 @@ def _append_entry(ledger_dir: Path, entry_core: dict[str, Any], *, policy_path: 
     return verify_ledger(ledger_dir, policy_path=policy_path, expected_device_id=state.device_id)
 
 
+def _event_authority() -> dict[str, bool]:
+    return {
+        "audit_only": True,
+        "automatic_provisioning": False,
+        "may_control_actuators": False,
+        "may_relax_hard_safety_limits": False,
+    }
+
+
 def append_write_evidence(
     ledger_dir: Path,
     *,
@@ -478,19 +497,27 @@ def append_write_evidence(
     _require_preflight_binding(report, state)
     pre = observations.get("pre_write")
     post = observations.get("post_write")
-    if not isinstance(pre, dict) or not isinstance(post, dict):
-        raise CalibrationAuditLedgerError("physical provisioning evidence lacks pre/post write observations")
+    exact = observations.get("post_write_exact_active_record")
+    if not all(isinstance(section, dict) for section in (pre, post, exact)):
+        raise CalibrationAuditLedgerError("physical provisioning evidence lacks exact pre/post write observations")
     from_sequence = int(pre.get("installed_sequence", -1))
     to_sequence = int(provisioning.get("candidate_sequence", -1))
+    expected_crc = int(provisioning.get("candidate_crc32_ieee", -1))
+    record_sha = _require_sha256(provisioning.get("record_sha256"), "physical evidence record_sha256")
     if from_sequence != state.sequence or int(post.get("installed_sequence", -1)) != to_sequence:
         raise CalibrationAuditLedgerError("physical provisioning sequence does not continue the audit ledger")
+    if exact.get("present") is not True:
+        raise CalibrationAuditLedgerError("physical provisioning exact post-write record is absent")
+    if exact.get("sha256") != record_sha:
+        raise CalibrationAuditLedgerError("physical provisioning exact post-write record SHA-256 mismatch")
+    if int(exact.get("sequence", -1)) != to_sequence or int(exact.get("crc32_ieee", -1)) != expected_crc:
+        raise CalibrationAuditLedgerError("physical provisioning exact post-write record sequence/CRC mismatch")
     signer_sha = _require_sha256(
         authorization.get("authority_public_key_sha256"),
         "physical evidence authority_public_key_sha256",
     )
     if signer_sha != state.authority_public_key_sha256:
         raise CalibrationAuditLedgerError("physical provisioning signer differs from audit ledger authority")
-    record_sha = _require_sha256(provisioning.get("record_sha256"), "physical evidence record_sha256")
     event_type = "recovery_commit" if isinstance(report.get("recovery"), dict) else "write_commit"
     if event_type == "recovery_commit" and to_sequence != from_sequence + 1:
         raise CalibrationAuditLedgerError("recovery evidence does not use exactly the next calibration sequence")
@@ -518,6 +545,7 @@ def append_write_evidence(
                 authorization.get("signature_sha256"),
                 "physical evidence authorization signature SHA-256",
             ),
+            "post_write_exact_record_sha256": record_sha,
         },
         "state_before": {
             "sequence": state.sequence,
@@ -529,12 +557,7 @@ def append_write_evidence(
             "record_sha256": record_sha,
             "authority_public_key_sha256": state.authority_public_key_sha256,
         },
-        "authority": {
-            "audit_only": True,
-            "automatic_provisioning": False,
-            "may_control_actuators": False,
-            "may_relax_hard_safety_limits": False,
-        },
+        "authority": _event_authority(),
     }
     return _append_entry(ledger_dir, entry_core, policy_path=policy_path)
 
@@ -559,6 +582,7 @@ def append_reboot_evidence(
     state = verify_ledger(ledger_dir, policy_path=policy_path, expected_device_id=device_id)
     _require_preflight_binding(report, state)
     sequence = int(provisioning.get("candidate_sequence", -1))
+    expected_crc = int(provisioning.get("candidate_crc32_ieee", -1))
     record_sha = _require_sha256(provisioning.get("record_sha256"), "reboot evidence record SHA-256")
     signer_sha = _require_sha256(
         authorization.get("authority_public_key_sha256"),
@@ -571,12 +595,16 @@ def append_reboot_evidence(
     reboot = report.get("reboot_verification")
     if not isinstance(reboot, dict) or reboot.get("boot_nonce_changed") is not True:
         raise CalibrationAuditLedgerError("reboot evidence lacks a verified new boot nonce")
-    exact_record_sha = reboot.get("active_record_sha256")
-    if exact_record_sha is not None and _require_sha256(
-        exact_record_sha,
-        "reboot exact active record SHA-256",
-    ) != record_sha:
+    exact_record_sha = _require_sha256(reboot.get("active_record_sha256"), "reboot exact active record SHA-256")
+    if exact_record_sha != record_sha:
         raise CalibrationAuditLedgerError("reboot exact active record SHA-256 differs from committed record")
+    exact = reboot.get("exact_active_record")
+    if not isinstance(exact, dict) or exact.get("present") is not True:
+        raise CalibrationAuditLedgerError("reboot evidence lacks exact active CalibrationRecord readback")
+    if exact.get("sha256") != record_sha:
+        raise CalibrationAuditLedgerError("reboot exact active record object SHA-256 differs from committed record")
+    if int(exact.get("sequence", -1)) != sequence or int(exact.get("crc32_ieee", -1)) != expected_crc:
+        raise CalibrationAuditLedgerError("reboot exact active record sequence/CRC differs from committed record")
 
     entry_core: dict[str, Any] = {
         "schema": ENTRY_SCHEMA,
@@ -589,6 +617,7 @@ def append_reboot_evidence(
             "reboot_evidence_sha256": _file_sha256(evidence_path),
             "previous_boot_nonce": int(reboot.get("previous_boot_nonce", -1)),
             "observed_boot_nonce": int(reboot.get("observed_boot_nonce", -1)),
+            "exact_active_record_sha256": record_sha,
         },
         "state_before": {
             "sequence": state.sequence,
@@ -600,11 +629,93 @@ def append_reboot_evidence(
             "record_sha256": state.record_sha256,
             "authority_public_key_sha256": state.authority_public_key_sha256,
         },
-        "authority": {
-            "audit_only": True,
-            "automatic_provisioning": False,
-            "may_control_actuators": False,
-            "may_relax_hard_safety_limits": False,
+        "authority": _event_authority(),
+    }
+    return _append_entry(ledger_dir, entry_core, policy_path=policy_path)
+
+
+def append_authority_transition_evidence(
+    ledger_dir: Path,
+    *,
+    transition_package_dir: Path,
+    post_device_state_path: Path,
+    policy_path: Path,
+) -> LedgerState:
+    # Imported lazily because authority_transition depends on verify_ledger.
+    from .authority_transition import verify_transition_package
+
+    state = verify_ledger(ledger_dir, policy_path=policy_path)
+    verified = verify_transition_package(transition_package_dir)
+    request = verified.request
+    package = verified.package
+    if request.get("device_id") != state.device_id:
+        raise CalibrationAuditLedgerError("authority transition package belongs to a different device")
+    if request.get("audit_ledger_head_sha256") != state.head_sha256:
+        raise CalibrationAuditLedgerError("authority transition package was not signed against the current ledger head")
+    if int(request.get("audit_ledger_entry_count", -1)) != state.entry_count:
+        raise CalibrationAuditLedgerError("authority transition package ledger entry count is stale")
+    if int(request.get("calibration_sequence", -1)) != state.sequence:
+        raise CalibrationAuditLedgerError("authority transition package calibration sequence differs from ledger state")
+    if request.get("active_record_sha256") != state.record_sha256:
+        raise CalibrationAuditLedgerError("authority transition package active record differs from ledger state")
+    if verified.old_public_key_sha256 != state.authority_public_key_sha256:
+        raise CalibrationAuditLedgerError("authority transition old signer differs from ledger authority")
+    if verified.new_public_key_sha256 == state.authority_public_key_sha256:
+        raise CalibrationAuditLedgerError("authority transition does not change the maintenance authority")
+
+    post = _load_json(post_device_state_path, "post-transition device state")
+    if str(post.get("device_id", "")) != state.device_id:
+        raise CalibrationAuditLedgerError("post-transition device state belongs to a different device")
+    if int(post.get("installed_sequence", -1)) != state.sequence:
+        raise CalibrationAuditLedgerError("authority transition changed the calibration sequence")
+    post_record_sha = _require_sha256(
+        post.get("active_record_sha256"),
+        "post-transition active record SHA-256",
+        allow_none=True,
+    )
+    if post_record_sha != state.record_sha256:
+        raise CalibrationAuditLedgerError("authority transition changed the active calibration record")
+    if post.get("maintenance_authorization_ready") is not True:
+        raise CalibrationAuditLedgerError("post-transition maintenance authority is not ready")
+    new_live_sha = _require_sha256(
+        post.get("maintenance_authority_public_key_sha256"),
+        "post-transition maintenance authority public-key SHA-256",
+    )
+    if new_live_sha != verified.new_public_key_sha256:
+        raise CalibrationAuditLedgerError("post-transition device fingerprint differs from dual-signed new authority")
+
+    entry_core: dict[str, Any] = {
+        "schema": ENTRY_SCHEMA,
+        "index": state.entry_count,
+        "event_type": "authority_transition",
+        "timestamp_utc": _utc_now(),
+        "device_id": state.device_id,
+        "previous_entry_sha256": state.head_sha256,
+        "evidence": {
+            "transition_json_sha256": _file_sha256(transition_package_dir / "transition.json"),
+            "transition_payload_sha256": verified.payload_sha256,
+            "old_signature_sha256": package.get("old_signature_sha256"),
+            "new_signature_sha256": package.get("new_signature_sha256"),
+            "maintenance_image_sha256": package.get("maintenance_image_sha256"),
+            "post_device_state_sha256": _file_sha256(post_device_state_path),
         },
+        "transition": {
+            "dual_signature_verified": True,
+            "old_authority_public_key_sha256": verified.old_public_key_sha256,
+            "new_authority_public_key_sha256": verified.new_public_key_sha256,
+            "source_commit": package.get("source_commit"),
+            "firmware_install_performed_by_transition_tool": False,
+        },
+        "state_before": {
+            "sequence": state.sequence,
+            "record_sha256": state.record_sha256,
+            "authority_public_key_sha256": state.authority_public_key_sha256,
+        },
+        "state_after": {
+            "sequence": state.sequence,
+            "record_sha256": state.record_sha256,
+            "authority_public_key_sha256": verified.new_public_key_sha256,
+        },
+        "authority": _event_authority(),
     }
     return _append_entry(ledger_dir, entry_core, policy_path=policy_path)

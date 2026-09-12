@@ -30,6 +30,8 @@ jobs:
         run: make calibration-recovery-check
       - name: Verify calibration audit ledger contract
         run: make calibration-audit-ledger-check
+      - name: Verify maintenance authority transition contract
+        run: make maintenance-authority-transition-check
 
   status-diagnostic-vhdl:
     runs-on: ubuntu-latest

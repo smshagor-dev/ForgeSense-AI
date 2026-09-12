@@ -26,12 +26,15 @@ def main() -> int:
         "_require_preflight_binding",
         "append_write_evidence",
         "append_reboot_evidence",
+        "append_authority_transition_evidence",
         'target.open("xb")',
         "os.fsync",
         "metadata_path.is_symlink()",
-        'event_type = "recovery_commit"',
-        'event_type == "reboot_verified"',
-        "unexpected maintenance-authority rotation",
+        'event_type == "authority_transition"',
+        "authority transition may not mutate calibration state",
+        "dual-signature verification",
+        "post_write_exact_active_record",
+        "reboot exact active record SHA-256",
         "physical evidence audit-ledger head does not match current ledger head",
     ):
         assert token in ledger, token
@@ -41,9 +44,11 @@ def main() -> int:
         '"verify"',
         '"append-write"',
         '"append-reboot"',
+        '"append-authority-transition"',
         "initialize_ledger(",
         "append_write_evidence(",
         "append_reboot_evidence(",
+        "append_authority_transition_evidence(",
     ):
         assert token in manager, token
 
@@ -83,6 +88,9 @@ def main() -> int:
     assert policy["write_preflight"]["live_active_record_sha256_match_required_when_active"] is True
     assert policy["write_preflight"]["live_authority_public_key_sha256_match_required"] is True
     assert policy["write_preflight"]["unexpected_authority_rotation_permitted"] is False
+    assert policy["events"]["authority_transition"] is True
+    assert policy["events"]["authority_transition_requires_dual_signature_evidence"] is True
+    assert policy["events"]["authority_transition_calibration_state_change_permitted"] is False
     assert policy["events"]["sequence_decrement_permitted"] is False
     assert policy["events"]["recovery_increment_exactly_one"] is True
     assert policy["authority"]["is_digital_signature"] is False
@@ -94,6 +102,7 @@ def main() -> int:
         "calibration_audit_ledger",
         "append_write_evidence",
         "append_reboot_evidence",
+        "append_authority_transition_evidence",
         "audit-ledger",
     ):
         assert forbidden not in production
@@ -108,14 +117,15 @@ def main() -> int:
         "test_legacy_evidence_without_preflight_binding_is_rejected",
         "test_live_record_drift_and_signer_drift_fail_closed",
         "test_recovery_event_requires_exact_next_sequence",
+        "test_exact_post_write_record_is_required",
         "test_genesis_metadata_tamper_is_detected",
     ):
         assert token in tests, token
 
     print(
-        "calibration_audit_ledger_check PASS: append-structured SHA-256 history, fresh-device genesis, live exact-record "
-        "and signer continuity, preflight-bound write/recovery/reboot evidence chaining, fail-closed tamper detection, "
-        "and production authority separation are present"
+        "calibration_audit_ledger_check PASS: append-structured SHA-256 history, fresh-device genesis, exact-record "
+        "continuity, preflight-bound write/recovery/reboot evidence, explicitly dual-signed authority-transition events, "
+        "fail-closed tamper detection, and production authority separation are present"
     )
     return 0
 
