@@ -81,7 +81,7 @@ def test_full_dataset_contains_truth_measurements_labels_and_windows(tmp_path: P
         output,
         repository_commit=COMMIT,
         runs_per_scenario=3,
-        sample_limit=28,
+        sample_limit=96,
     )
 
     with (output / "raw-train.csv").open("r", encoding="utf-8", newline="") as handle:
