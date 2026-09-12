@@ -29,6 +29,17 @@ def run(*args: str) -> None:
     subprocess.run(list(args), check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
+def output(*args: str) -> str:
+    result = subprocess.run(
+        list(args),
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
 def make_key(root: Path, name: str) -> tuple[Path, Path]:
     private = root / f"{name}-private.pem"
     public = root / f"{name}-public.pem"
@@ -37,7 +48,7 @@ def make_key(root: Path, name: str) -> tuple[Path, Path]:
     return private, public
 
 
-def sign(private: Path, payload: Path, output: Path) -> None:
+def sign(private: Path, payload: Path, destination: Path) -> None:
     run(
         "openssl",
         "dgst",
@@ -45,21 +56,29 @@ def sign(private: Path, payload: Path, output: Path) -> None:
         "-sign",
         str(private),
         "-out",
-        str(output),
+        str(destination),
         str(payload),
     )
 
 
-def prepare_source_tree(root: Path) -> None:
+def prepare_source_tree(root: Path) -> str:
     for relative in transition._SOURCE_FILES:
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f"synthetic source for {relative}\n", encoding="utf-8")
+    run("git", "-C", str(root), "init")
+    run("git", "-C", str(root), "config", "user.name", "ForgeSense Test")
+    run("git", "-C", str(root), "config", "user.email", "forgesense-test@example.invalid")
+    run("git", "-C", str(root), "add", "--all")
+    run("git", "-C", str(root), "commit", "-m", "synthetic maintenance source")
+    return output("git", "-C", str(root), "rev-parse", "HEAD")
 
 
 def make_fixture(tmp_path: Path) -> dict:
     if shutil.which("openssl") is None:
         pytest.skip("OpenSSL is required for maintenance-authority transition tests")
+    if shutil.which("git") is None:
+        pytest.skip("Git is required for maintenance-authority transition tests")
     old_private, old_public = make_key(tmp_path, "old")
     new_private, new_public = make_key(tmp_path, "new")
     old_der = transition.public_key_der(old_public)
@@ -83,7 +102,7 @@ def make_fixture(tmp_path: Path) -> dict:
     initialize_ledger(ledger, device_state_path=device_path, policy_path=AUDIT_POLICY)
 
     repo_root = tmp_path / "repo"
-    prepare_source_tree(repo_root)
+    source_commit = prepare_source_tree(repo_root)
     sdkconfig = tmp_path / "sdkconfig"
     sdkconfig.write_text(
         f'CONFIG_FORGESENSE_MAINTENANCE_AUTHORITY_PUBKEY_DER_HEX="{new_der.hex()}"\n',
@@ -101,19 +120,20 @@ def make_fixture(tmp_path: Path) -> dict:
         "device_path": device_path,
         "ledger": ledger,
         "repo_root": repo_root,
+        "source_commit": source_commit,
         "sdkconfig": sdkconfig,
         "image": image,
     }
 
 
-def build_request(tmp_path: Path, fixture: dict) -> Path:
+def build_request(tmp_path: Path, fixture: dict, *, source_commit: str | None = None) -> Path:
     artifacts = transition.build_transition_request(
         ledger_dir=fixture["ledger"],
         audit_policy_path=AUDIT_POLICY,
         device_state_path=fixture["device_path"],
         old_public_key_path=fixture["old_public"],
         new_public_key_path=fixture["new_public"],
-        source_commit="a" * 40,
+        source_commit=source_commit or fixture["source_commit"],
         repo_root=fixture["repo_root"],
         sdkconfig_path=fixture["sdkconfig"],
         maintenance_image_path=fixture["image"],
@@ -151,6 +171,8 @@ def test_dual_signed_transition_updates_only_authority_fingerprint(tmp_path: Pat
     verified = transition.verify_transition_package(package_dir)
     assert verified.old_public_key_sha256 == fixture["old_fp"]
     assert verified.new_public_key_sha256 == fixture["new_fp"]
+    assert verified.request["source_commit"] == fixture["source_commit"]
+    assert verified.request["source_checkout_verified_clean"] is True
 
     post = {
         "schema": "forgesense.calibration_device_state.v1",
@@ -184,6 +206,20 @@ def test_sdkconfig_must_pin_exact_new_public_key(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     with pytest.raises(transition.MaintenanceAuthorityTransitionError, match="does not equal"):
+        build_request(tmp_path, fixture)
+
+
+def test_source_checkout_head_must_match_reviewed_commit(tmp_path: Path) -> None:
+    fixture = make_fixture(tmp_path)
+    with pytest.raises(transition.MaintenanceAuthorityTransitionError, match="differs from reviewed source commit"):
+        build_request(tmp_path, fixture, source_commit="a" * 40)
+
+
+def test_dirty_maintenance_source_is_rejected(tmp_path: Path) -> None:
+    fixture = make_fixture(tmp_path)
+    dirty = fixture["repo_root"] / transition._SOURCE_FILES[0]
+    dirty.write_text(dirty.read_text(encoding="utf-8") + "dirty\n", encoding="utf-8")
+    with pytest.raises(transition.MaintenanceAuthorityTransitionError, match="source files are dirty"):
         build_request(tmp_path, fixture)
 
 
