@@ -21,6 +21,11 @@
     "rotation_requires_source_review": true,
     "rotation_requires_maintenance_image_rebuild": true,
     "rotation_requires_new_image_verification": true,
+    "rotation_requires_dual_signed_transition_evidence": true,
+    "old_authority_signature_required": true,
+    "new_authority_proof_of_possession_required": true,
+    "audit_transition_event_required": true,
+    "calibration_state_must_remain_unchanged": true,
     "old_key_revocation_requires_new_maintenance_image": true,
     "normal_calibration_write_may_rotate_key": false
   },
@@ -30,5 +35,5 @@
     "may_relax_hard_safety_limits": false,
     "production_runtime_key_update_authority": false
   },
-  "boundary": "Key rotation is a maintenance-image source/build operation, never a calibration record command."
+  "boundary": "Key rotation is a reviewed maintenance-image rebuild plus dual-signed transition-evidence operation, never a calibration record command."
 }
