@@ -8,6 +8,7 @@ import sys
 try:
     from commissioning.forgesense_commission.audit_ledger import (
         CalibrationAuditLedgerError,
+        append_authority_transition_evidence,
         append_reboot_evidence,
         append_write_evidence,
         initialize_ledger,
@@ -17,6 +18,7 @@ try:
 except ModuleNotFoundError:
     from forgesense_commission.audit_ledger import (  # type: ignore
         CalibrationAuditLedgerError,
+        append_authority_transition_evidence,
         append_reboot_evidence,
         append_write_evidence,
         initialize_ledger,
@@ -57,7 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     append_write = sub.add_parser(
         "append-write",
-        help="append retained committed physical-write evidence; useful for explicit reconciliation after a host interruption",
+        help="append retained committed physical-write evidence after verified audit preflight",
     )
     append_write.add_argument("--ledger", type=Path, required=True)
     append_write.add_argument("--evidence", type=Path, required=True)
@@ -70,6 +72,15 @@ def build_parser() -> argparse.ArgumentParser:
     append_reboot.add_argument("--ledger", type=Path, required=True)
     append_reboot.add_argument("--evidence", type=Path, required=True)
     append_reboot.add_argument("--policy", type=Path, default=DEFAULT_POLICY)
+
+    append_transition = sub.add_parser(
+        "append-authority-transition",
+        help="append a dual-signed maintenance-authority transition after read-only post-install verification",
+    )
+    append_transition.add_argument("--ledger", type=Path, required=True)
+    append_transition.add_argument("--transition-package", type=Path, required=True)
+    append_transition.add_argument("--post-device-state", type=Path, required=True)
+    append_transition.add_argument("--policy", type=Path, default=DEFAULT_POLICY)
     return parser
 
 
@@ -102,15 +113,22 @@ def main(argv: list[str] | None = None) -> int:
                 evidence_path=args.evidence,
                 policy_path=args.policy,
             )
-        else:
+        elif args.command == "append-reboot":
             state = append_reboot_evidence(
                 args.ledger,
                 evidence_path=args.evidence,
                 policy_path=args.policy,
             )
+        else:
+            state = append_authority_transition_evidence(
+                args.ledger,
+                transition_package_dir=args.transition_package,
+                post_device_state_path=args.post_device_state,
+                policy_path=args.policy,
+            )
         print(json.dumps(state.as_dict(), indent=2, allow_nan=False))
         return 0
-    except (CalibrationAuditLedgerError, ValueError) as exc:
+    except (CalibrationAuditLedgerError, MaintenanceProvisioningError, ValueError) as exc:
         print(f"calibration audit-ledger operation failed: {exc}", file=sys.stderr)
         return 2
 
