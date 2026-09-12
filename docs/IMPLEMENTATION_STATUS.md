@@ -1,231 +1,183 @@
 # Implementation Status
 
-This document records what currently exists and what has executable or source-level evidence. It is intentionally more conservative than product-facing material.
+**Repository implementation: complete for the ForgeSense v1 declared engineering scope.**
 
-## Executable now
+This document records source/executable implementation status conservatively. “Complete” here means the repository contains the declared code, RTL, firmware reference, tooling, policies, tests, documentation, and verification wiring. It does not mean physical validation, manufacturing, certification, or target-tool execution evidence is complete.
 
-### Deterministic virtual machine and sensors
+The machine-readable scope is `engineering/completion_manifest_v1.json`; `make engineering-complete-check` verifies that every declared repository deliverable remains present.
 
-`simulator/forgesense_sim` provides repeatable normal-operation, bearing-degradation, overcurrent, cooling-loss, and sensor-dropout traces. The simulator remains a pre-hardware reference and is not presented as a calibrated physical motor model.
+## Deterministic digital reference
 
-### Reference model and deployment artifact
+The repository includes a repeatable low-voltage machine reference with temperature, vibration, current and speed behavior plus bearing degradation, overcurrent, cooling loss, sensor dropout, intelligence-link loss and emergency scenarios.
 
-`ml/forgesense_ml/reference.py` defines one canonical training envelope: the complete settled normal trace after `STARTUP_SETTLE_SAMPLES = 80`. `fit_reference_model()` is reused by tests and demos to prevent tools from silently fitting different baselines.
+The sensor model supports deterministic Gaussian noise, static bias, time drift, saturation, stuck-value and dropout impairments. `simulator/forgesense_sim/qualification.py` adds extended virtual soak, replay-abuse, reset/startup, sensor fail-closed and dataset-shift hard-limit checks.
 
-`ml/forgesense_ml/export_cpp.py` renders the same model as a deterministic C++ header committed at `firmware/components/forgesense_inference/include/forgesense_reference_model_generated.h`. A regression test compares regenerated output byte-for-byte with the committed artifact.
+The seven-scenario validation matrix and qualification suite are virtual engineering evidence only.
 
-### FPGA/ESP32-S3 application contract
+## FPGA deterministic domain
 
-ForgeSense Link v1 has three implemented application messages:
+Implemented VHDL includes:
 
-- FPGA -> ESP32-S3 sensor snapshot (`0x11`, 22 bytes);
-- FPGA -> ESP32-S3 authoritative safety status (`0x30`, 18 bytes);
-- ESP32-S3 -> FPGA ML observation (`0x10`, 28 bytes).
+- 27 MHz Tang Nano 9K physical composition and frozen J5 application mapping;
+- UART 8N1 RX/TX and shared transmit arbitration;
+- versioned sensor/status transmission and ML observation receive path;
+- CRC/version/type/length/model/schema/freshness/replay checks;
+- retained accepted intelligence state and watchdog;
+- TMP117 I2C controller with identity and ACK/NACK handling;
+- ADXL355 mode-0 SPI identity/configuration/readback and XYZ acquisition;
+- ADS131M02 CPOL=0/CPHA=1 register/frame acquisition with output CRC;
+- deterministic fixed-point temperature/current/accelerometer conversion;
+- sensor validity/freshness supervision and vibration RMS;
+- hard warning/critical monitoring;
+- startup/run/warning/shutdown/fault/recovery safety state machine;
+- asynchronous hard-trip/E-stop/recovery synchronization;
+- final protected-load enable authority.
 
-All frames use explicit version/type/length fields, independent rolling sequence spaces, sender-local monotonic timestamps, and CRC-16/CCITT-FALSE. FPGA status is the machine-state authority; ML observations cannot override hard safety.
+Self-checking RTL/testbench sources exist for safety, protocol, UART/SPI/I2C primitives, sensor math/frontends, selected sensor behavioral models, startup-critical behavior and physical integration. Gowin TCL, CST and SDC sources target `GW1NR-LV9QN88PC6/I5`.
 
-### Portable embedded runtime
+A retained successful GHDL run and Gowin synthesis/place-route/timing report remain external tool-execution evidence gates.
 
-Host-testable C++20 components implement protocol parsing, fixed-memory stream resynchronization, freshness gates, compact inference, CRC-protected event records, read-only device telemetry serialization, generated sensor-contract constants, and sensing/PHY references.
+## ESP32-S3 edge domain
 
-The sensing path validates signed 24-bit raw codes, applies deterministic integer linear calibration, reports numeric saturation, and computes fixed-window vibration RMS with an integer square root.
+`firmware/esp32` provides the production reference application with FPGA transport, fixed-memory parsing, inference, link-loss behavior, event persistence and read-only host telemetry.
 
-The PHY reference provides a fixed 48-byte CRC32/IEEE calibration record, strict version/magic/size validation, raw ADC/current and normalized temperature boundaries, transport-error suppression, conditioned vibration processing, and explicit diagnostics.
+Portable C++20 components cover protocol, stream parsing, inference, events, telemetry, sensing, calibration and PHY behavior and are wired into host compilation tests.
 
-Portable calibration and PHY tests are written for C++20 with `-Wall -Wextra -Werror -pedantic`.
+The local API/dashboard is read-only and never owns machine-state authority or actuator routes.
 
-### ESP32-S3 application and local monitor
+Separate firmware targets exist for transparent commissioning and calibration maintenance; production firmware does not expose calibration PREPARE/COMMIT operations.
 
-`firmware/esp32` contains the edge runtime for FPGA UART transport, inference, sparse NVS events, and read-only `@FS1` host telemetry. The PC-side bridge feeds the local monitoring API/dashboard while preserving FPGA status authority and stale-source semantics. No actuator/control HTTP route is exposed.
+## ML release engineering
 
-The complete ESP-IDF target build still requires validation on the selected physical ESP32-S3 board.
+The selected v1 model is the auditable diagonal-Gaussian anomaly baseline. The repository now contains:
 
-### FPGA sensing and board integration
+- deterministic reference fitting and C++ export;
+- 8-sample feature runtime;
+- model/feature schema versioning;
+- `ml/contracts/dataset_manifest_v1.json` dataset/provenance contract;
+- deterministic synthetic reference dataset generator;
+- scenario/time-aware split policy;
+- `ml/reference_model_card_v1.json`;
+- virtual evaluation report generator with normal warning/critical incidence, normal terminal-action count and declared fault-scenario outcomes.
 
-The VHDL tree contains deterministic safety/control, protocol RX/TX, UART, sample/timebase logic, generated sensor contract constants, sensor freshness supervision, physical-interface adapters, selected-device acquisition controllers, and a Tang Nano 9K physical-board wrapper.
+A compact neural candidate is deliberately not promoted from synthetic-only evidence. Representative physical data must show a measured grouped/time-aware benefit before additional model complexity is justified.
 
-The normalized frontend includes signed raw-code calibration, fixed-window integer vibration RMS, normalized update strobes, numeric-saturation diagnostics, and `forgesense_sensor_board_core` connecting the frontend through `sensor_supervisor` into the board core.
+Target latency, peak memory, false alarms per operating hour, missed-fault rate and real detection lead time remain physical-device/real-data evidence gates.
 
-The physical-interface reference adds `generic_adc_sample_adapter`, `digital_temperature_adapter`, `accelerometer_conditioner`, `sensor_self_test`, and `forgesense_phy_board_core`. The wrapper exposes both transport-level self-test and normalized `sensors_valid`; deterministic safety continues to rely on normalized freshness/plausibility rather than transport activity alone.
+## Hardware reference source package
 
-Selected register-level acquisition now exists for:
-
-- TMP117 over I2C with Device ID verification, repeated-start temperature reads, ACK/NACK handling, and signed temperature conversion;
-- ADXL355 over SPI mode 0 with identity checks, FILTER/RANGE/POWER_CTL programming and readback, DRDY-driven X/Y/Z burst acquisition, and fixed-point milli-g conversion;
-- ADS131M02 over CPOL=0/CPHA=1 SPI with delayed RREG response handling, CLOCK programming/readback, 24-bit four-word conversion frames, and mandatory output CRC validation.
-
-`forgesense_reference_sensor_io.vhd` composes the three selected devices with the existing normalized sensing and deterministic safety path.
-
-`forgesense_tang_nano_9k_top.vhd` now binds that composition to the 27 MHz Tang Nano 9K physical interface, implements open-drain TMP117 I2C pins, synchronizes the asynchronous hard-trip/E-stop/recovery observations, and preserves the independent physical E-stop gate-inhibit authority.
-
-### Selected sensor behavioral verification
-
-Bus-level device models now exist under `fpga/tb/models/` for TMP117, ADXL355, and ADS131M02. They connect to the same I2C/SPI pins as the controller RTL and provide deterministic normal data plus fault injection.
-
-Coverage includes:
-
-- TMP117 valid identity/temperature, forced NACK, and wrong identity;
-- ADXL355 valid configuration/sample burst, wrong identity, and corrupted configuration readback;
-- ADS131M02 valid startup/sample frames, wrong identity, corrupted CLOCK readback, and corrupted output CRC;
-- a combined selected-sensor acquisition-cluster test in which all three devices reach trusted configuration state and publish deterministic measurements.
-
-`tools/check_sensor_behavioral_verification.py` enforces the expected model/test inventory and critical assertions. `.github/workflows/sensor-behavioral.yml` is configured to analyze and run the four self-checking GHDL suites when a hosted runner is allocated.
-
-These models are verification sources, not physical-device evidence.
-
-### Tang Nano 9K physical mapping
-
-`hardware/profiles/interconnect_v1.json` revision `INT-002`, `fpga/constraints/tang_nano_9k.cst`, and `fpga/constraints/tang_nano_9k.sdc` now freeze the development-board application mapping against the official Sipeed schematic/pin map.
-
-The external ForgeSense wiring uses J5-5 through J5-22 on 3.3 V banks for UART, hard-trip/E-stop/load control, TMP117 I2C, ADXL355 SPI/DRDY, and ADS131M02 SPI/DRDY. The map intentionally excludes:
-
-- populated TF-card FPGA pins 36-39;
-- onboard BL702 USB-UART FPGA pins 17/18;
-- external BANK3 1.8 V FPGA pins 79-86.
-
-The onboard 27 MHz oscillator remains FPGA pin 52. Onboard S2 is FPGA pin 4 in the 1.8 V bank and is used only as the local reset input.
-
-`tools/check_tang_nano_9k_pinmap.py` verifies unique pin allocation, voltage standards, reserved-pin exclusion, the machine-readable interconnect profile, open-drain I2C behavior, and physical-top synchronizer invariants. `make tang-pin-check` runs this contract directly; `make hardware-check` includes it.
-
-`fpga/scripts/tang_nano_9k_build.tcl` is the Gowin command-line project entry point and targets `GW1NR-LV9QN88PC6/I5` with `forgesense_tang_nano_9k_top`. A successful Gowin synthesis/place-and-route result is still pending.
-
-### Calibration authority
-
-`forgesense_calibration.*` defines an integrity-checked provisioning/reference record, but the current design exposes no dashboard or ESP32 runtime command that can rewrite FPGA safety calibration. FPGA coefficients remain frozen in the hardware build until a separately reviewed provisioning mechanism exists.
-
-This preserves the rule that a compromised or malfunctioning monitoring/intelligence processor cannot relax measurement interpretation used by the deterministic safety boundary.
-
-### Calibration evidence and repeated-run review
-
-`tools/capture_calibration.py` converts hashed bench evidence into review-only `forgesense.calibration_proposal.v1` artifacts for current, temperature, and stationary accelerometer characterization. The capture path now retains declared expanded reference uncertainty (`k=2`) and per-axis accelerometer standard deviation in proposal provenance.
-
-`tools/review_calibration.py` compares repeated proposals under `hardware/calibration/calibration_review_policy_v1.json`. The default policy requires at least three runs from consistent board revisions and repository commit, then checks current gain/intercept spread, temperature offset spread, accelerometer bias/noise spread, declared reference-uncertainty limits, and proposal quality.
-
-The review emits `forgesense.calibration_review.v1`, including canonical source-proposal hashes and conservative engineering uncertainty proxies. Its authority is deliberately constrained: reviewer approval and a source-controlled change are required; automatic runtime application is forbidden; deterministic hard-safety limits cannot be relaxed by the review result.
-
-Legacy proposals without the new accelerometer standard-deviation evidence fail review readiness cleanly rather than producing a runtime exception. `make calibration-check` covers the single-run capture path, repeated-run review behavior, evidence completeness, and source-level authority invariants.
-
-These checks establish evidence-handling behavior only. No physical calibration accuracy, traceability, or production metrology claim is made until actual bench measurements are retained and reviewed.
-
-### Component-backed low-voltage hardware baseline
-
-`hardware/profiles/hardware_baseline_v1.json` is revision `HW-BL-004`. It links the protected power-entry, sensing-support, selected-device, current-sense, motor-output, interconnect, package, and net-freeze sources used for schematic capture. Its status now records the frozen Tang Nano 9K application mapping while retaining the pre-hardware evidence boundary.
-
-The 12 V input reference is:
+The current reference is `HW-BL-004`:
 
 ```text
-connector
-  -> 5 A passive fuse
-  -> SMBJ15A TVS
-  -> TPS259470L eFuse
-  -> VIN_12V_PROTECTED
+12 V input
+→ 5 A fuse
+→ SMBJ15A TVS
+→ TPS259470L eFuse
+→ protected 12 V rail
 ```
 
-The TPS259470L reference network produces approximately 9.03 V UVLO, 18.07 V OVLO, 4.04 A current limit, about 10.1 ms overcurrent blanking, and approximately 19.8 ms rise to 12 V.
-
-The intended protection ordering is:
+Protection ordering is intentionally layered:
 
 ```text
-~3.47 A independent analog motor hard trip
-< ~4.04 A power-entry eFuse reference limit
+~3.47 A independent TLV3201 analog trip
+< ~4.04 A TPS259470L eFuse current-limit reference
 < 5 A passive fuse
 ```
 
-The logic tree uses TPS54202DDCR for 5 V and TPS7A2033PDBVR for the quiet 3.3 V sensing rail.
+The measurement chain uses a 15 mOhm Kelvin shunt, INA181A1 gain 20 and ADS131M02. The selected vibration and temperature devices are ADXL355 and TMP117. UCC27511A drives CSD18540Q5B; a normally-closed E-stop directly inhibits the gate driver independently of clocked FPGA logic.
 
-The current measurement reference uses a 15 mOhm Kelvin shunt and INA181A1IDBVR at 20 V/V. At 3.2 A it produces 48 mV across the shunt and 0.960 V at `CS_OUT`, which is 80% of the selected ADS131M02 gain-1 positive differential full-scale reference. Shunt dissipation at that reference point is approximately 0.154 W.
+Machine-readable power/sensor/interconnect/schematic/BOM/net-endpoint sources, analytical checkers, bring-up contracts, PCB net classes/layout rules and behavioral SPICE sources are present.
 
-TLV3201AIDBVR compares `CS_OUT` against an approximately 1.042 V divider reference, corresponding to an ideal analog backup trip near 3.47 A. Hysteresis remains DNI until measured switching-noise evidence exists.
+Verified KiCad footprint binding, ERC/DRC/manufacturing outputs and fabricated-board evidence remain external physical/CAD-tool gates.
 
-UCC27511ADBVR drives CSD18540Q5B from 5 V. A normally-closed E-stop loop drives the driver's inverting input as a fail-high physical inhibit, while SN74LVC1G17DBVR exposes the state to the FPGA. STPS5L60U is the current flyback reference.
+## Calibration and maintenance chain
 
-### Precision sensor support
+The implemented source chain is:
 
-`hardware/profiles/sensor_support_v1.json` and `hardware/profiles/sensor_devices_v1.json` define the selected support and register-level contracts without claiming physical performance:
+```text
+load-disabled read-only diagnostics
+→ independently referenced session assembly
+→ calibration capture/proposal
+→ repeated-run campaign/review
+→ evidence/source-provenance verification
+→ reviewer-ready change package
+→ explicit human approval
+→ current/temperature integer quantization
+→ hard-safety source non-regression
+→ add-only approved calibration source profile
+→ exact 48-byte CalibrationRecord v1
+→ strict monotonic provisioning sequence
+→ externally signed P-256 maintenance authorization
+→ physical maintenance-enable + load-inhibit gates
+→ signed PREPARE / challenged COMMIT
+→ inactive-slot NVS write/readback/metadata commit
+→ exact post-write and reboot readback
+→ monotonic recovery with a new higher sequence
+→ per-device SHA-256 audit ledger
+→ dual-signed maintenance-authority transition
+```
 
-- ADS131M02IPWR: 3.3 V AVDD/DVDD, local decoupling, internal reference, 8.192 MHz master clock, CPOL=0/CPHA=1 FPGA transport, 24-bit words, selected 1 kSPS configuration, output CRC required;
-- ADXL355BEZ: 3.3 V supply/I/O, local bypass/discharge network, SPI mode 0, 2 MHz starting clock, selected 1 kHz output-data rate, +/-8 g range, identity and configuration readback checks;
-- TMP117AIDRVR: 3.3 V, 0.1 uF bypass, ADD0 to GND, 4.99 kOhm reference pull-ups, Device ID `0x0117`, repeated-start two-byte temperature read.
+Accelerometer runtime calibration remains explicitly deferred because `CalibrationRecord v1` has current and temperature fields only. The source workflow records accelerometer evidence without inventing an unsupported runtime mapping.
 
-TMP117 ALERT remains diagnostic and does not replace the normalized FPGA temperature hard limit.
+No calibration workflow can authorize actuator control or hard-safety relaxation.
 
-### Schematic-capture sources
+## Security and release engineering
 
-The pre-layout electrical source set includes:
+Repository security implementation includes:
 
-- `hardware/profiles/power_entry_v1.json`;
-- `hardware/profiles/sensor_support_v1.json`;
-- `hardware/profiles/sensor_devices_v1.json`;
-- `hardware/profiles/hardware_baseline_v1.json`;
-- `hardware/profiles/reference_circuit_v1.json`;
-- `hardware/profiles/interconnect_v1.json` revision `INT-002`;
-- `hardware/kicad/schematic_contract_v1.json`;
-- `hardware/kicad/POWER_AND_SAFETY_SHEET_V1.md`;
-- `hardware/kicad/component_packages_v1.csv`;
-- `hardware/kicad/net_endpoints_v1.csv`;
-- `hardware/bom/preliminary_bom_v1.csv`;
-- `fpga/constraints/tang_nano_9k.cst`;
-- `fpga/constraints/tang_nano_9k.sdc`.
+- `docs/THREAT_MODEL.md` covering FPGA/MCU/UART/sensor/calibration/key/audit/release boundaries;
+- `docs/HAZARD_ANALYSIS.md` covering low-voltage electrical, sensor, communication, calibration, maintenance and ML hazards;
+- signed maintenance authorization and dual-signed authority transition;
+- no private maintenance key in repository/device tooling;
+- `firmware/security/esp32_s3_release_security_profile_v1.json` defining a production ESP32-S3 Secure Boot v2 / flash-encryption release policy;
+- `tools/check_esp32_release_security.py` for validating the security policy and a retained sdkconfig;
+- `tools/build_firmware_provenance.py` for SHA-256 build provenance over sdkconfig/application/bootloader/partition artifacts.
 
-Manufacturer orderable MPN/package information is recorded separately from KiCad library footprint IDs. Footprint bindings remain intentionally pending until verified against the installed KiCad library.
+Repository tools do not automatically burn eFuses or enable irreversible device security state. Actual Secure Boot, flash-encryption and debug-disable state require device readback evidence.
 
-### Hardware consistency checks
+## Verification integration
 
-`make hardware-check` validates the cross-file hardware baseline, analytical circuit calculations, selected sensor register/transport contracts, frozen Tang Nano 9K pin mapping, and calibration review-source contracts.
+Primary repository gates include:
 
-Checks include:
+```bash
+make test
+make validate
+make firmware-host
+make hardware-check
+make commissioning-check
+make calibration-check
+make calibration-diagnostic-check
+make calibration-assembler-check
+make calibration-campaign-check
+make calibration-bundle-verification-check
+make calibration-source-change-check
+make calibration-provisioning-check
+make maintenance-provisioning-check
+make signed-maintenance-authorization-check
+make calibration-recovery-check
+make calibration-audit-ledger-check
+make maintenance-authority-transition-check
+make software-qualification-check
+make ml-release-check
+make release-security-check
+make engineering-complete-check
+```
 
-- eFuse UVLO/OVLO/current-limit/slew arithmetic;
-- TVS/eFuse voltage coordination assumptions;
-- analog-trip < eFuse < fuse ordering;
-- revised 15 mOhm current transfer and ADC headroom;
-- motor-driver/MOSFET/flyback reference constraints;
-- E-stop fail-high hardware-inhibit policy;
-- ADS131M02 clock, framing, CRC, and selected register contract;
-- ADXL355 selected identities/register configuration;
-- TMP117 address/identity/temperature-register contract;
-- BOM and package-manifest coverage;
-- critical-net endpoint presence;
-- frozen Tang Nano J5 pin allocation and reserved-interface exclusions;
-- LVCMOS33/LVCMOS18 voltage-standard consistency;
-- 27 MHz timing constraint and physical-top open-drain/synchronizer invariants;
-- calibration review-only authority, uncertainty, repeatability, and evidence-completeness contracts.
+GitHub Actions contains Python/host/VHDL/commissioning/calibration workflows. Recent hosted runs have repeatedly failed before runner step allocation (`steps=[]`), so source wiring must not be described as a hosted pass until a runner actually executes it.
 
-Behavioral SPICE files exist for the current-sense and inductive motor-output topologies. They remain source artifacts; no SPICE execution result is claimed until a compatible simulator is run and evidence is retained.
+## External evidence still required
 
-## Current validation baseline
+Repository engineering completion deliberately excludes unsupported physical claims. Remaining external evidence includes:
 
-Repository validation covers Python simulation/integration, portable C++ protocol/stream/inference/event/telemetry/sensor-contract/sensing/PHY checks, hardware-profile consistency checks, analytical low-voltage circuit checks, static physical-pin consistency, calibration evidence/review checks, and a growing set of self-checking VHDL verification sources.
+- retained GHDL and Gowin execution/timing reports;
+- ESP-IDF target builds plus measured latency/memory/current;
+- physical sensor, bus and J5 wiring validation;
+- real calibration campaigns with defensible reference uncertainty;
+- shunt/comparator/eFuse/TVS/flyback electrical measurements;
+- thermal, surge, EMC, soak, brownout and power-cycle testing;
+- verified PCB footprints, ERC/DRC and manufacturing output;
+- actual Secure Boot/flash-encryption/eFuse state;
+- real-machine predictive-maintenance performance;
+- any certification or functional-safety assessment.
 
-Reference software checks include calibration encode/decode and CRC-corruption rejection, invalid-calibration rejection, PHY normalization, deterministic 3 g / 4 g two-sample RMS = 3535 mg, signed 24-bit raw-range rejection, profile/schema consistency, protected-entry equations, current-sense calculations, safety ordering, and repeated-run calibration rejection behavior.
-
-The deterministic seven-scenario software matrix covers normal operation, bearing degradation, overcurrent trend, cooling loss, sensor dropout, intelligence-link loss, and emergency input.
-
-The selected sensor behavioral suite and Tang Nano physical-top analysis are wired for GHDL execution. Local GHDL execution is not claimed in the current development environment, and recent hosted runs have historically stopped before job-step allocation. A passing hosted or retained local GHDL run is therefore still required before reporting compiler/simulation success for those VHDL additions.
-
-## Evidence still missing
-
-The following remain intentionally unclaimed until measured or tool-verified:
-
-- a retained successful GHDL compile/run for the selected-device bus models and Tang Nano physical top;
-- successful Gowin synthesis, place-and-route, resource-utilization report, and timing closure for the physical top;
-- physical continuity confirmation for the frozen J5 wiring on the actual board revision;
-- three or more retained physical calibration runs with defensible reference-instrument uncertainty and a passing repeated-run review;
-- selected physical sensor accuracy and calibration;
-- ADS131M02 behavior on the physical bus and measured ADC/reference/shunt/amplifier transfer accuracy;
-- ADXL355 and TMP117 behavior on physical buses;
-- actual shunt temperature rise and current-sense drift;
-- comparator trip tolerance and chatter under motor switching noise;
-- eFuse current-limit behavior, UVLO/OVLO tolerances, and real inrush waveform;
-- measured flyback/TVS transient energy and clamp voltage;
-- input surge/EMC qualification;
-- selected MOSFET switching loss and junction temperature;
-- accelerometer mounting and vibration bandwidth;
-- electrical noise immunity and anti-alias performance;
-- real motor/pump fault signatures and predictive lead time;
-- false alarms per operating hour;
-- ESP32-S3 device-level latency and memory use;
-- UART/SPI/I2C signal integrity and I2C rise-time on the selected boards;
-- power-tree efficiency and thermal performance;
-- verified KiCad footprint binding, ERC/DRC, PCB manufacturing evidence;
-- industrial functional-safety suitability or certification.
+See `docs/ENGINEERING_COMPLETION.md` for the formal source-versus-physical completion boundary.

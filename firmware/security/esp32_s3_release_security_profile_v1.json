@@ -1,0 +1,51 @@
+{
+  "schema": "forgesense.esp32s3_release_security_profile.v1",
+  "profile_id": "ESP32S3-SEC-REL-001",
+  "target": "esp32s3",
+  "purpose": "production-release build policy; not enabled by default development sdkconfig",
+  "required_enabled": [
+    "CONFIG_SECURE_BOOT",
+    "CONFIG_SECURE_BOOT_V2_ENABLED",
+    "CONFIG_SECURE_FLASH_ENC_ENABLED",
+    "CONFIG_SECURE_FLASH_ENCRYPTION_MODE_RELEASE",
+    "CONFIG_SECURE_FLASH_ENCRYPTION_AES256",
+    "CONFIG_SECURE_FLASH_CHECK_ENC_EN_IN_APP"
+  ],
+  "required_disabled": [
+    "CONFIG_SECURE_BOOT_INSECURE",
+    "CONFIG_SECURE_BOOT_ALLOW_JTAG",
+    "CONFIG_SECURE_FLASH_ENCRYPTION_MODE_DEVELOPMENT",
+    "CONFIG_SECURE_FLASH_UART_BOOTLOADER_ALLOW_ENC",
+    "CONFIG_SECURE_FLASH_UART_BOOTLOADER_ALLOW_CACHE",
+    "CONFIG_SECURE_BOOT_V2_FORCE_ENABLE_ECDSA"
+  ],
+  "signing": {
+    "scheme": "Secure Boot v2 RSA-PSS",
+    "remote_or_external_signing_supported": true,
+    "private_key_in_repository_permitted": false,
+    "private_key_in_firmware_image_permitted": false,
+    "build_signed_binaries_may_be_disabled_for_external_signing": true
+  },
+  "device_irreversible_actions": {
+    "automatic_efuse_burn_by_repository_tools": false,
+    "automatic_secure_boot_enable_by_repository_tools": false,
+    "automatic_flash_encryption_enable_by_repository_tools": false,
+    "operator_review_required": true
+  },
+  "evidence_required_before_release_claim": [
+    "retained sdkconfig",
+    "firmware image SHA-256",
+    "bootloader image SHA-256",
+    "partition table SHA-256",
+    "ESP-IDF version",
+    "repository commit",
+    "signing public-key fingerprint or certificate fingerprint",
+    "device-side secure boot state readback",
+    "device-side flash encryption state readback"
+  ],
+  "authority": {
+    "does_not_change_fpga_hard_safety": true,
+    "does_not_authorize_calibration_write": true,
+    "physical_device_enablement_claimed": false
+  }
+}

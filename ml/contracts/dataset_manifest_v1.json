@@ -1,0 +1,40 @@
+{
+  "schema": "forgesense.ml_dataset_contract.v1",
+  "dataset_id": "forgesense-synthetic-reference-v1",
+  "source": "deterministic ForgeSense simulator",
+  "synthetic": true,
+  "feature_schema_version": 1,
+  "columns": [
+    "scenario",
+    "sample_index",
+    "time_s",
+    "temperature_c",
+    "vibration_rms_g",
+    "current_a",
+    "valid_temperature",
+    "valid_vibration",
+    "valid_current",
+    "fault_active"
+  ],
+  "scenario_order": [
+    "normal",
+    "bearing_degradation",
+    "overcurrent",
+    "cooling_loss",
+    "sensor_dropout"
+  ],
+  "split_policy": "scenario/time-aware; never randomly split adjacent windows from the same run across train and evaluation",
+  "training_policy": "reference model trains only on the settled normal envelope after STARTUP_SETTLE_SAMPLES",
+  "provenance_required": [
+    "repository_commit",
+    "generator_version",
+    "scenario seeds",
+    "dataset_sha256",
+    "row_count"
+  ],
+  "authority": {
+    "physical_evidence": false,
+    "may_change_safety_limits": false,
+    "may_control_actuators": false
+  }
+}

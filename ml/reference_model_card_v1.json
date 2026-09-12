@@ -1,0 +1,39 @@
+{
+  "schema": "forgesense.model_card.v1",
+  "model_id": 1,
+  "model_version": 1,
+  "feature_schema_version": 1,
+  "model_family": "diagonal_gaussian_anomaly_baseline",
+  "features": ["temperature_c", "vibration_rms_g", "current_a"],
+  "window_samples": 8,
+  "warning_threshold": 0.72,
+  "critical_threshold": 0.90,
+  "training_source": "complete settled normal synthetic reference trace after STARTUP_SETTLE_SAMPLES=80",
+  "evaluation": {
+    "command": "PYTHONPATH=simulator:ml:protocol/python:telemetry:commissioning python tools/generate_ml_release.py --repository-commit <40-hex-commit>",
+    "split_policy": "scenario/time-aware",
+    "required_metrics": [
+      "normal warning incidence",
+      "normal critical incidence",
+      "false terminal actions in normal scenario",
+      "fault scenario detection outcome",
+      "inference latency on target hardware",
+      "peak memory on target hardware"
+    ]
+  },
+  "selection": {
+    "compact_neural_baseline": "not_promoted",
+    "rationale": "Synthetic-only data do not justify a more complex model. A neural candidate must demonstrate a measured benefit on representative physical data under grouped/time-aware evaluation before promotion."
+  },
+  "deployment": {
+    "internet_required": false,
+    "hard_safety_authority": false,
+    "fpga_may_reject_stale_or_incompatible_observation": true,
+    "model_export_is_deterministic": true
+  },
+  "limitations": [
+    "Synthetic reference only; not production predictive-maintenance accuracy.",
+    "Physical false-alarm rate, missed-fault rate, lead time, latency, memory, and drift remain evidence tasks.",
+    "ML cannot relax deterministic FPGA hard-safety rules."
+  ]
+}

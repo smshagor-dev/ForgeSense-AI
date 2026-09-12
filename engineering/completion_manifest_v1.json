@@ -1,0 +1,42 @@
+{
+  "schema": "forgesense.repository_engineering_completion.v1",
+  "scope_id": "FORGESENSE-V1-REPOSITORY",
+  "definition": "Repository engineering implementation is complete when every declared source/code/RTL/tooling/test/documentation deliverable exists and is machine-checkable. Physical measurements, irreversible device provisioning, external EDA execution evidence, PCB fabrication, and certification are separate evidence gates and are never inferred from source completion.",
+  "repository_scope": [
+    {"id": "foundation", "status": "complete", "evidence": ["README.md", "LICENSE", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "SECURITY.md", "docs/README.md"]},
+    {"id": "system-contract", "status": "complete", "evidence": ["docs/SYSTEM_REQUIREMENTS.md", "docs/ARCHITECTURE.md", "docs/SAFETY_MODEL.md", "protocol/SPEC_V1.md", "hardware/profiles/sensor_contract_v1.json"]},
+    {"id": "digital-twin", "status": "complete", "evidence": ["simulator/forgesense_sim/plant.py", "simulator/forgesense_sim/scenarios.py", "simulator/forgesense_sim/validation.py", "simulator/forgesense_sim/qualification.py", "tests/test_sensor_impairments.py", "tests/test_software_qualification.py"]},
+    {"id": "fpga-safety-control", "status": "complete", "evidence": ["fpga/rtl/safety/hard_limit_monitor.vhd", "fpga/rtl/safety/safety_fsm.vhd", "fpga/rtl/safety/watchdog.vhd", "fpga/rtl/top/forgesense_tang_nano_9k_top.vhd", "fpga/constraints/tang_nano_9k.cst", "fpga/constraints/tang_nano_9k.sdc"]},
+    {"id": "selected-sensor-drivers", "status": "complete", "evidence": ["fpga/rtl/sensing/tmp117_controller.vhd", "fpga/rtl/sensing/adxl355_controller.vhd", "fpga/rtl/sensing/ads131m02_controller.vhd", "docs/SENSOR_DEVICE_DRIVERS.md", "docs/SENSOR_BEHAVIORAL_VERIFICATION.md"]},
+    {"id": "edge-firmware", "status": "complete", "evidence": ["firmware/esp32/main/app_main.cpp", "firmware/components/forgesense_protocol", "firmware/components/forgesense_inference", "firmware/components/forgesense_events", "firmware/components/forgesense_telemetry", "firmware/components/forgesense_sensing"]},
+    {"id": "telemetry-dashboard", "status": "complete", "evidence": ["telemetry", "dashboard", "docs/DEVICE_TELEMETRY.md", "docs/TELEMETRY_API.md"]},
+    {"id": "ml-release", "status": "complete", "evidence": ["ml/forgesense_ml/baseline.py", "ml/forgesense_ml/runtime.py", "ml/forgesense_ml/release.py", "ml/contracts/dataset_manifest_v1.json", "ml/reference_model_card_v1.json", "tools/generate_ml_release.py", "tests/test_ml_release.py"]},
+    {"id": "hardware-reference-design", "status": "complete", "evidence": ["hardware/profiles/hardware_baseline_v1.json", "hardware/profiles/power_entry_v1.json", "hardware/profiles/reference_circuit_v1.json", "hardware/kicad/schematic_contract_v1.json", "hardware/kicad/net_endpoints_v1.csv", "hardware/bom/preliminary_bom_v1.csv", "docs/HARDWARE_BASELINE_V1.md"]},
+    {"id": "commissioning-diagnostics", "status": "complete", "evidence": ["firmware/esp32_commissioning", "commissioning", "docs/COMMISSIONING_UTILITY.md", "docs/CALIBRATION_DIAGNOSTIC_STREAM.md"]},
+    {"id": "calibration-evidence-review", "status": "complete", "evidence": ["tools/assemble_calibration_capture.py", "tools/capture_calibration.py", "tools/review_calibration.py", "tools/run_calibration_campaign.py", "tools/verify_calibration_bundle.py", "docs/CALIBRATION_CAPTURE.md", "docs/CALIBRATION_REVIEW.md", "docs/CALIBRATION_CAMPAIGN.md"]},
+    {"id": "calibration-source-provisioning", "status": "complete", "evidence": ["tools/prepare_approved_calibration_source_change.py", "tools/verify_calibration_source_derivation.py", "tools/prepare_calibration_provisioning.py", "tools/verify_calibration_provisioning.py", "docs/CALIBRATION_SOURCE_CHANGE.md", "docs/CALIBRATION_PROVISIONING.md"]},
+    {"id": "maintenance-signed-write", "status": "complete", "evidence": ["firmware/esp32_calibration_maintenance", "commissioning/forgesense_commission/signed_provisioning.py", "tools/run_physical_calibration_provisioning.py", "docs/CALIBRATION_MAINTENANCE_PROVISIONING.md"]},
+    {"id": "recovery-audit-authority-transition", "status": "complete", "evidence": ["commissioning/forgesense_commission/recovery.py", "commissioning/forgesense_commission/audit_ledger.py", "commissioning/forgesense_commission/authority_transition.py", "docs/CALIBRATION_RECOVERY.md", "docs/CALIBRATION_AUDIT_LEDGER.md", "docs/MAINTENANCE_AUTHORITY_TRANSITION.md"]},
+    {"id": "release-security", "status": "complete", "evidence": ["firmware/security/esp32_s3_release_security_profile_v1.json", "tools/check_esp32_release_security.py", "tools/build_firmware_provenance.py", "tests/test_release_security.py", "docs/THREAT_MODEL.md", "docs/FIRMWARE_RELEASE_SECURITY.md"]},
+    {"id": "hazard-and-qualification", "status": "complete", "evidence": ["docs/HAZARD_ANALYSIS.md", "docs/SOFTWARE_QUALIFICATION.md", "simulator/forgesense_sim/qualification.py"]},
+    {"id": "verification-integration", "status": "complete", "evidence": ["Makefile", ".github/workflows/implementation.yml", ".github/workflows/commissioning.yml", ".github/workflows/engineering-completion.yml", "docs/VERIFICATION.md"]},
+    {"id": "engineering-status", "status": "complete", "evidence": ["ROADMAP.md", "docs/IMPLEMENTATION_STATUS.md", "docs/ENGINEERING_COMPLETION.md", "engineering/completion_manifest_v1.json", "tools/check_engineering_completion.py"]}
+  ],
+  "external_evidence_gates": [
+    {"id": "gowin-synthesis-place-route-timing", "external_evidence_required": true},
+    {"id": "retained-ghdl-run-on-supported-toolchain", "external_evidence_required": true},
+    {"id": "esp-idf-target-build-and-device-latency-memory", "external_evidence_required": true},
+    {"id": "secure-boot-flash-encryption-efuse-readback", "external_evidence_required": true},
+    {"id": "verified-kicad-footprints-erc-drc-and-manufacturing-output", "external_evidence_required": true},
+    {"id": "physical-board-bringup-and-signal-integrity", "external_evidence_required": true},
+    {"id": "physical-calibration-campaign-and-instrument-uncertainty", "external_evidence_required": true},
+    {"id": "thermal-emc-surge-soak-brownout-and-power-cycle", "external_evidence_required": true},
+    {"id": "real-machine-fault-performance-and-false-alarm-rate", "external_evidence_required": true},
+    {"id": "certification-or-functional-safety-assessment", "external_evidence_required": true}
+  ],
+  "authority": {
+    "repository_completion_is_not_physical_validation": true,
+    "repository_completion_is_not_certification": true,
+    "may_relax_hard_safety_limits": false
+  }
+}
