@@ -7,7 +7,7 @@ TELEM_INC := -Ifirmware/components/forgesense_telemetry/include
 SENSING_INC := -Ifirmware/components/forgesense_sensing/include
 MAINT_INC := -Ifirmware/esp32_calibration_maintenance/main
 
-.PHONY: test demo closed-loop validate dashboard model model-export sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check calibration-diagnostic-check calibration-assembler-check calibration-campaign-check calibration-bundle-verification-check calibration-source-change-check calibration-provisioning-check maintenance-provisioning-check signed-maintenance-authorization-check calibration-recovery-check calibration-audit-ledger-check maintenance-authority-transition-check software-qualification-check ml-release-check release-security-check engineering-complete-check bench-record-validate gowin-build smoke-build calibration-build firmware-host
+.PHONY: test demo closed-loop validate dashboard model model-export ml-full-dataset ml-full-dataset-check sensor-contract phy-sim circuit-check hardware-check sensor-device-check sensor-behavior-check tang-pin-check bringup-check commissioning-check calibration-check calibration-diagnostic-check calibration-assembler-check calibration-campaign-check calibration-bundle-verification-check calibration-source-change-check calibration-provisioning-check maintenance-provisioning-check signed-maintenance-authorization-check calibration-recovery-check calibration-audit-ledger-check maintenance-authority-transition-check software-qualification-check ml-release-check release-security-check engineering-complete-check bench-record-validate gowin-build smoke-build calibration-build firmware-host
 
 test:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest
@@ -29,6 +29,12 @@ model:
 
 model-export:
 	PYTHONPATH=$(PYTHONPATH) python tools/export_reference_model.py --out firmware/components/forgesense_inference/include/forgesense_reference_model_generated.h
+
+ml-full-dataset:
+	PYTHONPATH=$(PYTHONPATH) python tools/generate_full_ml_dataset.py --out-dir build/ml-dataset-v2
+
+ml-full-dataset-check:
+	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_full_ml_dataset.py
 
 sensor-contract:
 	python tools/generate_sensor_contract.py hardware/profiles/sensor_contract_v1.json --cxx firmware/components/forgesense_protocol/include/forgesense_sensor_contract_generated.h --vhdl fpga/rtl/sensing/sensor_contract_pkg.vhd
@@ -125,7 +131,7 @@ release-security-check:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_release_security.py
 	PYTHONPATH=$(PYTHONPATH) python tools/check_esp32_release_security.py
 
-engineering-complete-check: test firmware-host hardware-check commissioning-check release-security-check
+engineering-complete-check: test firmware-host hardware-check commissioning-check release-security-check ml-full-dataset-check
 	PYTHONPATH=$(PYTHONPATH) python tools/check_engineering_completion.py
 
 bench-record-validate:
