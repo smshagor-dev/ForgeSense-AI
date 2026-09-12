@@ -19,6 +19,48 @@ class FaultProfile:
 
 
 @dataclass(frozen=True)
+class ChannelImpairment:
+    """Deterministic sensor impairment overlay used by the digital twin.
+
+    ``noise_sigma=None`` preserves the channel's historical default noise.  A
+    numeric value overrides it, which lets tests disable noise with ``0.0``.
+    Bias and drift are applied before optional saturation.  A stuck value wins
+    over the physical sample but is still bounded by saturation.  Dropout only
+    changes validity; the numeric value is retained for diagnostics.
+    """
+
+    noise_sigma: float | None = None
+    bias: float = 0.0
+    drift_per_s: float = 0.0
+    saturation_min: float | None = None
+    saturation_max: float | None = None
+    stuck_value: float | None = None
+    dropout: bool = False
+
+    def validate(self) -> None:
+        if self.noise_sigma is not None and self.noise_sigma < 0.0:
+            raise ValueError("noise_sigma must be non-negative")
+        if (
+            self.saturation_min is not None
+            and self.saturation_max is not None
+            and self.saturation_min > self.saturation_max
+        ):
+            raise ValueError("saturation_min may not exceed saturation_max")
+
+
+@dataclass(frozen=True)
+class SensorImpairmentProfile:
+    temperature: ChannelImpairment = ChannelImpairment()
+    vibration: ChannelImpairment = ChannelImpairment()
+    current: ChannelImpairment = ChannelImpairment()
+
+    def validate(self) -> None:
+        self.temperature.validate()
+        self.vibration.validate()
+        self.current.validate()
+
+
+@dataclass(frozen=True)
 class MachineSample:
     sample_index: int
     time_s: float
@@ -79,21 +121,79 @@ class MachinePlant:
         self.temperature_c += (target_temp - self.temperature_c) * min(dt_s / thermal_tau, 1.0)
         speed_target = 3200.0 * load * (1.0 - 0.22 * f.bearing)
         self.speed_rpm += (speed_target - self.speed_rpm) * min(dt_s / 0.30, 1.0)
-        sample = MachineSample(self._sample_index, self._time_s, load, self.temperature_c, self.vibration_rms_g, self.current_a, self.speed_rpm, f)
+        sample = MachineSample(
+            self._sample_index,
+            self._time_s,
+            load,
+            self.temperature_c,
+            self.vibration_rms_g,
+            self.current_a,
+            self.speed_rpm,
+            f,
+        )
         self._sample_index += 1
         self._time_s += dt_s
         return sample
 
-    def sense(self, sample: MachineSample, *, dropout_temperature: bool = False, dropout_vibration: bool = False, dropout_current: bool = False) -> SensorSnapshot:
-        def noisy(value: float, sigma: float) -> float:
-            return value + self._rng.gauss(0.0, sigma)
+    def _apply_impairment(
+        self,
+        value: float,
+        *,
+        time_s: float,
+        default_noise_sigma: float,
+        impairment: ChannelImpairment,
+        non_negative: bool,
+    ) -> float:
+        impairment.validate()
+        source = impairment.stuck_value if impairment.stuck_value is not None else value
+        sigma = default_noise_sigma if impairment.noise_sigma is None else impairment.noise_sigma
+        result = source + impairment.bias + impairment.drift_per_s * time_s
+        if sigma:
+            result += self._rng.gauss(0.0, sigma)
+        if impairment.saturation_min is not None:
+            result = max(result, impairment.saturation_min)
+        if impairment.saturation_max is not None:
+            result = min(result, impairment.saturation_max)
+        if non_negative:
+            result = max(0.0, result)
+        return result
+
+    def sense(
+        self,
+        sample: MachineSample,
+        *,
+        dropout_temperature: bool = False,
+        dropout_vibration: bool = False,
+        dropout_current: bool = False,
+        impairments: SensorImpairmentProfile | None = None,
+    ) -> SensorSnapshot:
+        profile = impairments or SensorImpairmentProfile()
+        profile.validate()
         return SensorSnapshot(
             sample_index=sample.sample_index,
             time_s=sample.time_s,
-            temperature_c=noisy(sample.temperature_c, 0.04),
-            vibration_rms_g=max(0.0, noisy(sample.vibration_rms_g, 0.004)),
-            current_a=max(0.0, noisy(sample.current_a, 0.008)),
-            valid_temperature=not dropout_temperature,
-            valid_vibration=not dropout_vibration,
-            valid_current=not dropout_current,
+            temperature_c=self._apply_impairment(
+                sample.temperature_c,
+                time_s=sample.time_s,
+                default_noise_sigma=0.04,
+                impairment=profile.temperature,
+                non_negative=False,
+            ),
+            vibration_rms_g=self._apply_impairment(
+                sample.vibration_rms_g,
+                time_s=sample.time_s,
+                default_noise_sigma=0.004,
+                impairment=profile.vibration,
+                non_negative=True,
+            ),
+            current_a=self._apply_impairment(
+                sample.current_a,
+                time_s=sample.time_s,
+                default_noise_sigma=0.008,
+                impairment=profile.current,
+                non_negative=True,
+            ),
+            valid_temperature=not (dropout_temperature or profile.temperature.dropout),
+            valid_vibration=not (dropout_vibration or profile.vibration.dropout),
+            valid_current=not (dropout_current or profile.current.dropout),
         )
