@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 
@@ -17,6 +18,18 @@ except ModuleNotFoundError:
         verify_transition_package,
     )
 
+DEFAULT_POLICY = Path("hardware/calibration/maintenance_authority_transition_policy_v1.json")
+
+
+def _active_policy_id(path: Path) -> str:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        raise MaintenanceAuthorityTransitionError(f"transition policy is unavailable or invalid: {path}") from exc
+    if not isinstance(value, dict) or value.get("schema") != "forgesense.maintenance_authority_transition_policy.v1":
+        raise MaintenanceAuthorityTransitionError("unsupported maintenance-authority transition policy schema")
+    return str(value.get("policy_id", ""))
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -27,6 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--new-signature", type=Path, required=True)
     parser.add_argument("--old-public-key", type=Path, required=True)
     parser.add_argument("--new-public-key", type=Path, required=True)
+    parser.add_argument("--transition-policy", type=Path, default=DEFAULT_POLICY)
     parser.add_argument("--out-dir", type=Path, required=True)
     return parser
 
@@ -34,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        expected_policy = _active_policy_id(args.transition_policy)
         package_transition(
             args.request_dir,
             old_signature_path=args.old_signature,
@@ -43,8 +58,10 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=args.out_dir,
         )
         verified = verify_transition_package(args.out_dir)
+        if verified.request.get("policy_id") != expected_policy:
+            raise MaintenanceAuthorityTransitionError("transition request policy_id differs from active transition policy")
         print(
-            f"transition package verified: old={verified.old_public_key_sha256} "
+            f"transition package verified: policy={expected_policy} old={verified.old_public_key_sha256} "
             f"new={verified.new_public_key_sha256} payload={verified.payload_sha256}"
         )
         return 0
