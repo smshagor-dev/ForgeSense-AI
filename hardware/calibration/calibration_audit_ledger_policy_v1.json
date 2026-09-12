@@ -28,6 +28,9 @@
     "write_commit": true,
     "recovery_commit": true,
     "reboot_verified": true,
+    "authority_transition": true,
+    "authority_transition_requires_dual_signature_evidence": true,
+    "authority_transition_calibration_state_change_permitted": false,
     "automatic_event_insertion": false,
     "sequence_decrement_permitted": false,
     "recovery_increment_exactly_one": true
