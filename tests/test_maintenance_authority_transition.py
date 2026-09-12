@@ -242,6 +242,18 @@ def test_tampered_new_signature_is_rejected(tmp_path: Path) -> None:
         transition.verify_transition_package(package_dir)
 
 
+def test_policy_id_is_cryptographically_bound(tmp_path: Path) -> None:
+    fixture = make_fixture(tmp_path)
+    request_dir = build_request(tmp_path, fixture)
+    package_dir = package_request(tmp_path, fixture, request_dir)
+    request_path = package_dir / "transition-request.json"
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["policy_id"] = "CAL-AUTH-TRANSITION-STALE"
+    write_json(request_path, request)
+    with pytest.raises(transition.MaintenanceAuthorityTransitionError, match="payload"):
+        transition.verify_transition_package(package_dir)
+
+
 def test_post_install_calibration_state_change_is_rejected(tmp_path: Path) -> None:
     fixture = make_fixture(tmp_path)
     request_dir = build_request(tmp_path, fixture)
