@@ -4,7 +4,7 @@ ForgeSense keeps machine-learning data generation, model evaluation, and embedde
 
 ## Full synthetic training dataset v2
 
-The repository now contains a reproducible full synthetic dataset generator:
+The repository contains a reproducible full synthetic dataset generator:
 
 ```text
 ml/forgesense_ml/full_dataset.py
@@ -25,11 +25,11 @@ PYTHONPATH=simulator:ml python tools/generate_full_ml_dataset.py \
   --out-dir build/ml-dataset-v2
 ```
 
-The default package uses 23 scenario types and 15 independent deterministic runs per scenario. The split is performed by `run_id`, not by randomly shuffling adjacent samples, so a physical/digital-twin run can never leak between train, validation, and test.
+The default package uses **26 scenario types** and **15 independent deterministic runs per scenario**. The split is performed by `run_id`, not by randomly shuffling adjacent samples, so a physical/digital-twin run can never leak between train, validation, and test.
 
 ### Scenario coverage
 
-The full package covers normal operation; bearing degradation; overcurrent; cooling loss; combined bearing/overcurrent and cooling/overcurrent faults; temperature, vibration, and current bias; temperature, vibration, and current drift; stuck sensor values; sensor saturation; per-channel dropouts; multi-sensor dropout; and combined bearing degradation with vibration-sensor drift.
+The full package covers normal operation; bearing degradation; overcurrent; cooling loss; combined bearing/overcurrent and cooling/overcurrent faults; temperature, vibration, and current bias; temperature, vibration, and current drift; high-noise temperature, vibration, and current sensors; stuck sensor values; observable sensor saturation/clipping; per-channel dropouts; multi-sensor dropout; and combined bearing degradation with vibration-sensor drift.
 
 ### Dataset outputs
 
@@ -70,6 +70,16 @@ For the current reference anomaly model, train only from `baseline-normal-train.
 For supervised tree/neural models, train on `windows-train.csv`, tune only with `windows-validation.csv`, and report final performance once on `windows-test.csv`.
 
 For sequence models using raw samples, group every operation by `run_id`. Never split adjacent samples from one run across partitions.
+
+### Dataset regression gate
+
+Run:
+
+```bash
+make ml-full-dataset-check
+```
+
+The check verifies deterministic output, split isolation, expected ground-truth/measured columns, engineered-window fields, provenance hashes, and the explicit synthetic-data authority boundary.
 
 ## Reference baseline
 
