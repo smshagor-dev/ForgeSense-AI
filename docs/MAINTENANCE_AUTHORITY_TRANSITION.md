@@ -23,15 +23,7 @@ hardware/calibration/maintenance_authority_transition_policy_v1.json
 hardware/calibration/calibration_audit_ledger_policy_v1.json
 ```
 
-The transition tool has evidence-only authority:
-
-- no actuator control;
-- no FPGA command authority;
-- no hard-safety threshold authority;
-- no automatic key rotation;
-- no firmware-write authority;
-- no private-key access;
-- no calibration record or sequence mutation.
+The transition tool has evidence-only authority: no actuator control, FPGA command authority, hard-safety threshold authority, automatic key rotation, firmware-write authority, private-key access, or calibration record/sequence mutation.
 
 ## Preconditions
 
@@ -43,7 +35,9 @@ Before preparing a transition request:
 4. the new P-256 public key must be different;
 5. the reviewed target `sdkconfig` must pin the exact DER SubjectPublicKeyInfo bytes of the new public key;
 6. a rebuilt maintenance-image binary must exist so its SHA-256 can be bound into the transition;
-7. the source commit must be a full 40-hex Git commit.
+7. the source commit must be a full 40-hex Git commit;
+8. `repo_root` must currently have that exact commit checked out at `HEAD`;
+9. every maintenance-image source path in the transition manifest must be tracked and clean relative to that commit.
 
 A transition cannot silently adopt a device that already presents an unexpected key fingerprint.
 
@@ -65,7 +59,9 @@ firmware/esp32_calibration_maintenance/main/maintenance_protocol.cpp
 firmware/esp32_calibration_maintenance/main/maintenance_protocol.hpp
 ```
 
-Each file is SHA-256 hashed. A canonical manifest root is then bound into the signed transition payload. This is a source-integrity binding; it is not a reproducible-build claim.
+Before hashing, the tool requires `git rev-parse HEAD` to equal the reviewed source commit, requires every listed path to be tracked, and requires `git status --porcelain` for those paths to be clean. The manifest root canonically binds both the exact source commit and the per-file SHA-256 list.
+
+This is a source-checkout integrity binding. It is not a reproducible-build or installed-firmware attestation claim.
 
 ## Deterministic transition payload
 
@@ -95,7 +91,7 @@ The signature format is ECDSA P-256 over SHA-256 with ASN.1 DER signatures.
 
 ## Prepare the transition request
 
-Capture current read-only device state with the existing maintenance status command, then run:
+Capture current read-only device state with the existing maintenance status command, check out the exact reviewed commit with clean maintenance sources, then run:
 
 ```bash
 PYTHONPATH=simulator:ml:protocol/python:telemetry:commissioning \
@@ -119,7 +115,7 @@ transition-payload.bin
 source-manifest.json
 ```
 
-The request tool verifies the audit/device state, P-256 keys, exact sdkconfig public-key pin, source manifest, and image hash. It does not access a private key.
+The request tool verifies audit/device state, P-256 keys, exact sdkconfig public-key pin, clean Git source checkout, source manifest, and image hash. It does not access a private key.
 
 ## External dual signing
 
@@ -148,10 +144,11 @@ python tools/package_maintenance_authority_transition.py \
   --new-signature new-authority-signature.der \
   --old-public-key old-maintenance-authority-public.pem \
   --new-public-key new-maintenance-authority-public.pem \
+  --transition-policy hardware/calibration/maintenance_authority_transition_policy_v1.json \
   --out-dir build/maintenance-authority-transition
 ```
 
-The packager verifies both signatures against the same payload and stores only public keys plus detached signatures.
+The packager verifies both signatures against the same payload, requires the request policy ID to equal the active transition policy, and stores only public keys plus detached signatures.
 
 The package contains:
 
@@ -166,6 +163,17 @@ old-authority-public.pem
 new-authority-public.pem
 ```
 
+A packaged transition can be independently rechecked with:
+
+```bash
+PYTHONPATH=simulator:ml:protocol/python:telemetry:commissioning \
+python tools/verify_maintenance_authority_transition.py \
+  build/maintenance-authority-transition \
+  --transition-policy hardware/calibration/maintenance_authority_transition_policy_v1.json
+```
+
+The standalone verifier reconstructs the signed payload, checks the source-manifest commit/root, verifies both signatures, checks package hashes, and requires the active policy ID.
+
 ## Install the rebuilt maintenance image
 
 Firmware installation is deliberately outside this workflow. Use the separately controlled, reviewed firmware-update procedure to install the rebuilt maintenance image whose SHA-256 is bound in the transition request.
@@ -174,15 +182,11 @@ ForgeSense transition tooling does not invoke `esptool`, does not write flash, a
 
 After installation, use the maintenance read-only status path again and retain a new device-state file.
 
-The post-install state must show:
-
-- the same device ID;
-- exactly the same calibration sequence;
-- exactly the same active calibration-record SHA-256, including `null` when no active record exists;
-- maintenance authority ready;
-- the new authority public-key fingerprint.
+The post-install state must show the same device ID, exactly the same calibration sequence, exactly the same active calibration-record SHA-256 (including `null` when absent), maintenance authority ready, and the new authority public-key fingerprint.
 
 Any calibration-state change fails the transition.
+
+The read-only fingerprint observation confirms that the running maintenance image presents the expected new key. It does not cryptographically attest that the running firmware bytes equal the pre-install image SHA-256; secure-boot/firmware-attestation evidence would require a separate design.
 
 ## Append the authority transition to the audit ledger
 
@@ -193,10 +197,11 @@ PYTHONPATH=simulator:ml:protocol/python:telemetry:commissioning \
 python tools/manage_calibration_audit_ledger.py append-authority-transition \
   --ledger evidence/device-audit-ledger \
   --transition-package build/maintenance-authority-transition \
-  --post-device-state evidence/device-state-after-transition.json
+  --post-device-state evidence/device-state-after-transition.json \
+  --transition-policy hardware/calibration/maintenance_authority_transition_policy_v1.json
 ```
 
-The append operation re-verifies the complete ledger and transition package, then requires:
+The supported ledger command requires the transition request policy ID to equal the active transition policy and then re-verifies the complete ledger and transition package. It requires:
 
 - package device ID equals ledger device ID;
 - signed ledger head equals the current ledger head;
@@ -213,7 +218,7 @@ The resulting `authority_transition` audit entry changes only the authority fing
 
 After the transition entry is appended, normal signed maintenance preflight expects the new authority fingerprint. A calibration package signed by the old key is no longer accepted by host/device signer matching when the device image is pinned to the new key.
 
-The workflow does not claim hardware-backed revocation. Restoring an older complete firmware/flash snapshot can fall outside this host-side evidence model. Hardware-backed secure boot, flash encryption, anti-rollback eFuses, or hardware monotonic key epochs require their own design and validation.
+The workflow does not claim hardware-backed revocation. Restoring an older complete firmware/flash snapshot can fall outside this host-side evidence model. Hardware-backed secure boot, flash encryption, anti-rollback eFuses, hardware monotonic key epochs, or remote attestation require their own design and validation.
 
 ## Verification gate
 
@@ -224,19 +229,6 @@ make calibration-audit-ledger-check
 make maintenance-authority-transition-check
 ```
 
-The transition gate covers:
+The transition gate covers dual P-256 signature verification, same-payload old/new signing, new-key proof of possession, active-policy matching, exact sdkconfig key pin, reviewed Git HEAD/clean-source binding, source-manifest and maintenance-image hash binding, same-key rejection, signature tamper rejection, unchanged calibration state, post-install new-fingerprint matching, explicit ledger transition continuity, absence of runtime/remote/calibration-protocol key updates, and absence of firmware-writing/private-key authority in transition tools.
 
-- dual P-256 signature verification;
-- same-payload old/new signing;
-- new-key proof of possession;
-- exact sdkconfig key pin;
-- source-manifest and maintenance-image hash binding;
-- same-key transition rejection;
-- signature tamper rejection;
-- unchanged calibration state;
-- post-install new-fingerprint matching;
-- explicit ledger transition continuity;
-- absence of runtime/remote/calibration-protocol key updates;
-- absence of firmware-writing and private-key authority in transition tools.
-
-These are software verification artifacts only. A real rebuilt image, real firmware installation, real key custody procedure, and physical device transition require separately retained evidence.
+These are software verification artifacts only. A real rebuilt image, real firmware installation, real key custody procedure, real device transition, and any secure-boot or firmware-attestation claim require separately retained evidence.
