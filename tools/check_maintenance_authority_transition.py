@@ -33,6 +33,13 @@ def main() -> int:
         "package_transition",
         "verify_transition_package",
         "verify_signature_openssl",
+        "_verify_source_checkout",
+        '["rev-parse", "HEAD"]',
+        '"ls-files", "--error-unmatch"',
+        '"status", "--porcelain=v1"',
+        "maintenance source files are dirty relative to the reviewed source commit",
+        '"source_checkout_verified_clean": True',
+        "transition source-manifest commit differs from signed request",
         "sdkconfig maintenance authority pin does not equal the new public key",
         "new maintenance authority public key must differ from old key",
         '"private_key_accessed_by_tool": False',
@@ -61,10 +68,16 @@ def main() -> int:
         '"firmware_install_performed_by_transition_tool": False',
     ):
         assert token in ledger, token
-    assert '"append-authority-transition"' in manager
-    assert "append_authority_transition_evidence(" in manager
+    for token in (
+        '"append-authority-transition"',
+        "append_authority_transition_evidence(",
+        "DEFAULT_TRANSITION_POLICY",
+        "_require_active_transition_policy",
+        "transition request policy_id differs from active transition policy",
+    ):
+        assert token in manager, token
 
-    for text in (package, verifier):
+    for text in (package, verifier, manager):
         assert "transition request policy_id differs from active transition policy" in text
         assert "maintenance_authority_transition_policy_v1.json" in text
     assert '"forgesense.maintenance_authority_transition_verification.v1"' in verifier
@@ -118,6 +131,8 @@ def main() -> int:
     for token in (
         "test_dual_signed_transition_updates_only_authority_fingerprint",
         "test_sdkconfig_must_pin_exact_new_public_key",
+        "test_source_checkout_head_must_match_reviewed_commit",
+        "test_dirty_maintenance_source_is_rejected",
         "test_same_key_transition_is_rejected",
         "test_tampered_new_signature_is_rejected",
         "test_post_install_calibration_state_change_is_rejected",
@@ -127,8 +142,8 @@ def main() -> int:
 
     print(
         "maintenance_authority_transition_check PASS: dual old/new P-256 signatures, active-policy verification, "
-        "rebuilt-image/source/config binding, unchanged calibration state, explicit audit continuity, no private-key "
-        "access, no firmware-writing authority, and no runtime/remote key-update path are present"
+        "clean reviewed Git source binding, rebuilt-image/config binding, unchanged calibration state, explicit audit "
+        "continuity, no private-key access, no firmware-writing authority, and no runtime/remote key-update path are present"
     )
     return 0
 
