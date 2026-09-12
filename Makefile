@@ -125,7 +125,7 @@ release-security-check:
 	PYTHONPATH=$(PYTHONPATH) python -m pytest tests/test_release_security.py
 	PYTHONPATH=$(PYTHONPATH) python tools/check_esp32_release_security.py
 
-engineering-complete-check: software-qualification-check ml-release-check release-security-check
+engineering-complete-check: test firmware-host hardware-check commissioning-check release-security-check
 	PYTHONPATH=$(PYTHONPATH) python tools/check_engineering_completion.py
 
 bench-record-validate:
