@@ -15,6 +15,7 @@ try:
         preflight_live_state,
         verify_ledger,
     )
+    from commissioning.forgesense_commission.provisioning import MaintenanceProvisioningError
 except ModuleNotFoundError:
     from forgesense_commission.audit_ledger import (  # type: ignore
         CalibrationAuditLedgerError,
@@ -25,6 +26,7 @@ except ModuleNotFoundError:
         preflight_live_state,
         verify_ledger,
     )
+    from forgesense_commission.provisioning import MaintenanceProvisioningError  # type: ignore
 
 DEFAULT_POLICY = Path("hardware/calibration/calibration_audit_ledger_policy_v1.json")
 
