@@ -56,8 +56,8 @@ def main() -> int:
     ):
         assert target in makefile, f"missing Makefile completion target: {target}"
 
-    implementation_workflow = (root / ".github/workflows/implementation.yml").read_text(encoding="utf-8")
-    assert "make engineering-complete-check" in implementation_workflow
+    completion_workflow = (root / ".github/workflows/engineering-completion.yml").read_text(encoding="utf-8")
+    assert "make engineering-complete-check" in completion_workflow
 
     production_app = (root / "firmware/esp32/main/app_main.cpp").read_text(encoding="utf-8")
     transparent_bridge = (root / "firmware/esp32_commissioning/main/app_main.cpp").read_text(encoding="utf-8")
