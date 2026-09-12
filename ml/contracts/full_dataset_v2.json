@@ -1,0 +1,92 @@
+{
+  "schema": "forgesense.ml_full_dataset_contract.v2",
+  "dataset_id": "forgesense-full-synthetic-v2",
+  "synthetic": true,
+  "generator": "ml/forgesense_ml/full_dataset.py",
+  "generator_version": 2,
+  "default_runs_per_scenario": 15,
+  "window_size": 8,
+  "split_policy": {
+    "type": "run-grouped deterministic",
+    "train_fraction_target": 0.67,
+    "validation_fraction_target": 0.16,
+    "test_fraction_remainder": true,
+    "adjacent_sample_leakage_across_splits": false,
+    "run_id_unique_to_one_split": true
+  },
+  "outputs": [
+    "raw-train.csv",
+    "raw-validation.csv",
+    "raw-test.csv",
+    "windows-train.csv",
+    "windows-validation.csv",
+    "windows-test.csv",
+    "baseline-normal-train.csv",
+    "scenario-summary.csv",
+    "manifest.json",
+    "checksums.sha256",
+    "README.md"
+  ],
+  "health_labels": {
+    "0": "normal",
+    "1": "warning",
+    "2": "critical"
+  },
+  "scenario_families": [
+    "normal",
+    "mechanical",
+    "electrical",
+    "thermal",
+    "sensor_integrity",
+    "mixed"
+  ],
+  "scenario_coverage": [
+    "normal",
+    "bearing_degradation",
+    "overcurrent",
+    "cooling_loss",
+    "bearing_overcurrent",
+    "cooling_overcurrent",
+    "temperature_bias",
+    "vibration_bias",
+    "current_bias",
+    "temperature_drift",
+    "vibration_drift",
+    "current_drift",
+    "temperature_high_noise",
+    "vibration_high_noise",
+    "current_high_noise",
+    "temperature_stuck",
+    "vibration_stuck",
+    "current_stuck",
+    "temperature_saturation",
+    "vibration_saturation",
+    "current_saturation",
+    "temperature_dropout",
+    "vibration_dropout",
+    "current_dropout",
+    "multi_sensor_dropout",
+    "bearing_sensor_drift"
+  ],
+  "training_policy": {
+    "reference_diagonal_gaussian": "train only from baseline-normal-train.csv",
+    "supervised_models": "train on windows-train.csv, tune only on windows-validation.csv, evaluate once on windows-test.csv",
+    "sequence_models": "use raw split files and retain run_id grouping",
+    "physical_dataset_required_before_production": true
+  },
+  "provenance_required": [
+    "repository_commit",
+    "generator_version",
+    "run seeds",
+    "per-file SHA-256",
+    "row counts",
+    "scenario counts",
+    "split run counts"
+  ],
+  "authority": {
+    "physical_evidence": false,
+    "may_change_safety_limits": false,
+    "may_control_actuators": false,
+    "may_replace_physical_validation": false
+  }
+}
