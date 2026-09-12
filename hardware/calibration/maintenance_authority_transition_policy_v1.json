@@ -1,0 +1,47 @@
+{
+  "schema": "forgesense.maintenance_authority_transition_policy.v1",
+  "policy_id": "CAL-AUTH-TRANSITION-001",
+  "signatures": {
+    "algorithm": "ECDSA-P256-SHA256-DER",
+    "old_authority_signature_required": true,
+    "new_authority_proof_of_possession_required": true,
+    "same_payload_required": true,
+    "private_key_loaded_by_forgesense_tooling": false
+  },
+  "binding": {
+    "device_id_required": true,
+    "audit_ledger_head_required": true,
+    "calibration_sequence_unchanged_required": true,
+    "active_record_sha256_unchanged_required": true,
+    "old_public_key_fingerprint_required": true,
+    "new_public_key_fingerprint_required": true,
+    "source_commit_required": true,
+    "maintenance_source_manifest_root_required": true,
+    "sdkconfig_sha256_required": true,
+    "maintenance_image_sha256_required": true,
+    "sdkconfig_must_pin_new_public_key": true
+  },
+  "installation": {
+    "runtime_key_update_supported": false,
+    "remote_key_update_supported": false,
+    "calibration_protocol_key_update_supported": false,
+    "firmware_install_performed_by_forgesense_transition_tool": false,
+    "post_install_read_only_state_capture_required": true,
+    "post_install_new_fingerprint_match_required": true,
+    "post_install_calibration_state_must_be_unchanged": true
+  },
+  "audit": {
+    "authority_transition_event_required": true,
+    "sequence_change_permitted": false,
+    "record_change_permitted": false,
+    "silent_authority_adoption_permitted": false
+  },
+  "authority": {
+    "transition_evidence_only": true,
+    "automatic_key_rotation": false,
+    "may_write_firmware": false,
+    "may_control_actuators": false,
+    "may_relax_hard_safety_limits": false,
+    "hardware_backed_key_revocation_claimed": false
+  }
+}
